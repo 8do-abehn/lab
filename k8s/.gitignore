@@ -1,0 +1,32 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+*.tfplan
+*.tfplan.*
+backend.hcl
+
+# Packer
+packer_cache/
+*.box
+
+# Ansible
+*.retry
+.vault_pass
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
