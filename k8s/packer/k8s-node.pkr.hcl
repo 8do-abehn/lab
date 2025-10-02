@@ -23,6 +23,12 @@ variable "proxmox_api_token_secret" {
   # Set via environment variable: export PKR_VAR_proxmox_api_token_secret="your-secret-here"
 }
 
+variable "ssh_public_key" {
+  type        = string
+  description = "SSH public key for authentication"
+  # Set via environment variable: export PKR_VAR_ssh_public_key="$(cat ~/.ssh/id_rsa.pub)"
+}
+
 source "proxmox-clone" "ubuntu-k8s" {
   # Proxmox Connection Settings
   proxmox_url               = var.proxmox_api_url
@@ -67,6 +73,7 @@ source "proxmox-clone" "ubuntu-k8s" {
   # VM Cloud-Init Settings
   cloud_init              = true
   cloud_init_storage_pool = "infra_storage"
+  ssh_keys                = [var.ssh_public_key]
 
   # Communicator Settings
   communicator = "ssh"
