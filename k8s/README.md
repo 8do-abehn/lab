@@ -23,6 +23,7 @@ export TF_VAR_proxmox_api_token_id='root@pam!your-token'
 export TF_VAR_proxmox_api_token_secret='your-secret'
 export PKR_VAR_proxmox_api_token_id='root@pam!your-token'
 export PKR_VAR_proxmox_api_token_secret='your-secret'
+export PKR_VAR_ssh_public_key="$(cat ~/.ssh/id_rsa.pub)"
 ```
 
 ### 4. Test API Connection (Optional)
