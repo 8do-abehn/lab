@@ -23,11 +23,6 @@ variable "proxmox_api_token_secret" {
   # Set via environment variable: export PKR_VAR_proxmox_api_token_secret="your-secret-here"
 }
 
-variable "ssh_public_key" {
-  type        = string
-  description = "SSH public key for authentication"
-  # Set via environment variable: export PKR_VAR_ssh_public_key="$(cat ~/.ssh/id_rsa.pub)"
-}
 
 source "proxmox-clone" "ubuntu-k8s" {
   # Proxmox Connection Settings
@@ -70,10 +65,13 @@ source "proxmox-clone" "ubuntu-k8s" {
     firewall = "false"
   }
 
+  ipconfig {
+    ip = "dhcp"
+  }
+
   # VM Cloud-Init Settings
   cloud_init              = true
   cloud_init_storage_pool = "infra_storage"
-  ssh_keys                = [var.ssh_public_key]
 
   # Communicator Settings
   communicator = "ssh"
@@ -83,7 +81,6 @@ source "proxmox-clone" "ubuntu-k8s" {
 
   # Template Conversion Settings
   template_name        = "k8s-ubuntu-template"
-  template_description = "Ubuntu 22.04 template for Kubernetes nodes - Built with Packer"
 }
 
 build {

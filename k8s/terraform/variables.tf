@@ -16,3 +16,15 @@ variable "s3_bucket_name" {
   type        = string
   default     = "terraform-state-homelab-k8s"
 }
+
+variable "dev_username" {
+  description = "Username for dev server"
+  type        = string
+  default     = "dev.user"
+}
+
+variable "ssh_public_key_path" {
+  description = "Path to SSH public key for dev server access"
+  type        = string
+  default     = "~/.ssh/id_rsa.pub"
+}
