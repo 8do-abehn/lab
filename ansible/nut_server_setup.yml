@@ -31,6 +31,7 @@
             driver = apcsmart
             port = {{ ups_port }}
             desc = "{{ ups_desc }}"
+      notify: Restart NUT services
 
     - name: Configure upsd.users
       copy:
@@ -44,17 +45,20 @@
           [{{ ups_monitor_user }}]
             password = {{ ups_monitor_pass }}
             upsmon slave
+      notify: Restart NUT services
 
     - name: Configure upsd.conf to listen on all interfaces
       copy:
         dest: /etc/nut/upsd.conf
         content: |
           LISTEN 0.0.0.0
+      notify: Restart NUT services
 
     - name: Configure nut.conf to standalone
       copy:
         dest: /etc/nut/nut.conf
         content: "MODE=standalone\n"
+      notify: Restart NUT services
 
     - name: Configure upsmon.conf completely
       copy:
@@ -71,6 +75,7 @@
           RBWARNTIME 10
           NOCOMMWARNTIME 300
           FINALDELAY 5
+      notify: Restart NUT services
 
     - name: Add nut user to dialout group
       user:
@@ -78,7 +83,8 @@
         groups: dialout
         append: yes
 
-    - name: Ensure NUT services are restarted
+  handlers:
+    - name: Restart NUT services
       systemd:
         name: "{{ item }}"
         state: restarted
