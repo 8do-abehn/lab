@@ -1,0 +1,56 @@
+---
+- name: Configure NUT network clients to monitor pve004
+  hosts: nut_netclients
+  become: yes
+  vars_files:
+    - vault.yml
+  vars:
+    ups_name: myups
+    ups_server_ip: 10.150.10.44
+    ups_user: monuser
+    ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
+
+  tasks:
+
+    - name: Install NUT
+      apt:
+        name: nut
+        state: present
+        update_cache: yes
+
+    - name: Set NUT mode to netclient
+      lineinfile:
+        path: /etc/nut/nut.conf
+        regexp: '^MODE='
+        line: 'MODE=netclient'
+        create: yes
+
+    - name: Configure upsmon.conf for full network monitoring
+      blockinfile:
+        path: /etc/nut/upsmon.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+        block: |
+          MONITOR {{ ups_name }}@{{ ups_server_ip }} 1 {{ ups_user }} {{ ups_password }} slave
+          MINSUPPLIES 1
+          SHUTDOWNCMD "/sbin/shutdown -h +0"
+          POLLFREQ 5
+          POLLFREQALERT 5
+          HOSTSYNC 15
+          DEADTIME 30
+          POWERDOWNFLAG /etc/killpower
+          RBWARNTIME 10
+          NOCOMMWARNTIME 300
+          FINALDELAY 5
+
+    - name: Disable nut-server on clients
+      systemd:
+        name: nut-server
+        state: stopped
+        enabled: false
+
+    - name: Restart nut-monitor to apply config
+      systemd:
+        name: nut-monitor
+        state: restarted
+        enabled: yes
+

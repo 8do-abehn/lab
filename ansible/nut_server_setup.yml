@@ -1,0 +1,89 @@
+---
+- name: Configure NUT UPS server (pve004)
+  hosts: nut_server
+  become: yes
+
+  vars_files:
+    - vault.yml
+
+  vars:
+    ups_name: myups
+    ups_port: /dev/ttyS0
+    ups_desc: "APC SMART-UPS 2200"
+    ups_admin_user: admin
+    ups_monitor_user: monuser
+    ups_admin_pass: "{{ vault_ups_admin_pass }}"
+    ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
+
+  tasks:
+
+    - name: Install NUT
+      apt:
+        name: nut
+        state: present
+        update_cache: yes
+
+    - name: Configure ups.conf
+      copy:
+        dest: /etc/nut/ups.conf
+        content: |
+          [{{ ups_name }}]
+            driver = apcsmart
+            port = {{ ups_port }}
+            desc = "{{ ups_desc }}"
+
+    - name: Configure upsd.users
+      copy:
+        dest: /etc/nut/upsd.users
+        content: |
+          [{{ ups_admin_user }}]
+            password = {{ ups_admin_pass }}
+            actions = SET
+            instcmds = ALL
+
+          [{{ ups_monitor_user }}]
+            password = {{ ups_monitor_pass }}
+            upsmon slave
+
+    - name: Configure upsd.conf to listen on all interfaces
+      copy:
+        dest: /etc/nut/upsd.conf
+        content: |
+          LISTEN 0.0.0.0
+
+    - name: Configure nut.conf to standalone
+      copy:
+        dest: /etc/nut/nut.conf
+        content: "MODE=standalone\n"
+
+    - name: Configure upsmon.conf completely
+      copy:
+        dest: /etc/nut/upsmon.conf
+        content: |
+          MONITOR {{ ups_name }}@localhost 1 {{ ups_admin_user }} {{ ups_admin_pass }} master
+          MINSUPPLIES 1
+          SHUTDOWNCMD "/sbin/shutdown -h +0"
+          POLLFREQ 5
+          POLLFREQALERT 5
+          HOSTSYNC 15
+          DEADTIME 30
+          POWERDOWNFLAG /etc/killpower
+          RBWARNTIME 10
+          NOCOMMWARNTIME 300
+          FINALDELAY 5
+
+    - name: Add nut user to dialout group
+      user:
+        name: nut
+        groups: dialout
+        append: yes
+
+    - name: Ensure NUT services are restarted
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      loop:
+        - nut-server
+        - nut-monitor
+
