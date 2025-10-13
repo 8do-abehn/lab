@@ -9,7 +9,6 @@
     ups_name: myups
     ups_server_ip: 10.150.10.44
     ups_user: monuser
-    ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
 
   tasks:
 
@@ -29,9 +28,11 @@
     - name: Configure upsmon.conf for full network monitoring
       blockinfile:
         path: /etc/nut/upsmon.conf
+        mode: '0600'
+        create: yes
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
         block: |
-          MONITOR {{ ups_name }}@{{ ups_server_ip }} 1 {{ ups_user }} {{ ups_monitor_pass }} slave
+          MONITOR {{ ups_name }}@{{ ups_server_ip }} 1 {{ ups_user }} {{ vault_ups_monitor_pass }} slave
           MINSUPPLIES 1
           SHUTDOWNCMD "/sbin/shutdown -h +0"
           POLLFREQ 5
@@ -43,6 +44,7 @@
           NOCOMMWARNTIME 300
           FINALDELAY 5
       notify: Restart nut-monitor
+      no_log: true
 
     - name: Disable nut-server on clients
       systemd:

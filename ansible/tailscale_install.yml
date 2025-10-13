@@ -1,0 +1,36 @@
+---
+- name: Setup Tailscale
+  hosts: pve*
+
+  vars_files:
+    - vault.yml
+
+  tasks:
+    - name: Add Tailscale GPG key
+      apt_key:
+        url: https://pkgs.tailscale.com/stable/debian/bookworm.gpg
+        state: present
+
+    - name: Add Tailscale repository
+      apt_repository:
+        repo: "deb https://pkgs.tailscale.com/stable/debian bookworm main"
+        state: present
+
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - tailscale
+        state: present
+        update_cache: yes
+
+    - name: Check if Tailscale is authenticated
+      command: tailscale status
+      register: tailscale_status
+      failed_when: false
+      changed_when: false
+
+    - name: Authenticate Tailscale
+      command: tailscale up --authkey={{ vault_tailscale_auth_key }}
+      when: tailscale_status.rc != 0
+      register: auth_status
+      no_log: true

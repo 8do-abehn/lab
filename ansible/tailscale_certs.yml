@@ -1,0 +1,88 @@
+---
+- name: Setup Tailscale TLS certificates for Proxmox Web UI
+  hosts: pve*
+  become: yes
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - tailscale
+          - jq
+          - openssl
+        state: present
+        update_cache: yes
+
+    - name: Check if Tailscale is authenticated
+      command: tailscale status
+      register: tailscale_status
+      failed_when: false
+      changed_when: false
+
+    - name: Fail if Tailscale is not authenticated
+      fail:
+        msg: "Tailscale is not authenticated on {{ inventory_hostname }}. Run 'tailscale up' first."
+      when: tailscale_status.rc != 0
+
+    - name: Get Tailscale hostname
+      shell: tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'
+      register: tailscale_hostname
+      changed_when: false
+
+    - name: Check if certificate exists
+      stat:
+        path: /etc/pve/local/pveproxy-ssl.pem
+      register: cert_file
+
+    - name: Check certificate expiration
+      shell: |
+        expiry=$(openssl x509 -enddate -noout -in /etc/pve/local/pveproxy-ssl.pem | cut -d= -f2)
+        expiry_epoch=$(date -d "$expiry" +%s)
+        now_epoch=$(date +%s)
+        days_left=$(( ($expiry_epoch - $now_epoch) / 86400 ))
+        echo $days_left
+      register: cert_days_left
+      changed_when: false
+      when: cert_file.stat.exists
+
+    - name: Determine if certificate renewal needed
+      set_fact:
+        needs_renewal: "{{ not cert_file.stat.exists or (cert_days_left.stdout | default('0') | int < 30) }}"
+
+    - name: Request Tailscale TLS certificate to temp location
+      command: tailscale cert --cert-file /tmp/pveproxy-ssl.pem --key-file /tmp/pveproxy-ssl.key {{ tailscale_hostname.stdout }}
+      when: needs_renewal
+      register: cert_result
+
+    - name: Copy certificate to Proxmox location
+      shell: |
+        cat /tmp/pveproxy-ssl.pem > /etc/pve/local/pveproxy-ssl.pem
+        chown root:www-data /etc/pve/local/pveproxy-ssl.pem
+        chmod 0640 /etc/pve/local/pveproxy-ssl.pem
+      when: needs_renewal
+
+    - name: Copy key to Proxmox location
+      shell: |
+        cat /tmp/pveproxy-ssl.key > /etc/pve/local/pveproxy-ssl.key
+        chown root:www-data /etc/pve/local/pveproxy-ssl.key
+        chmod 0640 /etc/pve/local/pveproxy-ssl.key
+      when: needs_renewal
+
+    - name: Clean up temp certificate files
+      file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - pveproxy-ssl.pem
+        - pveproxy-ssl.key
+      when: needs_renewal
+
+    - name: Restart pveproxy service
+      systemd:
+        name: pveproxy
+        state: restarted
+      when: needs_renewal
+
+    - name: Display success message
+      debug:
+        msg: "Proxmox Web UI now accessible via https://{{ tailscale_hostname.stdout }}:8006"
