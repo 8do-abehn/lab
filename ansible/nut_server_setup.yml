@@ -36,6 +36,7 @@
     - name: Configure upsd.users
       copy:
         dest: /etc/nut/upsd.users
+        mode: '0600'
         content: |
           [{{ ups_admin_user }}]
             password = {{ ups_admin_pass }}
@@ -46,6 +47,7 @@
             password = {{ ups_monitor_pass }}
             upsmon slave
       notify: Restart NUT services
+      no_log: true
 
     - name: Configure upsd.conf to listen on all interfaces
       copy:
@@ -63,6 +65,7 @@
     - name: Configure upsmon.conf completely
       copy:
         dest: /etc/nut/upsmon.conf
+        mode: '0600'
         content: |
           MONITOR {{ ups_name }}@localhost 1 {{ ups_admin_user }} {{ ups_admin_pass }} master
           MINSUPPLIES 1
@@ -76,6 +79,7 @@
           NOCOMMWARNTIME 300
           FINALDELAY 5
       notify: Restart NUT services
+      no_log: true
 
     - name: Add nut user to dialout group
       user:
