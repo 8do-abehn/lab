@@ -15,7 +15,7 @@ netstat -tulnp              # all listening ports and pid
 lsof -i -P -n               # all listeing ports and pid
 which {{command}}           # what is the path to the command
 locate                      # why bother with find
-grep                        # search in files
+grep -r "text" /path/       # search in files
 scp                         # secure copy
 ssh                         # secure shell, tunnel, proxy
 diff -y                     # side by side
@@ -23,6 +23,18 @@ rpm -aq                     # show me all the packages
 dpkg --list                 # show me all the packages
 ip addr                     # show me the IP
 whereis                     # fuzzy search for stuff on system, directories for apps and binaries
+tail -f /var/log/file       # stream a log file
+service {{name}} status     # I'm old, I will use it until systemctl wins
+du -sh /* | sort -h         # where is that big file?
+
+
+## Maybe I'll use these more someday
+
+find / -name "filename" 2>/dev/null  # Find files
+ripgrep
+iostat -x 1
+
+journalctl -u [service]
 
 ## GIT stuff
 
