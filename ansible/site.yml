@@ -1,0 +1,23 @@
+---
+# Main site playbook - applies roles to all infrastructure
+- name: Configure base Proxmox settings
+  hosts: proxmox
+  become: yes
+  roles:
+    - proxmox
+
+- name: Setup Tailscale on all Proxmox hosts
+  hosts: proxmox
+  become: yes
+  vars_files:
+    - vault.yml
+  roles:
+    - tailscale
+
+- name: Configure NUT UPS (auto-detect server/client)
+  hosts: proxmox
+  become: yes
+  vars_files:
+    - vault.yml
+  roles:
+    - nut

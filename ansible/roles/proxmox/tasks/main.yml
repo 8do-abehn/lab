@@ -1,0 +1,6 @@
+---
+- name: Configure repositories
+  include_tasks: repositories.yml
+
+- name: Install default packages
+  include_tasks: packages.yml

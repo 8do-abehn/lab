@@ -1,0 +1,18 @@
+---
+# Tailscale configuration for all Proxmox hosts
+tailscale_setup_proxmox_certs: true
+
+# NUT configuration (auto-detects server vs client)
+nut_mode: auto
+
+# UPS device configuration (for server)
+ups_name: myups
+ups_driver: apcsmart
+ups_port: /dev/ttyS0
+ups_desc: "APC SMART-UPS 2200"
+ups_admin_user: admin
+ups_monitor_user: monuser
+
+# Client configuration (server IP is auto-detected, this is fallback)
+ups_server_ip: 10.150.10.44  # Fallback if auto-detection fails
+ups_user: monuser

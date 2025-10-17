@@ -1,0 +1,33 @@
+---
+- name: Check if configured UPS port exists
+  stat:
+    path: "{{ ups_port }}"
+  register: ups_port_check
+
+- name: Test UPS communication if port exists
+  shell: |
+    timeout 3 bash -c 'stty -F {{ ups_port }} 2400 raw -echo 2>/dev/null && echo "Y" > {{ ups_port }} && head -c 50 {{ ups_port }} 2>/dev/null'
+  register: ups_test
+  failed_when: false
+  changed_when: false
+  when: ups_port_check.stat.exists
+
+- name: Set fact if UPS is detected
+  set_fact:
+    has_ups: true
+    detected_nut_mode: server
+  when:
+    - ups_port_check.stat.exists
+    - ups_test is not skipped
+    - ups_test.stdout is defined
+    - ups_test.stdout | length > 0
+
+- name: Set fact if no UPS detected
+  set_fact:
+    has_ups: false
+    detected_nut_mode: client
+  when: not (ups_port_check.stat.exists and ups_test is not skipped and ups_test.stdout is defined and ups_test.stdout | length > 0)
+
+- name: Display detection result
+  debug:
+    msg: "{{ inventory_hostname }}: UPS {{ 'FOUND - configuring as SERVER' if has_ups else 'not found - configuring as CLIENT' }}"

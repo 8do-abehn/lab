@@ -1,0 +1,72 @@
+---
+- name: Configure ups.conf
+  copy:
+    dest: /etc/nut/ups.conf
+    content: |
+      [{{ ups_name }}]
+        driver = {{ ups_driver }}
+        port = {{ ups_port }}
+        desc = "{{ ups_desc }}"
+  notify: Restart NUT services
+
+- name: Configure upsd.users
+  copy:
+    dest: /etc/nut/upsd.users
+    mode: '0640'  # Must be group-readable so nut-server can read it (runs as 'nut' user)
+    owner: root
+    group: nut
+    content: |
+      [{{ ups_admin_user }}]
+        password = {{ ups_admin_pass }}
+        actions = SET
+        instcmds = ALL
+
+      [{{ ups_monitor_user }}]
+        password = {{ ups_monitor_pass }}
+        upsmon slave
+  notify: Restart NUT services
+  no_log: true
+
+- name: Configure upsd.conf to listen on all interfaces
+  copy:
+    dest: /etc/nut/upsd.conf
+    content: |
+      LISTEN 0.0.0.0
+  notify: Restart NUT services
+
+- name: Configure nut.conf to standalone
+  copy:
+    dest: /etc/nut/nut.conf
+    content: "MODE=standalone\n"
+  notify: Restart NUT services
+
+- name: Configure upsmon.conf completely
+  copy:
+    dest: /etc/nut/upsmon.conf
+    mode: '0600'
+    content: |
+      MONITOR {{ ups_name }}@localhost 1 {{ ups_admin_user }} {{ ups_admin_pass }} master
+      MINSUPPLIES 1
+      SHUTDOWNCMD "/sbin/shutdown -h +0"
+      POLLFREQ 5
+      POLLFREQALERT 5
+      HOSTSYNC 15
+      DEADTIME 30
+      POWERDOWNFLAG /etc/killpower
+      RBWARNTIME 10
+      NOCOMMWARNTIME 300
+      FINALDELAY 5
+  notify: Restart NUT services
+  no_log: true
+
+- name: Add nut user to dialout group
+  user:
+    name: nut
+    groups: dialout
+    append: yes
+
+- name: Start UPS driver
+  command: upsdrvctl start
+  register: driver_start
+  failed_when: false
+  changed_when: driver_start.rc == 0

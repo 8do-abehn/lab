@@ -1,0 +1,6 @@
+---
+- name: Install NUT
+  apt:
+    name: nut
+    state: present
+    update_cache: yes

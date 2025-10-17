@@ -1,0 +1,15 @@
+---
+- name: Restart NUT services
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  loop:
+    - nut-server
+    - nut-monitor
+
+- name: Restart nut-monitor
+  systemd:
+    name: nut-monitor
+    state: restarted
+    enabled: yes
