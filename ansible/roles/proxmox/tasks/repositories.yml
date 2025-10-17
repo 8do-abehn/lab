@@ -1,0 +1,30 @@
+---
+- name: Disable Proxmox Enterprise repository
+  apt_repository:
+    repo: "deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise"
+    state: absent
+    filename: pve-enterprise
+
+- name: Add Proxmox no-subscription repository
+  apt_repository:
+    repo: "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription"
+    state: present
+    filename: pve-install-repo
+
+- name: Disable Ceph Enterprise repository
+  apt_repository:
+    repo: "deb https://enterprise.proxmox.com/debian/ceph-quincy bookworm enterprise"
+    state: absent
+    filename: ceph
+
+- name: Add Ceph Quincy no-subscription repository
+  apt_repository:
+    repo: "deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription"
+    state: present
+    filename: ceph
+
+- name: Ensure pvetest repository is disabled
+  apt_repository:
+    repo: "deb http://download.proxmox.com/debian/pve bookworm pvetest"
+    state: absent
+    filename: pvetest-for-beta

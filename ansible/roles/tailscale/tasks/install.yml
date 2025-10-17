@@ -1,0 +1,28 @@
+---
+- name: Remove duplicate Tailscale repository files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/pkgs_tailscale_com_stable_debian.list
+    - /etc/apt/sources.list.d/tailscale.list
+
+- name: Add Tailscale GPG key
+  apt_key:
+    url: https://pkgs.tailscale.com/stable/debian/bookworm.gpg
+    state: present
+
+- name: Add Tailscale repository
+  apt_repository:
+    repo: "deb https://pkgs.tailscale.com/stable/debian bookworm main"
+    state: present
+    filename: tailscale
+
+- name: Ensure required packages are installed
+  apt:
+    name:
+      - tailscale
+      - jq
+      - openssl
+    state: present
+    update_cache: yes

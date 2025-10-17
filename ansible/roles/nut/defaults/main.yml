@@ -1,0 +1,19 @@
+---
+# NUT mode: 'auto' (detect), 'server', or 'client'
+nut_mode: auto
+
+# UPS device configuration (server mode)
+ups_name: myups
+ups_driver: apcsmart
+ups_port: /dev/ttyS0
+ups_desc: "APC SMART-UPS 2200"
+
+# User configuration
+ups_admin_user: admin
+ups_monitor_user: monuser
+ups_admin_pass: "{{ vault_ups_admin_pass }}"
+ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
+
+# Client configuration
+ups_server_ip: 10.150.10.44
+ups_user: monuser

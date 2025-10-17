@@ -1,0 +1,20 @@
+---
+# Default packages to install on all Proxmox hosts
+proxmox_default_packages:
+  - sudo
+  - vim
+  - htop
+  - curl
+  - wget
+  - git
+  - rsync
+  - net-tools
+  - dnsutils
+  - tcpdump
+  - screen
+  - tmux
+  - iotop
+  - iftop
+  - ncdu
+  - lsof
+  - strace

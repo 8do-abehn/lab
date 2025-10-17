@@ -1,0 +1,10 @@
+---
+- name: Include installation tasks
+  include_tasks: install.yml
+
+- name: Include authentication tasks
+  include_tasks: auth.yml
+
+- name: Include certificate tasks
+  include_tasks: certs.yml
+  when: tailscale_setup_proxmox_certs | default(false)

@@ -1,0 +1,20 @@
+---
+- name: Detect UPS presence
+  include_tasks: detect.yml
+  when: nut_mode == 'auto' or nut_mode is not defined
+
+- name: Set nut_mode from detection if auto
+  set_fact:
+    nut_mode: "{{ detected_nut_mode }}"
+  when: (nut_mode == 'auto' or nut_mode is not defined) and detected_nut_mode is defined
+
+- name: Include common installation tasks
+  include_tasks: install.yml
+
+- name: Include server configuration
+  include_tasks: server.yml
+  when: nut_mode == 'server'
+
+- name: Include client configuration
+  include_tasks: client.yml
+  when: nut_mode == 'client'
