@@ -1,4 +1,7 @@
 ---
+# Tailscale configuration for all K3s hosts
+tailscale_tags: "tag:k3s"
+
 # Netdata claiming
 netdata_claim_token: "{{ vault_netdata_claim_token }}"
 netdata_claim_rooms: "{{ vault_netdata_k3s_claim_rooms }}"

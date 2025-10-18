@@ -6,10 +6,22 @@
   changed_when: false
 
 - name: Authenticate Tailscale
-  command: tailscale up --authkey={{ tailscale_auth_key }}
+  command: >
+    tailscale up --authkey={{ tailscale_auth_key }}
+    {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
   when: tailscale_status.rc != 0
   register: auth_status
   no_log: true
+
+- name: Update Tailscale tags on already-authenticated devices
+  command: >
+    tailscale up
+    {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
+  when:
+    - tailscale_status.rc == 0
+    - tailscale_tags is defined
+  register: tags_update
+  changed_when: false
 
 - name: Check if Tailscale SSH is already enabled
   shell: tailscale status --json | jq -r '.Self.CapMap | has("https://tailscale.com/cap/ssh")'

@@ -4,6 +4,7 @@ ansible_user: root
 
 # Tailscale configuration for all Proxmox hosts
 tailscale_setup_proxmox_certs: true
+tailscale_tags: "tag:proxmox"
 
 # Netdata claiming
 netdata_claim_token: "{{ vault_netdata_claim_token }}"
