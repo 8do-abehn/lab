@@ -64,6 +64,8 @@ jobs:
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault_pass
 
       - name: Run Ansible playbook in check mode
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
           cd ansible
           ansible-playbook -i inventory.ini site.yml \

@@ -53,6 +53,8 @@ jobs:
           echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault_pass
 
       - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
           cd ansible
           LIMIT_FLAG=""
