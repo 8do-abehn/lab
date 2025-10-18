@@ -1,0 +1,75 @@
+---
+- name: Check if netdata-repo package is already installed
+  command: dpkg-query -W -f='${Status}' netdata-repo
+  register: netdata_repo_check
+  failed_when: false
+  changed_when: false
+
+- name: Set fact if netdata-repo is installed
+  set_fact:
+    netdata_repo_installed: "{{ 'install ok installed' in netdata_repo_check.stdout }}"
+
+- name: Download netdata-repo package
+  get_url:
+    url: https://repo.netdata.cloud/repos/repoconfig/ubuntu/jammy/netdata-repo_5-1+ubuntu22.04_all.deb
+    dest: /tmp/netdata-repo.deb
+    mode: '0644'
+  when: not netdata_repo_installed
+
+- name: Install netdata-repo package
+  apt:
+    deb: /tmp/netdata-repo.deb
+    state: present
+  when: not netdata_repo_installed
+
+- name: Clean up netdata-repo package
+  file:
+    path: /tmp/netdata-repo.deb
+    state: absent
+  when: not netdata_repo_installed
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install netdata
+  apt:
+    name: netdata
+    state: present
+
+- name: Check if already claimed
+  stat:
+    path: /etc/netdata/claim.conf
+  register: netdata_claim_file
+  when: netdata_claim_token | length > 0
+
+- name: Create claiming configuration
+  copy:
+    dest: /etc/netdata/claim.conf
+    mode: '0640'
+    owner: root
+    group: netdata
+    content: |
+      [global]
+          url = {{ netdata_claim_url }}
+          token = {{ netdata_claim_token }}
+          rooms = {{ netdata_claim_rooms }}
+  when:
+    - netdata_claim_token | length > 0
+    - netdata_claim_file is not skipped
+    - not netdata_claim_file.stat.exists
+  notify: Reload netdata claiming
+  no_log: true
+
+- name: Enable netdata auto-updates
+  command: /usr/libexec/netdata/netdata-updater.sh --enable-auto-updates
+  args:
+    creates: /etc/cron.daily/netdata-updater
+  when: netdata_enable_auto_updates
+
+- name: Ensure netdata service is started and enabled
+  systemd:
+    name: netdata
+    state: started
+    enabled: yes

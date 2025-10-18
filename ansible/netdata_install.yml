@@ -1,0 +1,8 @@
+---
+- name: Install Netdata monitoring on all hosts
+  hosts: all
+  become: yes
+  vars_files:
+    - vault.yml
+  roles:
+    - netdata
