@@ -1,6 +1,13 @@
 ---
+# Ansible connection settings
+ansible_user: root
+
 # Tailscale configuration for all Proxmox hosts
 tailscale_setup_proxmox_certs: true
+
+# Netdata claiming
+netdata_claim_token: "{{ vault_netdata_claim_token }}"
+netdata_claim_rooms: "{{ vault_netdata_proxmox_claim_rooms }}"
 
 # NUT configuration (auto-detects server vs client)
 nut_mode: auto

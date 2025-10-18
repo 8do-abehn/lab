@@ -1,0 +1,9 @@
+---
+# Default Ansible connection settings (overridden by group-specific settings)
+ansible_user: adambehn
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519_behner
+ansible_python_interpreter: /usr/bin/python3
+
+# Default Netdata claiming (for hosts not in proxmox or k3s_cluster)
+netdata_claim_token: "{{ vault_netdata_claim_token }}"
+netdata_claim_rooms: "{{ vault_netdata_default_claim_rooms }}"
