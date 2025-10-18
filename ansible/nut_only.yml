@@ -1,8 +1,0 @@
----
-- name: Configure NUT UPS (auto-detect server/client)
-  hosts: proxmox
-  become: yes
-  vars_files:
-    - vault.yml
-  roles:
-    - nut
