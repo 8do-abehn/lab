@@ -7,9 +7,11 @@
   loop:
     - nut-server
     - nut-monitor
+  when: nut_mode == 'server'
 
-- name: Restart nut-monitor
+- name: Restart NUT client services
   systemd:
     name: nut-monitor
     state: restarted
     enabled: yes
+  when: nut_mode == 'client'

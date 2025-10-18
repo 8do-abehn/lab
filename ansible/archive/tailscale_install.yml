@@ -1,6 +1,7 @@
 ---
 - name: Setup Tailscale
-  hosts: pve*
+  hosts: proxmox:k3s_cluster
+  become: yes
 
   vars_files:
     - vault.yml
@@ -34,3 +35,13 @@
       when: tailscale_status.rc != 0
       register: auth_status
       no_log: true
+
+    - name: Check if Tailscale SSH is enabled
+      shell: tailscale debug prefs | grep 'RunSSH.*true'
+      register: tailscale_ssh_status
+      failed_when: false
+      changed_when: false
+
+    - name: Enable Tailscale SSH
+      command: tailscale set --ssh
+      when: tailscale_ssh_status.rc != 0

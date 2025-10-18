@@ -1,5 +1,5 @@
 ---
-- name: Detect UPS presence
+- name: Detect UPS presence on this host
   include_tasks: detect.yml
   when: nut_mode == 'auto' or nut_mode is not defined
 
@@ -7,6 +7,10 @@
   set_fact:
     nut_mode: "{{ detected_nut_mode }}"
   when: (nut_mode == 'auto' or nut_mode is not defined) and detected_nut_mode is defined
+
+- name: Display NUT mode
+  debug:
+    msg: "{{ inventory_hostname }}: Configured as {{ nut_mode | upper }}"
 
 - name: Include common installation tasks
   include_tasks: install.yml
