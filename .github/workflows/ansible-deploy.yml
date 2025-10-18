@@ -1,0 +1,71 @@
+---
+name: Ansible Deploy (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      playbook:
+        description: 'Playbook to run'
+        required: true
+        default: 'site.yml'
+        type: choice
+        options:
+          - site.yml
+          - netdata_install.yml
+          - verify_nut.yml
+      limit:
+        description: 'Limit to specific hosts (optional)'
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: |
+          pip install ansible
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_behner
+          chmod 600 ~/.ssh/id_ed25519_behner
+
+      - name: Create vault password file
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault_pass
+
+      - name: Run Ansible playbook
+        run: |
+          cd ansible
+          LIMIT_FLAG=""
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
+          fi
+
+          ansible-playbook -i inventory.ini ${{ github.event.inputs.playbook }} \
+            --vault-password-file /tmp/vault_pass \
+            $LIMIT_FLAG \
+            -v
+
+      - name: Clean up vault password
+        if: always()
+        run: |
+          rm -f /tmp/vault_pass
