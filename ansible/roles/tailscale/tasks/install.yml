@@ -1,22 +1,25 @@
 ---
-- name: Remove duplicate Tailscale repository files
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /etc/apt/sources.list.d/pkgs_tailscale_com_stable_debian.list
-    - /etc/apt/sources.list.d/tailscale.list
-
-- name: Add Tailscale GPG key
-  apt_key:
-    url: https://pkgs.tailscale.com/stable/debian/bookworm.gpg
-    state: present
+- name: Ensure Tailscale GPG key is properly formatted
+  shell: |
+    curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.gpg | \
+    gpg --dearmor > /usr/share/keyrings/tailscale-archive-keyring.gpg.tmp && \
+    mv /usr/share/keyrings/tailscale-archive-keyring.gpg.tmp /usr/share/keyrings/tailscale-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/tailscale-archive-keyring.gpg
 
 - name: Add Tailscale repository
-  apt_repository:
-    repo: "deb https://pkgs.tailscale.com/stable/debian bookworm main"
-    state: present
-    filename: tailscale
+  copy:
+    content: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian bookworm main\n"
+    dest: /etc/apt/sources.list.d/tailscale.list
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  changed_when: false
 
 - name: Ensure required packages are installed
   apt:
@@ -25,4 +28,3 @@
       - jq
       - openssl
     state: present
-    update_cache: yes

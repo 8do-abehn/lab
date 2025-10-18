@@ -1,3 +1,23 @@
+# Ansible runtime files
 *.retry
 *.log
 
+# Backup files
+*.backup
+*.bak
+*.tmp
+*~
+
+# Editor files
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Ansible collections and roles downloaded from Galaxy
+collections/
+roles/downloaded/
+
+# OS files
+.DS_Store
+Thumbs.db

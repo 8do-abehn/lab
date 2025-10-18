@@ -9,10 +9,13 @@
 - name: Use dynamic or configured UPS server IP
   set_fact:
     ups_server_ip: "{{ dynamic_ups_server_ip | default(ups_server_ip) }}"
+    ups_server_source: "{{ 'dynamically detected' if dynamic_ups_server_ip is defined else 'fallback default' }}"
 
 - name: Display UPS server being used
   debug:
-    msg: "Configuring {{ inventory_hostname }} as NUT client, connecting to UPS server at {{ ups_server_ip }}"
+    msg:
+      - "Configuring {{ inventory_hostname }} as NUT client"
+      - "UPS server: {{ ups_server_ip }} ({{ ups_server_source }})"
 
 - name: Set NUT mode to netclient
   lineinfile:
@@ -39,7 +42,7 @@
       RBWARNTIME 10
       NOCOMMWARNTIME 300
       FINALDELAY 5
-  notify: Restart nut-monitor
+  notify: Restart NUT client services
   no_log: true
 
 - name: Disable nut-server on clients
@@ -47,3 +50,10 @@
     name: nut-server
     state: stopped
     enabled: false
+
+- name: Disable nut-driver on clients (in case node was previously a server)
+  systemd:
+    name: "nut-driver@{{ ups_name }}"
+    state: stopped
+    enabled: false
+  failed_when: false  # Don't fail if service doesn't exist

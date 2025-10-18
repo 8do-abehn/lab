@@ -6,8 +6,8 @@
   roles:
     - proxmox
 
-- name: Setup Tailscale on all Proxmox hosts
-  hosts: proxmox
+- name: Setup Tailscale on all hosts
+  hosts: proxmox:k3s_cluster
   become: yes
   vars_files:
     - vault.yml

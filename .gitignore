@@ -1,0 +1,59 @@
+# Secrets and credentials
+*.tfvars
+*.auto.tfvars
+backend.hcl
+.env
+.env.*
+*.pem
+*.key
+!*.pub
+*.crt
+secrets.yml
+credentials.json
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+*.tfplan
+*.tfplan.*
+
+# Ansible
+*.retry
+*.log
+.ansible/
+
+# SSH
+id_rsa
+id_ed25519
+known_hosts
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

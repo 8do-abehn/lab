@@ -4,9 +4,9 @@
     dest: /etc/nut/ups.conf
     content: |
       [{{ ups_name }}]
-        driver = {{ ups_driver }}
-        port = {{ ups_port }}
-        desc = "{{ ups_desc }}"
+      driver = {{ ups_driver }}
+      port = {{ ups_port }}
+      desc = "{{ ups_desc }}"
   notify: Restart NUT services
 
 - name: Configure upsd.users
@@ -65,8 +65,8 @@
     groups: dialout
     append: yes
 
-- name: Start UPS driver
-  command: upsdrvctl start
-  register: driver_start
-  failed_when: false
-  changed_when: driver_start.rc == 0
+- name: Ensure nut-server is started and enabled
+  systemd:
+    name: nut-server
+    state: started
+    enabled: yes
