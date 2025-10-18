@@ -107,3 +107,4 @@ Network UPS Tools configuration with:
 - Use `--limit` to test on a single host before running on all
 - Store vault password in a secure location (not in the repository)
 - Run `verify_nut.yml` after making UPS configuration changes
+# CI Test
