@@ -1,15 +1,15 @@
 ---
-- name: Find UPS server IP from detected hosts
+- name: Find UPS server hostname from detected hosts
   set_fact:
-    dynamic_ups_server_ip: "{{ hostvars[item].ansible_host }}"
+    dynamic_ups_server_hostname: "{{ item }}"
   when: hostvars[item].has_ups | default(false)
   loop: "{{ ansible_play_hosts }}"
   run_once: no
 
-- name: Use dynamic or configured UPS server IP
+- name: Use dynamic or configured UPS server hostname
   set_fact:
-    ups_server_ip: "{{ dynamic_ups_server_ip | default(ups_server_ip) }}"
-    ups_server_source: "{{ 'dynamically detected' if dynamic_ups_server_ip is defined else 'fallback default' }}"
+    ups_server_ip: "{{ dynamic_ups_server_hostname | default(ups_server_ip) }}"
+    ups_server_source: "{{ 'dynamically detected' if dynamic_ups_server_hostname is defined else 'fallback default' }}"
 
 - name: Display UPS server being used
   debug:
