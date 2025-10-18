@@ -4,6 +4,7 @@ ansible_user: root
 
 # Tailscale configuration for all Proxmox hosts
 tailscale_setup_proxmox_certs: true
+tailscale_tags: "tag:proxmox"
 
 # Netdata claiming
 netdata_claim_token: "{{ vault_netdata_claim_token }}"
@@ -20,6 +21,6 @@ ups_desc: "APC SMART-UPS 2200"
 ups_admin_user: admin
 ups_monitor_user: monuser
 
-# Client configuration (server IP is auto-detected, this is fallback)
-ups_server_ip: 10.150.10.44  # Fallback if auto-detection fails
+# Client configuration (server hostname is auto-detected, this is fallback)
+ups_server_ip: pve004  # Fallback if auto-detection fails (can be hostname or IP)
 ups_user: monuser
