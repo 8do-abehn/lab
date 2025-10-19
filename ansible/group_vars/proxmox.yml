@@ -21,6 +21,9 @@ ups_desc: "APC SMART-UPS 2200"
 ups_admin_user: admin
 ups_monitor_user: monuser
 
-# Client configuration (server hostname is auto-detected, this is fallback)
-ups_server_ip: pve004  # Fallback if auto-detection fails (can be hostname or IP)
+# Client configuration (server IP is auto-detected from 10.150.10.x range)
+ups_server_ip: 10.150.10.44  # Fallback only if auto-detection fails - consider using IP address
 ups_user: monuser
+
+# IMPORTANT: For maximum reliability during power outages, consider adding
+# an /etc/hosts entry mapping the UPS server IP to hostname on all clients
