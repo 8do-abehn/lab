@@ -62,7 +62,7 @@ jobs:
             LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
           fi
 
-          ansible-playbook -i inventory.ini ${{ github.event.inputs.playbook }} \
+          ansible-playbook -i inventory/homelab.yml ${{ github.event.inputs.playbook }} \
             --vault-password-file /tmp/vault_pass \
             $LIMIT_FLAG \
             -v
