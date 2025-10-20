@@ -23,12 +23,7 @@ spec:
         volumeMounts:
           - mountPath: /app/data
             name: mealie-data
-          - mountPath: /app/data2
-            name: test-cephfs-pvc
       volumes:
         - name: mealie-data
           persistentVolumeClaim:
             claimName: mealie-data
-        - name: test-cephfs-pvc
-          persistentVolumeClaim:
-            claimName: test-cephfs-pvc
