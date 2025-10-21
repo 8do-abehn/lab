@@ -30,3 +30,9 @@ all:
             k3s-worker-01:
             k3s-worker-02:
             k3s-worker-03:
+            k3s-worker-04:
+              ansible_host: 10.150.10.169
+            k3s-worker-05:
+              ansible_host: 10.150.10.170
+            k3s-worker-06:
+              ansible_host: 10.150.10.171
