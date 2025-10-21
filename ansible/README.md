@@ -6,7 +6,9 @@ Ansible automation for Proxmox homelab infrastructure management.
 
 ```
 ansible/
-├── inventory.ini          # Host inventory with groups
+├── inventory/
+│   ├── homelab.yml       # Homelab infrastructure inventory
+│   └── README.md         # Inventory documentation
 ├── site.yml              # Main playbook (runs all roles)
 ├── verify_nut.yml        # NUT UPS verification playbook
 ├── vault.yml             # Encrypted secrets (Tailscale keys, etc.)
@@ -34,43 +36,43 @@ ansible-vault edit vault.yml
 
 ### Run the main site playbook (all roles, all hosts)
 ```bash
-ansible-playbook -i inventory.ini --ask-vault-pass site.yml
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml
 ```
 Prompts for vault password and applies all roles to all hosts in inventory.
 
 ### Check mode (dry run)
 ```bash
-ansible-playbook -i inventory.ini --ask-vault-pass site.yml --check
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --check
 ```
 Shows what would change without making any actual changes.
 
 ### Check mode with diff output
 ```bash
-ansible-playbook -i inventory.ini --ask-vault-pass site.yml --check --diff
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --check --diff
 ```
 Shows what would change and displays file differences.
 
 ### Run on specific host only
 ```bash
-ansible-playbook -i inventory.ini --ask-vault-pass site.yml --limit pve004
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve004
 ```
 Applies playbook only to the specified host (pve004 in this example).
 
 ### Verbose output
 ```bash
-ansible-playbook -i inventory.ini --ask-vault-pass site.yml -v
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml -v
 ```
 Shows detailed execution output. Use `-vv` or `-vvv` for more verbosity.
 
 ### Combine options
 ```bash
-ansible-playbook -i inventory.ini --ask-vault-pass site.yml --limit pve004 --check --diff -v
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve004 --check --diff -v
 ```
 Runs check mode on a specific host with diff and verbose output.
 
 ### Verify NUT setup (no vault required)
 ```bash
-ansible-playbook -i inventory.ini verify_nut.yml
+ansible-playbook -i inventory/homelab.yml verify_nut.yml
 ```
 Tests NUT UPS monitoring configuration and connectivity.
 
