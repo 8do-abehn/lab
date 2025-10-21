@@ -49,7 +49,7 @@ The `homelab.yml` inventory includes:
 
 ### k3s Cluster
 - **k3s_master:** `k3s-master-01` - Control plane node
-- **k3s_workers:** `k3s-worker-01` through `k3s-worker-03` - Worker nodes
+- **k3s_workers:** `k3s-worker-01` through `k3s-worker-06` - Worker nodes
 - **k3s_cluster:** Parent group containing all k3s nodes
 
 ## Host Variables
@@ -59,6 +59,22 @@ Host-specific variables are loaded from:
 - `group_vars/k3s_cluster.yml` - All k3s hosts
 - `group_vars/all.yml` - All hosts
 - `host_vars/` - Individual host overrides
+
+## Ansible Connection Details
+
+Most hosts are accessed by hostname via Tailscale DNS. Some hosts have explicit `ansible_host` settings:
+
+- **k3s-worker-04/05/06:** Use direct IP addresses (10.150.10.169-171)
+  - These were added before Tailscale DNS was fully configured
+  - Can be simplified once hostnames resolve properly
+
+To override connection details for any host, add to the inventory:
+```yaml
+hostname:
+  ansible_host: 10.x.x.x
+  ansible_user: ubuntu
+  ansible_port: 22
+```
 
 ## Naming Convention
 

@@ -2,6 +2,28 @@
 
 Ansible automation for Proxmox homelab infrastructure management.
 
+## Quick Reference
+
+```bash
+# Apply all configuration to homelab
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml
+
+# Dry-run with preview
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --check --diff
+
+# Run on single host
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve001
+
+# Install Netdata monitoring
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass netdata_install.yml
+
+# Verify NUT UPS setup
+ansible-playbook -i inventory/homelab.yml verify_nut.yml
+
+# Install tools on k3s cluster
+ansible-playbook -i inventory/homelab.yml k3s_setup_tools.yml
+```
+
 ## Structure
 
 ```
@@ -76,6 +98,18 @@ ansible-playbook -i inventory/homelab.yml verify_nut.yml
 ```
 Tests NUT UPS monitoring configuration and connectivity.
 
+### Install Netdata monitoring
+```bash
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass netdata_install.yml
+```
+Installs Netdata monitoring on all hosts (Proxmox + k3s).
+
+### Install basic tools on k3s cluster
+```bash
+ansible-playbook -i inventory/homelab.yml k3s_setup_tools.yml
+```
+Installs vim and git on k3s nodes (no vault required).
+
 ## Roles
 
 ### proxmox
@@ -97,11 +131,25 @@ Network UPS Tools configuration with:
 - Server configuration (pve004)
 - Client configuration (all other hosts)
 
+### netdata
+Netdata monitoring setup including:
+- Installation and configuration
+- Claiming to Netdata Cloud with vault-stored tokens
+- Monitoring for both Proxmox and k3s infrastructure
+
+**Note:** Run via `netdata_install.yml` playbook, not included in `site.yml`
+
 ## Inventory Groups
 
+### Proxmox Groups
 - `nut_server`: Host with UPS directly connected (pve004)
-- `nut_netclients`: Hosts that monitor UPS over network
+- `nut_netclients`: Hosts that monitor UPS over network (pve001-003, pve005-007)
 - `proxmox`: Parent group containing all Proxmox hosts
+
+### k3s Groups
+- `k3s_master`: Control plane node (k3s-master-01)
+- `k3s_workers`: Worker nodes (k3s-worker-01 through k3s-worker-06)
+- `k3s_cluster`: Parent group containing all k3s nodes
 
 ## Tips
 
