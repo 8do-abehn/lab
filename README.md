@@ -19,7 +19,7 @@ This repository contains the complete infrastructure setup for a homelab environ
 - **Ansible**: Configuration management and automation
 - **Terraform**: Infrastructure provisioning
 - **Packer**: VM template building
-- **Tailscale**: VPN and secure access
+- **Tailscale**: VPN, secure access, and automatic certificate management
 - **Network UPS Tools (NUT)**: UPS monitoring and management
 
 ## Structure
@@ -52,7 +52,7 @@ lab/
 
 Ansible automation for managing Proxmox hosts, including:
 - Base system configuration
-- Tailscale VPN setup with Let's Encrypt certificates
+- Tailscale VPN setup with automatic Let's Encrypt certificate management for HTTPS
 - Network UPS Tools (NUT) for power management
 - Repository management and package installation
 
@@ -129,9 +129,28 @@ Documentation of the journey, challenges, and solutions discovered while buildin
 - **Automated Configuration**: Ansible playbooks for consistent host setup
 - **Templated Deployments**: Packer templates for rapid VM creation
 - **Distributed Storage**: Ceph for resilient, shared storage across cluster
-- **Secure Access**: Tailscale VPN with automatic certificate management
+- **Secure Access**: Tailscale VPN with automatic Let's Encrypt certificate management for HTTPS
+- **CI/CD Pipeline**: GitHub Actions connected to homelab via Tailscale for automated testing and deployment
 - **Power Management**: NUT integration for graceful shutdown during power events
 - **Self-documenting**: Journal entries track learnings and decision-making process
+
+## CI/CD Pipeline
+
+The repository includes a complete CI/CD pipeline using GitHub Actions with Tailscale integration:
+
+- **Automatic Testing**: Pull requests trigger Ansible lint checks and dry-run validation against real infrastructure
+- **Secure Access**: GitHub Actions runners connect to the homelab via Tailscale VPN using OAuth authentication
+- **Tag-based ACLs**: CI runners are restricted to infrastructure hosts only (not personal devices) using Tailscale tags
+- **Manual Deployment**: Production deployments run via workflow dispatch with playbook selection
+- **Ephemeral Runners**: GitHub runners are automatically cleaned up after each run
+
+The CI/CD setup enables:
+- Validation of Ansible playbooks against actual Proxmox and K3s hosts before merge
+- Secure, encrypted connection to private homelab infrastructure without exposing it to the internet
+- Automated testing in 3-4 minutes per PR
+- Safe production deployments with Ansible check mode
+
+See [journal/2025-10-18-tailscale-cicd-adventure.md](journal/2025-10-18-tailscale-cicd-adventure.md) for the complete setup story.
 
 ## Documentation
 
