@@ -20,23 +20,24 @@ This deployment uses Slinky to run Slurm workload manager entirely within Kubern
 
 ```
 ┌─────────────────────────────────────────────────┐
-│             K3s Cluster (4 nodes)               │
+│        K3s Cluster (1 master + 6 workers)       │
 │                                                 │
 │  ┌──────────────┐  ┌─────────────────────────┐ │
 │  │   slinky     │  │        slurm            │ │
 │  │  namespace   │  │      namespace          │ │
 │  │              │  │                         │ │
 │  │  Operator    │──▶  slurmctld (controller) │ │
-│  │              │  │  slurmdbd (accounting)  │ │
 │  │              │  │  slurmd (compute x2)    │ │
 │  │              │  │  login node             │ │
 │  │              │  │  REST API               │ │
-│  │              │  │  MariaDB                │ │
+│  │              │  │  Prometheus exporter    │ │
 │  └──────────────┘  └─────────────────────────┘ │
 │                                                 │
 │  Storage:                                       │
-│  - CephFS: Shared /home and job files          │
-│  - local-path: MariaDB persistence             │
+│  - local-path: Controller state (4Gi)          │
+│  - CephFS: NOT configured (optional)           │
+│                                                 │
+│  Note: Accounting (slurmdbd/MariaDB) disabled  │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -45,13 +46,19 @@ This deployment uses Slinky to run Slurm workload manager entirely within Kubern
 - K3s/K8s cluster with at least 3 worker nodes
 - Helm 3.x installed
 - kubectl configured to access your cluster
-- Storage classes:
-  - `cephfs` for shared storage (ReadWriteMany)
-  - `local-path` for database (ReadWriteOnce)
+- Storage class:
+  - `local-path` for controller state (ReadWriteOnce) - **Required**
+  - `cephfs` for shared storage (ReadWriteMany) - **Optional, not configured**
 
 **Resource requirements:**
 - Minimum: 8 CPU cores, 16GB RAM across cluster
 - Recommended: 12+ CPU cores, 24GB+ RAM for production workloads
+
+**Current deployment:**
+- Uses only `local-path` storage for controller state (4Gi)
+- No shared filesystem between compute nodes
+- Suitable for testing and learning Slurm
+- See "Storage" section below for adding CephFS if needed
 
 ## Quick Start
 
@@ -194,18 +201,48 @@ curl http://localhost:9817/metrics
 
 ## Storage
 
-The deployment uses two storage classes:
+### Current Configuration
 
-1. **CephFS** (`cephfs`) - Shared storage
-   - Mounted at `/home` on all compute and login nodes
-   - ReadWriteMany access mode
-   - Allows jobs to access shared files across nodes
-   - Default size: 10Gi (configurable in values-slurm.yaml)
+**local-path** - Controller state persistence
+- Slurm controller state save/restore
+- ReadWriteOnce access mode
+- Size: 4Gi
+- PVC: `statesave-slurm-controller-0`
 
-2. **local-path** - Database persistence
-   - MariaDB accounting database
-   - ReadWriteOnce access mode
-   - Default size: 5Gi (configurable in values-slurm.yaml)
+**What's NOT configured:**
+- ❌ Shared `/home` filesystem (CephFS)
+- ❌ Accounting database (MariaDB) - disabled in values-slurm.yaml
+- ❌ Shared job data storage
+
+### What This Means
+
+**What works:**
+- ✅ Submit and run jobs
+- ✅ Jobs execute on compute nodes
+- ✅ All Slurm commands (sinfo, squeue, srun, sbatch)
+- ✅ REST API access
+- ✅ Basic Slurm functionality
+
+**Limitations:**
+- ⚠️ Each pod has isolated storage
+- ⚠️ No shared `/home` across nodes
+- ⚠️ Jobs on different nodes can't easily share files
+- ⚠️ User home directories not persistent across pod restarts
+
+**Good for:**
+- Learning Slurm commands
+- Testing job submission
+- Understanding HPC concepts
+- Single-node jobs
+
+**Not ideal for:**
+- Multi-node MPI jobs requiring shared data
+- Persistent user home directories
+- Production workloads
+
+### Adding CephFS (Optional)
+
+To add shared storage for multi-node jobs, create a CephFS PVC and mount it on all nodes. This is an advanced configuration - consult Slinky documentation for details
 
 ## Scaling
 
@@ -307,12 +344,17 @@ kubectl delete namespace slurm slinky
 See [values-slurm.yaml](values-slurm.yaml) for all configurable options.
 
 **Common settings:**
-- `slurmConfig.clusterName`: Cluster identifier
-- `compute.partitions[].replicas`: Number of compute nodes per partition
-- `compute.partitions[].resources`: CPU/memory limits per compute node
-- `persistence.home.size`: Shared storage size
-- `mariadb.auth.*`: Database credentials
-- `restapi.service.type`: ClusterIP, NodePort, or LoadBalancer
+- `clusterName`: Cluster identifier (currently: "homelab-hpc")
+- `nodesets.debug.replicas`: Number of compute nodes (currently: 2)
+- `nodesets.debug.slurmd.resources`: CPU/memory limits per compute node
+- `controller.persistence`: Controller state persistence (currently: local-path, 4Gi)
+- `accounting.enabled`: Enable/disable accounting (currently: false)
+- `restapi.service.type`: Service exposure type (currently: ClusterIP)
+
+**Note:** Current configuration does NOT include:
+- Shared /home storage (CephFS)
+- Accounting database (MariaDB)
+- These are optional and can be added later
 
 ## Resources
 
