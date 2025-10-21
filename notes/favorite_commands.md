@@ -3,7 +3,7 @@
 Start tracking some of my favorite commands
 
 ## Off to the races
-
+```
 ps -waux                    # wide, all users, user format, background
 df -h                       # Disk Space - human readable
 ls -latr                    # list dir contents, dir details, reverse by time
@@ -29,13 +29,13 @@ du -sh /* | sort -h         # where is that big file?
 
 
 ## Maybe I'll use these more someday
-
+```
 find / -name "filename" 2>/dev/null  # Find files
 ripgrep
 iostat -x 1
-
+tldr
 journalctl -u [service]
-
+```
 ## GIT stuff
 
 git pull

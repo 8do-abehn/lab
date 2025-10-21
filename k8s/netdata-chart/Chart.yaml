@@ -1,0 +1,9 @@
+apiVersion: v2
+name: netdata
+description: Netdata monitoring deployment configuration
+type: application
+version: 1.0.0
+dependencies:
+  - name: netdata
+    version: "*"
+    repository: https://netdata.github.io/helmchart/

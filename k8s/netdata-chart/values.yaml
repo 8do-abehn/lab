@@ -1,0 +1,14 @@
+image:
+  tag: stable
+
+parent:
+  claiming:
+    enabled: true
+    token: 2TnoxG4RIjNPb9I0XUlYFBvAv477y-s41LT0E-Ih_gWqGFi7xiUDQFBdjL8Wp9re_lqLPhNvdQWFjTNzTLXOV1N1Vj-AhwBM_vJ01n2yD7MQfbNYulx4_ua4NwdIVBt5q0Tyxa8
+    rooms: a22b7d3d-50d8-46ad-904c-ccefaa26279a
+
+child:
+  claiming:
+    enabled: true
+    token: 2TnoxG4RIjNPb9I0XUlYFBvAv477y-s41LT0E-Ih_gWqGFi7xiUDQFBdjL8Wp9re_lqLPhNvdQWFjTNzTLXOV1N1Vj-AhwBM_vJ01n2yD7MQfbNYulx4_ua4NwdIVBt5q0Tyxa8
+    rooms: a22b7d3d-50d8-46ad-904c-ccefaa26279a

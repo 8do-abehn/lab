@@ -30,3 +30,8 @@ Thumbs.db
 *.pem
 *.key
 id_rsa*
+
+# Kubernetes secrets
+**/secret.yaml
+**/values.secret.yaml
+**/sealed-secret.yaml
