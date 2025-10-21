@@ -68,7 +68,7 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
           cd ansible
-          ansible-playbook -i inventory.ini site.yml \
+          ansible-playbook -i inventory/homelab.yml site.yml \
             --vault-password-file /tmp/vault_pass \
             --check \
             --diff
