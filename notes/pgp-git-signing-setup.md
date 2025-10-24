@@ -73,8 +73,8 @@ gpg --list-secret-keys --keyid-format=long
 # Set signing key
 git config --global user.signingkey 406A763538074289
 
-# Set user info
-git config --global user.email adam.behn@8devops.com
+# Set user info (use GitHub noreply email for privacy)
+git config --global user.email 8do-abehn@users.noreply.github.com
 git config --global user.name "Adam Behn"
 
 # Enable automatic commit signing
@@ -83,6 +83,8 @@ git config --global commit.gpgsign true
 # Specify GPG program
 git config --global gpg.program gpg
 ```
+
+**Note**: We use GitHub's noreply email (`8do-abehn@users.noreply.github.com`) for the git author to protect email privacy, even though the GPG key itself contains `adam.behn@8devops.com`. The commit author email is what GitHub displays publicly.
 
 ### 5. Set Ultimate Trust on Your Key
 
@@ -100,7 +102,7 @@ echo "41D280764C02421C70E26395406A763538074289:6:" | gpg --import-ownertrust
 git config --global --list | grep -E "(user\.|gpg|sign)"
 
 # Should show:
-# user.email=adam.behn@8devops.com
+# user.email=8do-abehn@users.noreply.github.com
 # user.name=Adam Behn
 # user.signingkey=406A763538074289
 # commit.gpgsign=true
@@ -181,6 +183,19 @@ Check git config:
 ```bash
 git config --get commit.gpgsign  # should return: true
 git config --get user.signingkey  # should return: 406A763538074289
+```
+
+### "GH007: Your push would publish a private email address"
+
+GitHub's email privacy protection is enabled. Update your git email to use GitHub's noreply address:
+
+```bash
+# Update to GitHub noreply email
+git config --global user.email 8do-abehn@users.noreply.github.com
+
+# If you already have commits with the wrong email, amend them:
+git rebase -i HEAD~N --exec 'git commit --amend --no-edit --reset-author'
+# (replace N with the number of commits to fix)
 ```
 
 ## Key Management
