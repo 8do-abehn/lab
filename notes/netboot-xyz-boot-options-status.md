@@ -2,7 +2,8 @@
 
 **Date Tested**: 2025-10-26
 **Server**: 10.150.10.204 (pve006/LXC 101)
-**Menu Version**: 2.0.76 (set to update to 'latest')
+**Menu Version**: 2.0.88 (latest as of Oct 2025)
+**Update**: Upgraded from 2.0.76 to 2.0.88 by unsetting MENU_VERSION
 
 ---
 
