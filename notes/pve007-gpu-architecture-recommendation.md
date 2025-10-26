@@ -1,8 +1,17 @@
 # PVE007 GPU Passthrough Architecture Recommendation
 
+> **⚠️ SUPERSEDED**: This document outlined an LXC-based approach for gaming via Moonlight streaming on pve007. The project has evolved to a **P2V migration with dual GPU passthrough** approach instead. See `dual-gpu-p2v-architecture.md` for the current architecture.
+>
+> **New Approach Summary**: Migrating boys' physical Windows PCs to VMs with dedicated GPU passthrough (one GPU per VM) on pve008 with 2x RTX 3080s. This provides better compatibility, performance, and independence compared to LXC streaming.
+>
+> This document preserved for reference only.
+
+---
+
 **Date**: 2025-10-23
 **System**: pve007 (AMD Ryzen 9 5900X, RTX 3080 Ti)
 **Deadline**: Before Puget workstation return (next week)
+**Status**: OBSOLETE - See dual-gpu-p2v-architecture.md
 
 ## Executive Summary
 
