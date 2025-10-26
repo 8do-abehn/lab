@@ -57,7 +57,7 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=America/New_York
-      - MENU_VERSION=latest   # Auto-updates to latest menu
+      # MENU_VERSION unset = pulls latest (currently 2.0.88)
     volumes:
       - ./config:/config
       - ./assets:/assets      # For custom ISOs/assets
