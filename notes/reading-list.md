@@ -2,10 +2,12 @@
 
 ## Currently Reading
 
-- **Atlas of the Heart: Mapping Meaningful Connection and the Language of Human Experience** by Brené Brown
-  - Started: October 2025
+- **Free-Range Kids: How parents and teachers can let go and let grow by Lenore Skenazy
 
 ## Finished
+
+- **Atlas of the Heart: Mapping Meaningful Connection and the Language of Human Experience** by Brené Brown
+  - Completed: November 2, 2025
 
 - **Atomic Habits** by James Clear
   - Completed: October 25, 2025
