@@ -2,9 +2,12 @@
 
 ## Currently Reading
 
-- **Free-Range Kids: How parents and teachers can let go and let grow by Lenore Skenazy
+- **Genesis: Artificial Intelligence, Hope, and the Human Spirit** by Henry Kissinger, Eric Schmidt, and Craig Mundie
 
 ## Finished
+
+- **Free-Range Kids: How parents and teachers can let go and let grow by Lenore Skenazy
+  - Completed: November 6, 2025
 
 - **Atlas of the Heart: Mapping Meaningful Connection and the Language of Human Experience** by Brené Brown
   - Completed: November 2, 2025
@@ -18,10 +21,17 @@
 
 ## Want to Read
 
-- **Genesis: Artificial Intelligence, Hope, and the Human Spirit** by Henry Kissinger, Eric Schmidt, and Craig Mundie
-- **Free-Range Kids** by Lenore Skenazy
-- **The Father Connection** by Josh Levs
 - **Radical Candor** by Kim Scott
 - **How to Talk So Kids Will Listen & Listen So Kids Will Talk** by Adele Faber and Elaine Mazlish
 - **Your Head Is a Houseboat** by Campbell Walker
 - **The Church of Baseball** by Ron Shelton
+
+## From Jeff
+
+- **Legacy
+- **The Goal
+- **Empowered
+- **Dare to LEad
+- **Start with Why
+- **Wiring the Wining Organization
+
