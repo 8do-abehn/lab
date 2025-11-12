@@ -4,27 +4,37 @@
     repo: "deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise"
     state: absent
     filename: pve-enterprise
+    update_cache: no
 
 - name: Add Proxmox no-subscription repository
   apt_repository:
     repo: "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription"
     state: present
     filename: pve-install-repo
+    update_cache: no
 
 - name: Disable Ceph Enterprise repository
   apt_repository:
     repo: "deb https://enterprise.proxmox.com/debian/ceph-quincy bookworm enterprise"
     state: absent
     filename: ceph
+    update_cache: no
 
 - name: Add Ceph Quincy no-subscription repository
   apt_repository:
     repo: "deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription"
     state: present
     filename: ceph
+    update_cache: no
 
 - name: Ensure pvetest repository is disabled
   apt_repository:
     repo: "deb http://download.proxmox.com/debian/pve bookworm pvetest"
     state: absent
     filename: pvetest-for-beta
+    update_cache: no
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
