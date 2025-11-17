@@ -2,9 +2,12 @@
 
 ## Currently Reading
 
-- **Genesis: Artificial Intelligence, Hope, and the Human Spirit** by Henry Kissinger, Eric Schmidt, and Craig Mundie
+- **Radical Candor** by Kim Scott
 
 ## Finished
+
+- **Genesis: Artificial Intelligence, Hope, and the Human Spirit** by Henry Kissinger, Eric Schmidt, and Craig Mundie
+  - Completed: November 16, 2025
 
 - **Free-Range Kids: How parents and teachers can let go and let grow by Lenore Skenazy
   - Completed: November 6, 2025
@@ -21,7 +24,6 @@
 
 ## Want to Read
 
-- **Radical Candor** by Kim Scott
 - **How to Talk So Kids Will Listen & Listen So Kids Will Talk** by Adele Faber and Elaine Mazlish
 - **Your Head Is a Houseboat** by Campbell Walker
 - **The Church of Baseball** by Ron Shelton
