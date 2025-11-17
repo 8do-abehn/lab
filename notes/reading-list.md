@@ -9,7 +9,7 @@
 - **Genesis: Artificial Intelligence, Hope, and the Human Spirit** by Henry Kissinger, Eric Schmidt, and Craig Mundie
   - Completed: November 16, 2025
 
-- **Free-Range Kids: How parents and teachers can let go and let grow by Lenore Skenazy
+- **Free-Range Kids: How parents and teachers can let go and let grow** by Lenore Skenazy
   - Completed: November 6, 2025
 
 - **Atlas of the Heart: Mapping Meaningful Connection and the Language of Human Experience** by Brené Brown
@@ -30,10 +30,10 @@
 
 ## From Jeff
 
-- **Legacy
-- **The Goal
-- **Empowered
-- **Dare to LEad
-- **Start with Why
-- **Wiring the Wining Organization
+- **Legacy**
+- **The Goal**
+- **Empowered**
+- **Dare to Lead**
+- **Start with Why**
+- **Wiring the Wining Organization**
 
