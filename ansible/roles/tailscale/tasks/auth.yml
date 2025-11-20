@@ -8,6 +8,7 @@
 - name: Authenticate Tailscale
   command: >
     tailscale up --authkey={{ tailscale_auth_key }}
+    --hostname={{ inventory_hostname }}
     {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
     {% if tailscale_enable_ssh | default(true) %}--ssh{% endif %}
   when: tailscale_status.rc != 0
@@ -17,6 +18,7 @@
 - name: Update Tailscale tags on already-authenticated devices
   command: >
     tailscale up
+    --hostname={{ inventory_hostname }}
     {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
     {% if tailscale_enable_ssh | default(true) %}--ssh{% endif %}
   when:
