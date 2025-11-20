@@ -61,3 +61,6 @@ yarn-error.log*
 
 # Cloned repositories (reference only)
 stts/
+
+# Build artifacts
+*.tar.gz
