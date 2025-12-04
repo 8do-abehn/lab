@@ -18,6 +18,7 @@ all:
             pve005:
             pve006:
             pve007:
+              ansible_host: 10.150.10.47
             pve008:
 
     # Kubernetes Cluster
