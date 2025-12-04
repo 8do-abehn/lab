@@ -14,7 +14,9 @@
 
 - name: Add Tailscale repository
   copy:
-    content: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/{{ tailscale_distro }} {{ tailscale_codename }} main\n"
+    content: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] \
+      https://pkgs.tailscale.com/stable/{{ tailscale_distro }} \
+      {{ tailscale_codename }} main\n"
     dest: /etc/apt/sources.list.d/tailscale.list
     owner: root
     group: root
