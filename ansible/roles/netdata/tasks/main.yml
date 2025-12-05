@@ -24,7 +24,7 @@
     state: present
   when:
     - not netdata_repo_installed
-    - netdata_download is changed
+    - netdata_download is not skipped
 
 - name: Update apt cache
   apt:
