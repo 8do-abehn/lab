@@ -15,18 +15,21 @@
     dest: /tmp/netdata-repo.deb
     mode: '0644'
   when: not netdata_repo_installed
+  register: netdata_download
 
 - name: Install netdata-repo package
   apt:
     deb: /tmp/netdata-repo.deb
     state: present
-  when: not netdata_repo_installed
+  when:
+    - not netdata_repo_installed
+    - netdata_download is changed
 
 - name: Clean up netdata-repo package
   file:
     path: /tmp/netdata-repo.deb
     state: absent
-  when: not netdata_repo_installed
+  when: netdata_download is changed
 
 - name: Update apt cache
   apt:
