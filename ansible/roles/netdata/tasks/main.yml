@@ -18,13 +18,20 @@
   register: netdata_download
   notify: Clean up netdata-repo package
 
+- name: Check if downloaded package exists
+  stat:
+    path: /tmp/netdata-repo.deb
+  register: netdata_deb_file
+  when: not netdata_repo_installed
+
 - name: Install netdata-repo package
   apt:
     deb: /tmp/netdata-repo.deb
     state: present
   when:
     - not netdata_repo_installed
-    - netdata_download is not skipped
+    - netdata_deb_file is not skipped
+    - netdata_deb_file.stat.exists
 
 - name: Update apt cache
   apt:
