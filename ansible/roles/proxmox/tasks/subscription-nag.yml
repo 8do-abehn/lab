@@ -16,21 +16,20 @@
   when: proxmoxlib_file.stat.exists
 
 - name: Check if already patched
-  shell: grep -q "NoMoreNagging" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+  command: grep -q "NoMoreNagging" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
   register: already_patched
   failed_when: false
   changed_when: false
   when: proxmoxlib_file.stat.exists
 
 - name: Patch proxmoxlib.js to remove subscription nag
-  shell: |
-    sed -i.bak -e "/data\.status/ s/!//" -e "/data\.status/ s/active/NoMoreNagging/" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+  command: sed -i.bak -e "/data\.status/ s/!//" -e "/data\.status/ s/active/NoMoreNagging/" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
   when:
     - proxmoxlib_file.stat.exists
     - already_patched is not skipped
     - already_patched.rc != 0
   register: patch_result
-  notify: restart pveproxy
+  notify: Restart pveproxy
 
 - name: Create persistence script directory
   file:
