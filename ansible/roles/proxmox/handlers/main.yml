@@ -1,0 +1,5 @@
+---
+- name: restart pveproxy
+  systemd:
+    name: pveproxy
+    state: restarted

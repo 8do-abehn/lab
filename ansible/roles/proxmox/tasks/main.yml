@@ -4,3 +4,6 @@
 
 - name: Install default packages
   include_tasks: packages.yml
+
+- name: Remove subscription nag
+  include_tasks: subscription-nag.yml

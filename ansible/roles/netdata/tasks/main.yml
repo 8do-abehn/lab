@@ -62,11 +62,18 @@
   notify: Reload netdata claiming
   no_log: true
 
+- name: Check if netdata-updater script exists
+  stat:
+    path: /usr/libexec/netdata/netdata-updater.sh
+  register: netdata_updater_script
+
 - name: Enable netdata auto-updates
   command: /usr/libexec/netdata/netdata-updater.sh --enable-auto-updates
   args:
     creates: /etc/cron.daily/netdata-updater
-  when: netdata_enable_auto_updates
+  when:
+    - netdata_enable_auto_updates
+    - netdata_updater_script.stat.exists
 
 - name: Ensure netdata service is started and enabled
   systemd:

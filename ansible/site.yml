@@ -21,3 +21,11 @@
     - vault.yml
   roles:
     - nut
+
+- name: Install Netdata monitoring
+  hosts: proxmox:k3s_cluster
+  become: yes
+  vars_files:
+    - vault.yml
+  roles:
+    - netdata
