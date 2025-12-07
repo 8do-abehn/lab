@@ -15,18 +15,23 @@
     dest: /tmp/netdata-repo.deb
     mode: '0644'
   when: not netdata_repo_installed
+  register: netdata_download
+  notify: Clean up netdata-repo package
+
+- name: Check if downloaded package exists
+  stat:
+    path: /tmp/netdata-repo.deb
+  register: netdata_deb_file
+  when: not netdata_repo_installed
 
 - name: Install netdata-repo package
   apt:
     deb: /tmp/netdata-repo.deb
     state: present
-  when: not netdata_repo_installed
-
-- name: Clean up netdata-repo package
-  file:
-    path: /tmp/netdata-repo.deb
-    state: absent
-  when: not netdata_repo_installed
+  when:
+    - not netdata_repo_installed
+    - netdata_deb_file is not skipped
+    - netdata_deb_file.stat.exists
 
 - name: Update apt cache
   apt:
@@ -62,11 +67,18 @@
   notify: Reload netdata claiming
   no_log: true
 
+- name: Check if netdata-updater script exists
+  stat:
+    path: /usr/libexec/netdata/netdata-updater.sh
+  register: netdata_updater_script
+
 - name: Enable netdata auto-updates
   command: /usr/libexec/netdata/netdata-updater.sh --enable-auto-updates
   args:
     creates: /etc/cron.daily/netdata-updater
-  when: netdata_enable_auto_updates
+  when:
+    - netdata_enable_auto_updates
+    - netdata_updater_script.stat.exists
 
 - name: Ensure netdata service is started and enabled
   systemd:
