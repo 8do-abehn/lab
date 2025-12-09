@@ -41,7 +41,7 @@
 - name: Install netdata
   apt:
     name: netdata
-    state: present
+    state: latest
 
 - name: Check if already claimed
   stat:
@@ -85,3 +85,15 @@
     name: netdata
     state: started
     enabled: yes
+
+- name: Wait for netdata to connect to cloud
+  pause:
+    seconds: 10
+  when: netdata_claim_token | length > 0
+
+- name: Verify netdata cloud connection
+  command: netdatacli aclk-state
+  register: aclk_status
+  changed_when: false
+  failed_when: "'Claimed: No' in aclk_status.stdout or 'Online: No' in aclk_status.stdout"
+  when: netdata_claim_token | length > 0
