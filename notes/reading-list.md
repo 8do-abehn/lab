@@ -2,9 +2,12 @@
 
 ## Currently Reading
 
-- **Radical Candor** by Kim Scott
+- **How Not to Hate Your Husband After Kids** by Jancee Dunn
 
 ## Finished
+
+- **Radical Candor** by Kim Scott
+  - Completed: December 11, 2025
 
 - **Genesis: Artificial Intelligence, Hope, and the Human Spirit** by Henry Kissinger, Eric Schmidt, and Craig Mundie
   - Completed: November 16, 2025
