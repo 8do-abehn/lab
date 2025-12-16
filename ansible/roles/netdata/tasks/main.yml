@@ -38,7 +38,9 @@
     update_cache: yes
     cache_valid_time: 3600
 
-- name: Install netdata
+# Distro packages are built with --disable-cloud, so state: latest
+# ensures official repo package (with cloud support) replaces them
+- name: Install netdata  # noqa: package-latest
   apt:
     name: netdata
     state: latest

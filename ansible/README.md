@@ -137,6 +137,10 @@ Netdata monitoring setup including:
 - Claiming to Netdata Cloud with vault-stored tokens
 - Monitoring for both Proxmox and k3s infrastructure
 
+**Design decision:** Uses `state: latest` instead of `state: present` because Ubuntu's
+distro packages are built with `--disable-cloud`. The official netdata repo packages
+include cloud support, so `latest` ensures they replace any pre-existing distro packages.
+
 **Note:** Run via `netdata_install.yml` playbook, not included in `site.yml`
 
 ## Inventory Groups
@@ -157,4 +161,3 @@ Netdata monitoring setup including:
 - Use `--limit` to test on a single host before running on all
 - Store vault password in a secure location (not in the repository)
 - Run `verify_nut.yml` after making UPS configuration changes
-# CI Test
