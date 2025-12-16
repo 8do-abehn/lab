@@ -1,5 +1,7 @@
 # Puget Gaming System - Proof of Concept Plan
 
+> **Note**: This document is superseded. Final architecture: pve008 (2x RTX 3080 gaming), pve007 (2x RX 570 support), pve009 (RTX 3080 Ti, pending). See `dual-gpu-p2v-architecture.md`.
+
 **Date**: 2025-10-23
 **Timeline**: This week (before workstation return)
 **Goal**: Prove GPU passthrough gaming works, then replicate to 2 remaining Puget systems

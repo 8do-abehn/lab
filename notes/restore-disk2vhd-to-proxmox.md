@@ -29,8 +29,8 @@ Disk2vhd creates VHD or VHDX files of physical Windows systems. To use these in 
 
 ```bash
 # From local machine where VHD files are stored
-scp /path/to/backup.vhd root@pve007:/tmp/
-scp /path/to/backup.vhdx root@pve009:/tmp/
+scp /path/to/backup.vhd root@pve008:/tmp/
+scp /path/to/backup.vhdx root@pve008:/tmp/
 ```
 
 ### Option B: Using rsync (for large files)
