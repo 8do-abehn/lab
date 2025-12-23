@@ -4,7 +4,7 @@
     dynamic_ups_server_hostname: "{{ item }}"
   when: hostvars[item].has_ups | default(false)
   loop: "{{ ansible_play_hosts }}"
-  run_once: no
+  run_once: false
 
 - name: Extract 10.150.10.x IP from UPS server
   set_fact:
