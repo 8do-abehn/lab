@@ -3,28 +3,29 @@
 # Based on: https://github.com/community-scripts/ProxmoxVE/blob/main/tools/pve/post-pve-install.sh
 
 - name: Check if proxmoxlib.js exists
-  stat:
+  ansible.builtin.stat:
     path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
   register: proxmoxlib_file
 
 - name: Backup proxmoxlib.js before patching
-  copy:
+  ansible.builtin.copy:
     src: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
     dest: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.bak
     remote_src: true
-    mode: '0644'
+    mode: "0644"
     force: false
   when: proxmoxlib_file.stat.exists
 
 - name: Check if already patched
-  command: grep -q "NoMoreNagging" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+  ansible.builtin.command: grep -q "NoMoreNagging" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
   register: already_patched
   failed_when: false
   changed_when: false
   when: proxmoxlib_file.stat.exists
 
 - name: Patch proxmoxlib.js to remove subscription nag
-  command: sed -i.bak -e "/data\.status/ s/!//" -e "/data\.status/ s/active/NoMoreNagging/" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+  ansible.builtin.command: sed -i.bak -e "/data\.status/ s/!//" -e "/data\.status/ s/active/NoMoreNagging/"
+    /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
   when:
     - proxmoxlib_file.stat.exists
     - already_patched is not skipped
@@ -34,15 +35,15 @@
   notify: Restart pveproxy
 
 - name: Create persistence script directory
-  file:
+  ansible.builtin.file:
     path: /usr/local/bin
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Create nag removal persistence script
-  copy:
+  ansible.builtin.copy:
     dest: /usr/local/bin/pve-remove-nag.sh
-    mode: '0755'
+    mode: "0755"
     content: |
       #!/bin/bash
       # Auto-remove Proxmox subscription nag after package updates
@@ -55,9 +56,9 @@
       fi
 
 - name: Create apt hook to persist nag removal
-  copy:
+  ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/99-pve-no-subscription-nag
-    mode: '0644'
+    mode: "0644"
     content: |
       DPkg::Post-Invoke {
         "if [ -x /usr/local/bin/pve-remove-nag.sh ]; then /usr/local/bin/pve-remove-nag.sh; fi";

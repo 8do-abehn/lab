@@ -1,6 +1,6 @@
 ---
 - name: Install NUT
-  apt:
+  ansible.builtin.apt:
     name: nut
     state: present
     update_cache: true

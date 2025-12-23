@@ -1,11 +1,11 @@
 ---
 - name: Check if configured UPS port exists
-  stat:
+  ansible.builtin.stat:
     path: "{{ ups_port }}"
   register: ups_port_check
 
 - name: Test UPS serial communication (looking for SM response)
-  shell: |
+  ansible.builtin.shell: |
     stty -F {{ ups_port }} 2400 raw -echo && (exec 3<>{{ ups_port }}; echo "Y" >&3; timeout 1 cat <&3; exec 3>&-)
   register: ups_serial_test
   failed_when: false
@@ -13,7 +13,7 @@
   when: ups_port_check.stat.exists
 
 - name: Debug serial test output
-  debug:
+  ansible.builtin.debug:
     msg:
       - "Serial test stdout: '{{ ups_serial_test.stdout | default('') }}'"
       - "Serial test stderr: '{{ ups_serial_test.stderr | default('') }}'"
@@ -21,7 +21,7 @@
   when: ups_port_check.stat.exists
 
 - name: Set fact if UPS is detected (SM response found)
-  set_fact:
+  ansible.builtin.set_fact:
     has_ups: true
     detected_nut_mode: server
   when:
@@ -30,11 +30,11 @@
     - "'SM' in ups_serial_test.stdout"
 
 - name: Set fact if no UPS detected
-  set_fact:
+  ansible.builtin.set_fact:
     has_ups: false
     detected_nut_mode: client
   when: not (ups_port_check.stat.exists and ups_serial_test.stdout is defined and 'SM' in ups_serial_test.stdout)
 
 - name: Display detection result
-  debug:
+  ansible.builtin.debug:
     msg: "{{ inventory_hostname }}: UPS {{ 'FOUND - configuring as SERVER' if has_ups else 'not found - configuring as CLIENT' }}"

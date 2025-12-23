@@ -1,23 +1,23 @@
 ---
 - name: Fail if Tailscale is not authenticated
-  fail:
+  ansible.builtin.fail:
     msg: "Tailscale is not authenticated on {{ inventory_hostname }}. Run 'tailscale up' first."
   when: tailscale_status.rc != 0
 
 - name: Get Tailscale hostname
-  shell: set -o pipefail; tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'
+  ansible.builtin.shell: set -o pipefail; tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'
   args:
     executable: /bin/bash
   register: tailscale_hostname
   changed_when: false
 
 - name: Check if certificate exists
-  stat:
+  ansible.builtin.stat:
     path: "{{ tailscale_cert_path }}"
   register: cert_file
 
 - name: Check certificate expiration
-  shell: |
+  ansible.builtin.shell: |
     set -o pipefail
     expiry=$(openssl x509 -enddate -noout -in {{ tailscale_cert_path }} | cut -d= -f2)
     expiry_epoch=$(date -d "$expiry" +%s)
@@ -31,17 +31,17 @@
   when: cert_file.stat.exists
 
 - name: Determine if certificate renewal needed
-  set_fact:
+  ansible.builtin.set_fact:
     needs_renewal: "{{ not cert_file.stat.exists or (cert_days_left.stdout | default('0') | int < tailscale_cert_renewal_days) }}"
 
 - name: Request Tailscale TLS certificate to temp location
-  command: tailscale cert --cert-file /tmp/pveproxy-ssl.pem --key-file /tmp/pveproxy-ssl.key {{ tailscale_hostname.stdout }}
+  ansible.builtin.command: tailscale cert --cert-file /tmp/pveproxy-ssl.pem --key-file /tmp/pveproxy-ssl.key {{ tailscale_hostname.stdout }}
   when: needs_renewal
   register: cert_result
   changed_when: cert_result.rc == 0
 
 - name: Copy certificate to Proxmox location
-  shell: |
+  ansible.builtin.shell: |
     cat /tmp/pveproxy-ssl.pem > {{ tailscale_cert_path }}
     chown {{ tailscale_cert_owner }}:{{ tailscale_cert_group }} {{ tailscale_cert_path }}
     chmod {{ tailscale_cert_mode }} {{ tailscale_cert_path }}
@@ -49,7 +49,7 @@
   changed_when: true
 
 - name: Copy key to Proxmox location
-  shell: |
+  ansible.builtin.shell: |
     cat /tmp/pveproxy-ssl.key > {{ tailscale_key_path }}
     chown {{ tailscale_cert_owner }}:{{ tailscale_cert_group }} {{ tailscale_key_path }}
     chmod {{ tailscale_cert_mode }} {{ tailscale_key_path }}
@@ -57,7 +57,7 @@
   changed_when: true
 
 - name: Clean up temp certificate files
-  file:
+  ansible.builtin.file:
     path: "/tmp/{{ item }}"
     state: absent
   loop:
@@ -66,7 +66,7 @@
   when: needs_renewal
 
 - name: Restart pveproxy service
-  systemd:
+  ansible.builtin.systemd:
     name: pveproxy
     state: restarted
   when: needs_renewal

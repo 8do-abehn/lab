@@ -1,11 +1,11 @@
 ---
 - name: Detect OS distribution
-  set_fact:
+  ansible.builtin.set_fact:
     tailscale_distro: "{{ 'ubuntu' if ansible_facts['distribution'] == 'Ubuntu' else 'debian' }}"
     tailscale_codename: "{{ ansible_facts['distribution_release'] }}"
 
 - name: Ensure Tailscale GPG key is properly formatted
-  shell: |
+  ansible.builtin.shell: |
     set -o pipefail
     curl -fsSL https://pkgs.tailscale.com/stable/{{ tailscale_distro }}/{{ tailscale_codename }}.gpg | \
     gpg --dearmor > /usr/share/keyrings/tailscale-archive-keyring.gpg.tmp && \
@@ -15,23 +15,22 @@
     creates: /usr/share/keyrings/tailscale-archive-keyring.gpg
 
 - name: Add Tailscale repository
-  copy:
-    content: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] \
-      https://pkgs.tailscale.com/stable/{{ tailscale_distro }} \
-      {{ tailscale_codename }} main\n"
+  ansible.builtin.copy:
+    content: |
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/{{ tailscale_distro }} {{ tailscale_codename }} main
     dest: /etc/apt/sources.list.d/tailscale.list
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Update apt cache after adding Tailscale repo
-  apt:
+  ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
   changed_when: false
 
 - name: Ensure required packages are installed
-  apt:
+  ansible.builtin.apt:
     name:
       - tailscale
       - jq

@@ -1,6 +1,6 @@
 ---
 - name: Restart NUT services
-  systemd:
+  ansible.builtin.systemd:
     name: "{{ item }}"
     state: restarted
     enabled: true
@@ -10,7 +10,7 @@
   when: nut_mode == 'server'
 
 - name: Restart NUT client services
-  systemd:
+  ansible.builtin.systemd:
     name: nut-monitor
     state: restarted
     enabled: true

@@ -1,10 +1,10 @@
 ---
 - name: Reload netdata claiming
-  command: /usr/sbin/netdatacli reload-claiming-state
+  ansible.builtin.command: /usr/sbin/netdatacli reload-claiming-state
   failed_when: false  # May fail if service not fully started yet
   changed_when: true
 
 - name: Clean up netdata-repo package
-  file:
+  ansible.builtin.file:
     path: /tmp/netdata-repo.deb
     state: absent
