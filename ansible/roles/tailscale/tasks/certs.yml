@@ -33,6 +33,7 @@
   command: tailscale cert --cert-file /tmp/pveproxy-ssl.pem --key-file /tmp/pveproxy-ssl.key {{ tailscale_hostname.stdout }}
   when: needs_renewal
   register: cert_result
+  changed_when: cert_result.rc == 0
 
 - name: Copy certificate to Proxmox location
   shell: |
@@ -40,6 +41,7 @@
     chown {{ tailscale_cert_owner }}:{{ tailscale_cert_group }} {{ tailscale_cert_path }}
     chmod {{ tailscale_cert_mode }} {{ tailscale_cert_path }}
   when: needs_renewal
+  changed_when: true
 
 - name: Copy key to Proxmox location
   shell: |
@@ -47,6 +49,7 @@
     chown {{ tailscale_cert_owner }}:{{ tailscale_cert_group }} {{ tailscale_key_path }}
     chmod {{ tailscale_cert_mode }} {{ tailscale_key_path }}
   when: needs_renewal
+  changed_when: true
 
 - name: Clean up temp certificate files
   file:
