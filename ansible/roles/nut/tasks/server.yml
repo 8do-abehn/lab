@@ -2,6 +2,7 @@
 - name: Configure ups.conf
   copy:
     dest: /etc/nut/ups.conf
+    mode: '0640'
     content: |
       [{{ ups_name }}]
       driver = {{ ups_driver }}
@@ -30,6 +31,7 @@
 - name: Configure upsd.conf to listen on all interfaces
   copy:
     dest: /etc/nut/upsd.conf
+    mode: '0640'
     content: |
       LISTEN 0.0.0.0
   notify: Restart NUT services
@@ -37,6 +39,7 @@
 - name: Configure nut.conf to standalone
   copy:
     dest: /etc/nut/nut.conf
+    mode: '0640'
     content: "MODE=standalone\n"
   notify: Restart NUT services
 
