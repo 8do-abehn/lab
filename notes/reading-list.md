@@ -6,6 +6,9 @@
 
 ## Finished
 
+- **One Man's Wilderness: An Alaskan Odyssey** by Sam Keith (from the journals of Richard Proenneke)
+  - Completed: December 21, 2025
+
 - **Radical Candor** by Kim Scott
   - Completed: December 11, 2025
 
