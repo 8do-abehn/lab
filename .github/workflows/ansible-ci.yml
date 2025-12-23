@@ -31,7 +31,6 @@ jobs:
 
   test-infrastructure:
     name: Test Against Infrastructure
-    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
