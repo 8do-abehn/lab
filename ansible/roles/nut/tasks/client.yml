@@ -27,13 +27,13 @@
     path: /etc/nut/nut.conf
     regexp: '^MODE='
     line: 'MODE=netclient'
-    create: yes
+    create: true
 
 - name: Configure upsmon.conf for full network monitoring
   blockinfile:
     path: /etc/nut/upsmon.conf
     mode: '0600'
-    create: yes
+    create: true
     marker: "# {mark} ANSIBLE MANAGED BLOCK"
     block: |
       MONITOR {{ ups_name }}@{{ ups_server_ip }} 1 {{ ups_user }} {{ ups_monitor_pass }} slave
