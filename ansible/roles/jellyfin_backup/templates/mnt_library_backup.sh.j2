@@ -1,0 +1,106 @@
+#!/bin/bash
+set -euo pipefail
+
+# Jellyfin backup script - managed by Ansible
+# Settings
+LOGFILE="/var/log/mnt-library-backup.log"
+SOURCE="/mnt/library"
+DEST="b2:mnt-library-backup"
+JELLYFIN_CONFIG_DATA="/var/lib/jellyfin"
+JELLYFIN_CONFIG_ETC="/etc/jellyfin"
+JELLYFIN_DEST="b2:behner-jellyfin-config"
+MAX_DURATION="4h"
+
+# Function to log messages with timestamp
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOGFILE"
+}
+
+# Trap Ctrl+C or TERM and kill child processes
+trap 'log_message "Backup interrupted"; pkill -P $$; exit 130' INT TERM
+
+log_message "Starting backup process"
+
+# Backup Jellyfin configs first (usually quick)
+log_message "Starting Jellyfin config backup"
+
+# Backup /var/lib/jellyfin (main data directory)
+if [ -d "$JELLYFIN_CONFIG_DATA" ]; then
+    log_message "Backing up $JELLYFIN_CONFIG_DATA"
+    rclone sync "$JELLYFIN_CONFIG_DATA" "$JELLYFIN_DEST/var-lib-jellyfin" \
+        --log-format json \
+        --bwlimit 1M \
+        --log-file="$LOGFILE" \
+        --log-level INFO \
+        --transfers 1 \
+        --retries 5 \
+        --exclude "cache/" \
+        --exclude "transcodes/" \
+        --exclude "log/" \
+        --exclude "*.log*" \
+        --low-level-retries 10
+
+    DATA_EXIT=$?
+    if [ $DATA_EXIT -eq 0 ]; then
+        log_message "$JELLYFIN_CONFIG_DATA backup completed successfully"
+    else
+        log_message "$JELLYFIN_CONFIG_DATA backup failed with exit code $DATA_EXIT"
+    fi
+else
+    log_message "Warning: Jellyfin data directory $JELLYFIN_CONFIG_DATA not found, skipping"
+fi
+
+# Backup /etc/jellyfin (system config directory)
+if [ -d "$JELLYFIN_CONFIG_ETC" ]; then
+    log_message "Backing up $JELLYFIN_CONFIG_ETC"
+    rclone sync "$JELLYFIN_CONFIG_ETC" "$JELLYFIN_DEST/etc-jellyfin" \
+        --log-format json \
+        --bwlimit 1M \
+        --log-file="$LOGFILE" \
+        --log-level INFO \
+        --transfers 1 \
+        --retries 5 \
+        --low-level-retries 10
+
+    ETC_EXIT=$?
+    if [ $ETC_EXIT -eq 0 ]; then
+        log_message "$JELLYFIN_CONFIG_ETC backup completed successfully"
+    else
+        log_message "$JELLYFIN_CONFIG_ETC backup failed with exit code $ETC_EXIT"
+    fi
+else
+    log_message "Warning: Jellyfin system config directory $JELLYFIN_CONFIG_ETC not found, skipping"
+fi
+
+# Run main library backup with timeout and logging
+log_message "Starting main library backup"
+(
+  timeout "$MAX_DURATION" rclone sync "$SOURCE" "$DEST" \
+    --track-renames \
+    --track-renames-strategy hash \
+    --bwlimit 1M \
+    --log-file="$LOGFILE" \
+    --log-level INFO \
+    --transfers 1 \
+    --retries 10 \
+    --exclude tmp/ \
+    --exclude vhs/ \
+    --exclude "lost+found/" \
+    --log-format json \
+    --low-level-retries 20
+) &
+wait $!
+EXIT_CODE=$?
+
+# Log timeout or success/failure
+if [ $EXIT_CODE -eq 124 ]; then
+    log_message "Main backup aborted after reaching 4-hour timeout"
+elif [ $EXIT_CODE -eq 130 ]; then
+    log_message "Main backup was interrupted by user (SIGINT/SIGTERM)"
+elif [ $EXIT_CODE -ne 0 ]; then
+    log_message "Main backup failed with exit code $EXIT_CODE"
+else
+    log_message "Main backup completed successfully"
+fi
+
+log_message "Backup process finished"

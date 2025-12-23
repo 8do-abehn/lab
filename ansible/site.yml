@@ -29,3 +29,11 @@
     - vault.yml
   roles:
     - netdata
+
+- name: Configure Jellyfin backup to Backblaze B2
+  hosts: media_servers
+  become: yes
+  vars_files:
+    - vault.yml
+  roles:
+    - jellyfin_backup
