@@ -1,9 +1,7 @@
 ---
 - name: Configure repositories
-  include_tasks: repositories.yml
-
+  ansible.builtin.include_tasks: repositories.yml
 - name: Install default packages
-  include_tasks: packages.yml
-
+  ansible.builtin.include_tasks: packages.yml
 - name: Remove subscription nag
-  include_tasks: subscription-nag.yml
+  ansible.builtin.include_tasks: subscription-nag.yml

@@ -1,24 +1,23 @@
 ---
 - name: Detect UPS presence on this host
-  include_tasks: detect.yml
+  ansible.builtin.include_tasks: detect.yml
   when: nut_mode == 'auto' or nut_mode is not defined
 
 - name: Set nut_mode from detection if auto
-  set_fact:
+  ansible.builtin.set_fact:
     nut_mode: "{{ detected_nut_mode }}"
   when: (nut_mode == 'auto' or nut_mode is not defined) and detected_nut_mode is defined
 
 - name: Display NUT mode
-  debug:
+  ansible.builtin.debug:
     msg: "{{ inventory_hostname }}: Configured as {{ nut_mode | upper }}"
 
 - name: Include common installation tasks
-  include_tasks: install.yml
-
+  ansible.builtin.include_tasks: install.yml
 - name: Include server configuration
-  include_tasks: server.yml
+  ansible.builtin.include_tasks: server.yml
   when: nut_mode == 'server'
 
 - name: Include client configuration
-  include_tasks: client.yml
+  ansible.builtin.include_tasks: client.yml
   when: nut_mode == 'client'
