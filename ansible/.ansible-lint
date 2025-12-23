@@ -12,7 +12,6 @@ exclude_paths:
 skip_list:
   - fqcn[action-core]  # TODO: Convert to FQCN in future
   - var-naming[no-role-prefix]  # TODO: Rename variables with role prefix
-  - no-changed-when  # We have some command tasks that are intentionally not idempotent checks
   - risky-shell-pipe  # We use pipes in shell commands carefully
   - command-instead-of-module  # We use curl for GPG key to avoid issues
   - internal-error  # Expected - vault files need password
