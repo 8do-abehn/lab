@@ -63,10 +63,10 @@
   user:
     name: nut
     groups: dialout
-    append: yes
+    append: true
 
 - name: Ensure nut-server is started and enabled
   systemd:
     name: nut-server
     state: started
-    enabled: yes
+    enabled: true
