@@ -1,12 +1,12 @@
 ---
 - name: Check if Tailscale is authenticated
-  command: tailscale status
+  ansible.builtin.command: tailscale status
   register: tailscale_status
   failed_when: false
   changed_when: false
 
 - name: Check for hostname conflicts in Tailscale network
-  shell: set -o pipefail; tailscale status --json 2>/dev/null | jq -r '.Peer[].HostName' | grep -c "^{{ inventory_hostname }}$" || echo "0"
+  ansible.builtin.shell: set -o pipefail; tailscale status --json 2>/dev/null | jq -r '.Peer[].HostName' | grep -c "^{{ inventory_hostname }}$" || echo "0"
   args:
     executable: /bin/bash
   register: hostname_conflict_check
@@ -15,7 +15,7 @@
   when: tailscale_status.rc != 0
 
 - name: Fail if hostname already exists in Tailscale
-  fail:
+  ansible.builtin.fail:
     msg: |
       Hostname '{{ inventory_hostname }}' already exists in your Tailscale network.
       This will cause Tailscale to name this device '{{ inventory_hostname }}-1' instead.
@@ -29,7 +29,7 @@
     - hostname_conflict_check.stdout | default('0') | int > 0
 
 - name: Authenticate Tailscale
-  command: >
+  ansible.builtin.command: >
     tailscale up --authkey={{ tailscale_auth_key }}
     --hostname={{ inventory_hostname }}
     {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
@@ -40,7 +40,7 @@
   no_log: true
 
 - name: Update Tailscale tags on already-authenticated devices
-  command: >
+  ansible.builtin.command: >
     tailscale up
     --hostname={{ inventory_hostname }}
     {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
@@ -52,7 +52,7 @@
   changed_when: false
 
 - name: Enable Tailscale SSH (if not already set via up command)
-  command: tailscale set --ssh
+  ansible.builtin.command: tailscale set --ssh
   when:
     - tailscale_enable_ssh | default(true)
     - tailscale_status.rc == 0

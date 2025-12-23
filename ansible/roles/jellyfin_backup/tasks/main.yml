@@ -12,7 +12,7 @@
   ansible.builtin.file:
     path: /root/.config/rclone
     state: directory
-    mode: '0700'
+    mode: "0700"
     owner: root
     group: root
 
@@ -20,7 +20,7 @@
   ansible.builtin.template:
     src: rclone.conf.j2
     dest: /root/.config/rclone/rclone.conf
-    mode: '0600'
+    mode: "0600"
     owner: root
     group: root
   no_log: true
@@ -29,14 +29,14 @@
   ansible.builtin.template:
     src: mnt_library_backup.sh.j2
     dest: /usr/local/bin/mnt_library_backup.sh
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
 
 - name: Remove legacy cron job (not managed by ansible)
   ansible.builtin.lineinfile:
     path: /var/spool/cron/crontabs/root
-    regexp: '^0 0 \* \* \* /usr/local/bin/mnt_library_backup\.sh$'
+    regexp: "^0 0 \\* \\* \\* /usr/local/bin/mnt_library_backup\\.sh$"
     state: absent
   failed_when: false
 
@@ -53,6 +53,6 @@
   ansible.builtin.template:
     src: logrotate-mnt-library-backup.j2
     dest: /etc/logrotate.d/mnt-library-backup
-    mode: '0644'
+    mode: "0644"
     owner: root
     group: root

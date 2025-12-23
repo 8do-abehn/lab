@@ -1,39 +1,39 @@
 ---
 - name: Find UPS server hostname from detected hosts
-  set_fact:
+  ansible.builtin.set_fact:
     dynamic_ups_server_hostname: "{{ item }}"
   when: hostvars[item].has_ups | default(false)
   loop: "{{ ansible_play_hosts }}"
   run_once: false
 
 - name: Extract 10.150.10.x IP from UPS server
-  set_fact:
+  ansible.builtin.set_fact:
     dynamic_ups_server_ip: "{{ hostvars[dynamic_ups_server_hostname].ansible_all_ipv4_addresses | select('match', '^10\\.150\\.10\\.') | first }}"
   when: dynamic_ups_server_hostname is defined
 
 - name: Use dynamic IP or configured fallback
-  set_fact:
+  ansible.builtin.set_fact:
     ups_server_ip: "{{ dynamic_ups_server_ip | default(ups_server_ip) }}"
     ups_server_source: "{{ 'dynamically detected (10.150.10.x IP)' if dynamic_ups_server_ip is defined else 'fallback default' }}"
 
 - name: Display UPS server being used
-  debug:
+  ansible.builtin.debug:
     msg:
       - "Configuring {{ inventory_hostname }} as NUT client"
       - "UPS server: {{ ups_server_ip }} ({{ ups_server_source }})"
 
 - name: Set NUT mode to netclient
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/nut/nut.conf
-    regexp: '^MODE='
-    line: 'MODE=netclient'
-    mode: '0640'
+    regexp: "^MODE="
+    line: "MODE=netclient"
+    mode: "0640"
     create: true
 
 - name: Configure upsmon.conf for full network monitoring
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/nut/upsmon.conf
-    mode: '0600'
+    mode: "0600"
     create: true
     marker: "# {mark} ANSIBLE MANAGED BLOCK"
     block: |
@@ -52,14 +52,14 @@
   no_log: true
 
 - name: Disable nut-server on clients
-  systemd:
+  ansible.builtin.systemd:
     name: nut-server
     state: stopped
     enabled: false
 
 - name: Disable nut-driver on clients (in case node was previously a server)
-  systemd:
+  ansible.builtin.systemd:
     name: "nut-driver@{{ ups_name }}"
     state: stopped
     enabled: false
-  failed_when: false  # Don't fail if service doesn't exist
+  failed_when: false # Don't fail if service doesn't exist

@@ -6,11 +6,10 @@
 exclude_paths:
   - archive/
   - .ansible/
-  - '*.retry'
+  - "*.retry"
 
 # Skip specific rules for now (fix in future PR)
 skip_list:
-  - fqcn[action-core]  # Fixed in PR #59
   - var-naming[no-role-prefix]  # TODO: Rename variables with role prefix
   - command-instead-of-module  # We use curl for GPG key to avoid issues
   - internal-error  # Expected - vault files need password
