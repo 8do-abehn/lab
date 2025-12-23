@@ -1,5 +1,7 @@
 # GPU Passthrough POC - Progress Report
 
+> **Note**: Historical document. The pve007 referenced here became pve009. See `dual-gpu-p2v-architecture.md` for current setup.
+
 **Date**: 2025-10-23 Evening
 **System**: pve007 (AMD Ryzen 9 5900X, RTX 3080 Ti)
 

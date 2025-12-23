@@ -1,5 +1,7 @@
 # Journal Entry - 2025-10-24
 
+> **Context**: The "pve007" referenced here later became pve009. The "pve009" in plans became the new pve007. See `dual-gpu-p2v-architecture.md` for final layout.
+
 ## P2V Migration Project Started
 
 Started a project to migrate my two boys' physical gaming PCs into VMs on Proxmox, with the eventual goal of running both simultaneously on one host using dual GPU passthrough.

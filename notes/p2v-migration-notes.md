@@ -14,11 +14,10 @@
 - Test each VM individually (one at a time)
 - Verify everything works before moving to production
 
-### Phase 2: Build Permanent Cluster
-- Add 2 personal Puget workstations to cluster as pve008 and pve009
-- Move RTX 3080 from pve009 → pve008
-- pve008 will have 2x RTX 3080s (one for each boy)
-- pve009 will have no GPU (still useful for other VMs)
+### Phase 2: Build Permanent Cluster (Completed)
+- pve008: Dual RTX 3080 gaming host (in cluster)
+- pve007: 2x RX 570 support host (in cluster, was originally planned as pve009)
+- pve009: RTX 3080 Ti (pending - original work loaner, keeping it)
 
 ### Phase 3: Production Setup
 - Migrate both VMs from pve007 → pve008
@@ -39,17 +38,18 @@
 ## Hardware Inventory
 
 ### Current Hosts
-- **pve007** (work loaner, temporary)
-  - 1x RTX 3080 Ti (PCI address: 0000:3e:00.0)
-  - Currently testing P2V migration
+- **pve007** (in cluster)
+  - 2x AMD RX 570
+  - Support host for other VMs/workloads
 
-- **Personal Puget #1** → will become **pve008**
-  - 1x RTX 3080 (will receive 2nd card from pve009)
-  - Final dual-GPU host for both boys
+- **pve008** (in cluster)
+  - 2x RTX 3080
+  - Dual-GPU gaming host for both boys
 
-- **Personal Puget #2** → will become **pve009**
-  - 1x RTX 3080 (will be moved to pve008)
-  - Will have no GPU after migration
+- **pve009** (pending addition)
+  - RTX 3080 Ti, 64GB RAM
+  - Original work loaner, now keeping it
+  - Additional compute capacity
 
 ### Physical PCs (to be migrated)
 - **Seb's PC**

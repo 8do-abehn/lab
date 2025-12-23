@@ -1,5 +1,7 @@
 # Journal Entry - 2025-11-12
 
+> **Context**: The "pve007" referenced here later became pve009. The planned "pve009" became the new pve007 (2x RX 570). See `dual-gpu-p2v-architecture.md`.
+
 ## Dual-GPU Gaming VM Migration to pve008
 
 Successfully migrated boys' gaming VMs from pve007 to new pve008 host with dual RTX 3080 GPU passthrough setup. Both VMs now running simultaneously with dedicated GPUs.
