@@ -6,7 +6,9 @@
   changed_when: false
 
 - name: Check for hostname conflicts in Tailscale network
-  shell: tailscale status --json 2>/dev/null | jq -r '.Peer[].HostName' | grep -c "^{{ inventory_hostname }}$" || echo "0"
+  shell: set -o pipefail; tailscale status --json 2>/dev/null | jq -r '.Peer[].HostName' | grep -c "^{{ inventory_hostname }}$" || echo "0"
+  args:
+    executable: /bin/bash
   register: hostname_conflict_check
   failed_when: false
   changed_when: false
