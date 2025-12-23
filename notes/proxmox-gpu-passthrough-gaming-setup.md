@@ -578,7 +578,7 @@ To deploy this setup to multiple Proxmox hosts, create an Ansible playbook:
 1. Document game-specific configurations
 2. Create Windows VM template with drivers pre-installed
 3. Build Ansible playbook for multi-host deployment
-4. Deploy to pve008 and pve009 (Puget systems)
+4. Deploy to pve008 (2x RTX 3080 gaming host)
 5. Test co-op gaming between systems
 6. Set up automated backups of gaming VMs
 7. Configure resource scheduling (GPU available for AI when not gaming)

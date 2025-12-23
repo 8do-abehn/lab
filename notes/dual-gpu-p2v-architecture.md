@@ -35,27 +35,28 @@ Migrating two physical Windows gaming PCs to VMs running on a single Proxmox hos
 
 ## Hardware Architecture
 
-### Final Production Host: pve008
-**Source**: Personal Puget Workstation #1
+### Gaming Host: pve008
+**Source**: Personal Puget Workstation
 - CPU: AMD Ryzen 9 5900X (24 threads)
 - RAM: 64GB DDR4
-- GPU #1: RTX 3080 (from original pve008)
-- GPU #2: RTX 3080 (moved from pve009)
+- GPU: 2x RTX 3080
 - Storage: Local LVM + shared storage
+- Purpose: Dual-GPU gaming VMs (vm-seb, vm-rtb)
 
-### Support Host: pve009
-**Source**: Personal Puget Workstation #2
+### Support Host: pve007
+**Source**: Puget Workstation (was planned as pve009, renumbered)
 - CPU: AMD Ryzen 9 5900X
 - RAM: 64GB DDR4
-- GPU: None (moved to pve008)
-- Purpose: Other VMs, K8s workers, general compute
+- GPU: 2x AMD RX 570
+- Purpose: Other VMs, K8s workers, LXC GPU workloads
 
-### Temporary Testing Host: pve007
-**Source**: Work loaner (returning next week)
+### Additional Host: pve009 (pending)
+**Source**: Original work loaner (keeping it)
 - CPU: AMD Ryzen 9 5900X
 - RAM: 64GB DDR4
 - GPU: RTX 3080 Ti
-- Purpose: P2V migration testing, validate VMs work individually
+- Purpose: Additional compute, GPU workloads
+- Status: To be added to cluster
 
 ## VM Specifications
 
@@ -136,28 +137,18 @@ GPU Assignment (on pve008):
 - Confirm all data migrated correctly
 - Test performance, GPU passthrough
 
-### Phase 2: Add pve008 and pve009 to Cluster
+### Phase 2: Cluster Setup (Completed)
+
+**What happened**:
+1. pve008 added to cluster (dual RTX 3080 gaming host)
+2. New pve007 added to cluster (2x RX 570, was originally planned as pve009)
+3. Original pve007 (work loaner) removed from cluster, will be re-added as pve009
+
+### Phase 3: Dual GPU Configuration (Completed)
 
 **Steps**:
-1. Prepare Puget workstation #1 (will be pve008)
-   - Install Proxmox VE
-   - Configure networking
-   - Join to existing cluster
-2. Prepare Puget workstation #2 (will be pve009)
-   - Install Proxmox VE
-   - Configure networking
-   - Join to existing cluster
-3. Verify cluster quorum
-4. Configure shared storage access
-
-### Phase 3: Dual GPU Configuration
-
-**Steps**:
-1. Physically move RTX 3080 from pve009 → pve008
-   - Shutdown pve009
-   - Remove RTX 3080
-   - Install in second PCIe slot on pve008
-   - Verify both GPUs detected
+1. Installed 2x RTX 3080 in pve008
+   - Both GPUs detected
 2. Configure IOMMU groups on pve008
    - Verify each GPU in separate IOMMU group
    - Or prepare to pass entire groups
@@ -486,9 +477,9 @@ qm config 701 | grep usb
 - Duration: 2-3 days
 - Goal: Both VMs working individually
 
-**Phase 2**: Add pve008/pve009 to Cluster
-- Duration: 1 day
-- Goal: Cluster operational
+**Phase 2**: Cluster Setup ✓
+- pve007 (2x RX 570) and pve008 (2x RTX 3080) in cluster
+- pve009 (RTX 3080 Ti) pending addition
 
 **Phase 3**: Dual GPU Setup
 - Duration: 1 day
