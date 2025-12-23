@@ -21,3 +21,4 @@ roles/downloaded/
 # OS files
 .DS_Store
 Thumbs.db
+*.swp
