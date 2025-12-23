@@ -11,8 +11,8 @@
   copy:
     src: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
     dest: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.bak
-    remote_src: yes
-    force: no
+    remote_src: true
+    force: false
   when: proxmoxlib_file.stat.exists
 
 - name: Check if already patched
