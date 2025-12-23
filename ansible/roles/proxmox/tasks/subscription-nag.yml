@@ -12,6 +12,7 @@
     src: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
     dest: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.bak
     remote_src: true
+    mode: '0644'
     force: false
   when: proxmoxlib_file.stat.exists
 

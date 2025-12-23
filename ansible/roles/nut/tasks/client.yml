@@ -27,6 +27,7 @@
     path: /etc/nut/nut.conf
     regexp: '^MODE='
     line: 'MODE=netclient'
+    mode: '0640'
     create: true
 
 - name: Configure upsmon.conf for full network monitoring
