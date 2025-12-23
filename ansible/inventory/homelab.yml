@@ -22,6 +22,12 @@ all:
             # pve009:  # RTX 3080 Ti, 64GB RAM - pending cluster addition
             #   ansible_host: 10.150.10.49
 
+    # Media Servers
+    media_servers:
+      hosts:
+        jellyfin:
+          ansible_user: root
+
     # Kubernetes Cluster (Currently decommissioned)
     # k3s_cluster:
     #   children:
