@@ -30,6 +30,7 @@
     - already_patched is not skipped
     - already_patched.rc != 0
   register: patch_result
+  changed_when: patch_result.rc == 0
   notify: Restart pveproxy
 
 - name: Create persistence script directory
