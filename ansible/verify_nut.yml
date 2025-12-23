@@ -6,26 +6,26 @@
 
   tasks:
     - name: Check if NUT is installed
-      command: which upsc
+      ansible.builtin.command: which upsc
       register: upsc_check
       failed_when: false
       changed_when: false
 
     - name: Determine if this is server or client
-      shell: set -o pipefail; grep "^MODE=" /etc/nut/nut.conf | cut -d= -f2
+      ansible.builtin.shell: set -o pipefail; grep "^MODE=" /etc/nut/nut.conf | cut -d= -f2
       args:
         executable: /bin/bash
       register: nut_mode_check
       changed_when: false
 
     - name: Query UPS status
-      command: upsc myups@10.150.10.44
+      ansible.builtin.command: upsc myups@10.150.10.44
       register: ups_status
       failed_when: false
       changed_when: false
 
     - name: Check nut-monitor service
-      systemd:
+      ansible.builtin.systemd:
         name: nut-monitor
         state: started
       check_mode: true
@@ -33,7 +33,7 @@
       failed_when: false
 
     - name: Check nut-server service (servers only)
-      systemd:
+      ansible.builtin.systemd:
         name: nut-server
         state: started
       check_mode: true
@@ -42,7 +42,7 @@
       when: nut_mode_check.stdout == "standalone"
 
     - name: Display verification results
-      debug:
+      ansible.builtin.debug:
         msg: |
           Host: {{ inventory_hostname }}
           NUT Installed: {{ 'Yes' if upsc_check.rc == 0 else 'No' }}
@@ -57,7 +57,7 @@
           UPS Load: {{ ups_status.stdout_lines | select('search', 'ups.load') | first if ups_status.rc == 0 else 'N/A' }}
 
     - name: Set verification status
-      set_fact:
+      ansible.builtin.set_fact:
         nut_healthy: "{{ upsc_check.rc == 0 and ups_status.rc == 0 and monitor_service.status.ActiveState == 'active' }}"
 
 - name: Summary
@@ -65,11 +65,11 @@
   gather_facts: false
   tasks:
     - name: Show healthy hosts
-      debug:
+      ansible.builtin.debug:
         msg: "✓ {{ inventory_hostname }} - NUT monitoring is healthy"
       when: nut_healthy | default(false)
 
     - name: Show unhealthy hosts
-      debug:
+      ansible.builtin.debug:
         msg: "✗ {{ inventory_hostname }} - NUT monitoring has issues"
       when: not (nut_healthy | default(false))

@@ -1,31 +1,31 @@
 ---
 - name: Check if netdata-repo package is already installed
-  command: dpkg-query -W -f='${Status}' netdata-repo
+  ansible.builtin.command: dpkg-query -W -f='${Status}' netdata-repo
   register: netdata_repo_check
   failed_when: false
   changed_when: false
 
 - name: Set fact if netdata-repo is installed
-  set_fact:
+  ansible.builtin.set_fact:
     netdata_repo_installed: "{{ 'install ok installed' in netdata_repo_check.stdout }}"
 
 - name: Download netdata-repo package
-  get_url:
+  ansible.builtin.get_url:
     url: https://repo.netdata.cloud/repos/repoconfig/ubuntu/jammy/netdata-repo_5-1+ubuntu22.04_all.deb
     dest: /tmp/netdata-repo.deb
-    mode: '0644'
+    mode: "0644"
   when: not netdata_repo_installed
   register: netdata_download
   notify: Clean up netdata-repo package
 
 - name: Check if downloaded package exists
-  stat:
+  ansible.builtin.stat:
     path: /tmp/netdata-repo.deb
   register: netdata_deb_file
   when: not netdata_repo_installed
 
 - name: Install netdata-repo package
-  apt:
+  ansible.builtin.apt:
     deb: /tmp/netdata-repo.deb
     state: present
   when:
@@ -34,27 +34,27 @@
     - netdata_deb_file.stat.exists
 
 - name: Update apt cache
-  apt:
+  ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
 
 # Distro packages are built with --disable-cloud, so state: latest
 # ensures official repo package (with cloud support) replaces them
-- name: Install netdata  # noqa: package-latest
-  apt:
+- name: Install netdata # noqa: package-latest
+  ansible.builtin.apt:
     name: netdata
     state: latest
 
 - name: Check if already claimed
-  stat:
+  ansible.builtin.stat:
     path: /etc/netdata/claim.conf
   register: netdata_claim_file
   when: netdata_claim_token | length > 0
 
 - name: Create claiming configuration
-  copy:
+  ansible.builtin.copy:
     dest: /etc/netdata/claim.conf
-    mode: '0640'
+    mode: "0640"
     owner: root
     group: netdata
     content: |
@@ -70,12 +70,12 @@
   no_log: true
 
 - name: Check if netdata-updater script exists
-  stat:
+  ansible.builtin.stat:
     path: /usr/libexec/netdata/netdata-updater.sh
   register: netdata_updater_script
 
 - name: Enable netdata auto-updates
-  command: /usr/libexec/netdata/netdata-updater.sh --enable-auto-updates
+  ansible.builtin.command: /usr/libexec/netdata/netdata-updater.sh --enable-auto-updates
   args:
     creates: /etc/cron.daily/netdata-updater
   when:
@@ -83,18 +83,18 @@
     - netdata_updater_script.stat.exists
 
 - name: Ensure netdata service is started and enabled
-  systemd:
+  ansible.builtin.systemd:
     name: netdata
     state: started
     enabled: true
 
 - name: Wait for netdata to connect to cloud
-  pause:
+  ansible.builtin.pause:
     seconds: 10
   when: netdata_claim_token | length > 0
 
 - name: Verify netdata cloud connection
-  command: netdatacli aclk-state
+  ansible.builtin.command: netdatacli aclk-state
   register: aclk_status
   changed_when: false
   failed_when: "'Claimed: No' in aclk_status.stdout or 'Online: No' in aclk_status.stdout"

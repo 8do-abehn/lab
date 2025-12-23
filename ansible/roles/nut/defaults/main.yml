@@ -16,5 +16,5 @@ ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
 
 # Client configuration
 # Default NUT server (pve004) - used if detection doesn't find a server
-ups_server_ip: 10.150.10.44  # pve004
+ups_server_ip: 10.150.10.44 # pve004
 ups_user: monuser

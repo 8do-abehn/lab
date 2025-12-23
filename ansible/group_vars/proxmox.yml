@@ -22,7 +22,7 @@ ups_admin_user: admin
 ups_monitor_user: monuser
 
 # Client configuration (server IP is auto-detected from 10.150.10.x range)
-ups_server_ip: 10.150.10.44  # Fallback only if auto-detection fails - consider using IP address
+ups_server_ip: 10.150.10.44 # Fallback only if auto-detection fails - consider using IP address
 ups_user: monuser
 
 # IMPORTANT: For maximum reliability during power outages, consider adding

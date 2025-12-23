@@ -9,5 +9,5 @@ tailscale_cert_path: /etc/pve/local/pveproxy-ssl.pem
 tailscale_key_path: /etc/pve/local/pveproxy-ssl.key
 tailscale_cert_owner: root
 tailscale_cert_group: www-data
-tailscale_cert_mode: '0640'
+tailscale_cert_mode: "0640"
 tailscale_cert_renewal_days: 30

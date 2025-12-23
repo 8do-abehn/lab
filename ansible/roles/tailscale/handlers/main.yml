@@ -1,4 +1,4 @@
 ---
 - name: Display Proxmox access message
-  debug:
+  ansible.builtin.debug:
     msg: "Proxmox Web UI now accessible via https://{{ tailscale_hostname.stdout }}:8006"

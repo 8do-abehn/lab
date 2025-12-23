@@ -1,8 +1,8 @@
 ---
 - name: Configure ups.conf
-  copy:
+  ansible.builtin.copy:
     dest: /etc/nut/ups.conf
-    mode: '0640'
+    mode: "0640"
     content: |
       [{{ ups_name }}]
       driver = {{ ups_driver }}
@@ -11,9 +11,9 @@
   notify: Restart NUT services
 
 - name: Configure upsd.users
-  copy:
+  ansible.builtin.copy:
     dest: /etc/nut/upsd.users
-    mode: '0640'  # Must be group-readable so nut-server can read it (runs as 'nut' user)
+    mode: "0640" # Must be group-readable so nut-server can read it (runs as 'nut' user)
     owner: root
     group: nut
     content: |
@@ -29,24 +29,24 @@
   no_log: true
 
 - name: Configure upsd.conf to listen on all interfaces
-  copy:
+  ansible.builtin.copy:
     dest: /etc/nut/upsd.conf
-    mode: '0640'
+    mode: "0640"
     content: |
       LISTEN 0.0.0.0
   notify: Restart NUT services
 
 - name: Configure nut.conf to standalone
-  copy:
+  ansible.builtin.copy:
     dest: /etc/nut/nut.conf
-    mode: '0640'
+    mode: "0640"
     content: "MODE=standalone\n"
   notify: Restart NUT services
 
 - name: Configure upsmon.conf completely
-  copy:
+  ansible.builtin.copy:
     dest: /etc/nut/upsmon.conf
-    mode: '0600'
+    mode: "0600"
     content: |
       MONITOR {{ ups_name }}@localhost 1 {{ ups_admin_user }} {{ ups_admin_pass }} master
       MINSUPPLIES 1
@@ -63,13 +63,13 @@
   no_log: true
 
 - name: Add nut user to dialout group
-  user:
+  ansible.builtin.user:
     name: nut
     groups: dialout
     append: true
 
 - name: Ensure nut-server is started and enabled
-  systemd:
+  ansible.builtin.systemd:
     name: nut-server
     state: started
     enabled: true
