@@ -5,7 +5,9 @@
   when: tailscale_status.rc != 0
 
 - name: Get Tailscale hostname
-  shell: tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'
+  shell: set -o pipefail; tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'
+  args:
+    executable: /bin/bash
   register: tailscale_hostname
   changed_when: false
 
@@ -16,11 +18,14 @@
 
 - name: Check certificate expiration
   shell: |
+    set -o pipefail
     expiry=$(openssl x509 -enddate -noout -in {{ tailscale_cert_path }} | cut -d= -f2)
     expiry_epoch=$(date -d "$expiry" +%s)
     now_epoch=$(date +%s)
     days_left=$(( ($expiry_epoch - $now_epoch) / 86400 ))
     echo $days_left
+  args:
+    executable: /bin/bash
   register: cert_days_left
   changed_when: false
   when: cert_file.stat.exists
