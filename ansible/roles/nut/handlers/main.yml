@@ -3,7 +3,7 @@
   systemd:
     name: "{{ item }}"
     state: restarted
-    enabled: yes
+    enabled: true
   loop:
     - nut-server
     - nut-monitor
@@ -13,5 +13,5 @@
   systemd:
     name: nut-monitor
     state: restarted
-    enabled: yes
+    enabled: true
   when: nut_mode == 'client'

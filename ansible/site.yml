@@ -2,13 +2,13 @@
 # Main site playbook - applies roles to all infrastructure
 - name: Configure base Proxmox settings
   hosts: proxmox
-  become: yes
+  become: true
   roles:
     - proxmox
 
 - name: Setup Tailscale on all hosts
   hosts: proxmox:k3s_cluster
-  become: yes
+  become: true
   vars_files:
     - vault.yml
   roles:
@@ -16,7 +16,7 @@
 
 - name: Configure NUT UPS (auto-detect server/client)
   hosts: proxmox
-  become: yes
+  become: true
   vars_files:
     - vault.yml
   roles:
@@ -24,7 +24,7 @@
 
 - name: Install Netdata monitoring
   hosts: proxmox:k3s_cluster
-  become: yes
+  become: true
   vars_files:
     - vault.yml
   roles:
@@ -32,7 +32,7 @@
 
 - name: Configure Jellyfin backup to Backblaze B2
   hosts: media_servers
-  become: yes
+  become: true
   vars_files:
     - vault.yml
   roles:

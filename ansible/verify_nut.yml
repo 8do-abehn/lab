@@ -1,8 +1,8 @@
 ---
 - name: Verify NUT UPS monitoring setup
   hosts: proxmox
-  become: yes
-  gather_facts: no
+  become: true
+  gather_facts: false
 
   tasks:
     - name: Check if NUT is installed
@@ -26,7 +26,7 @@
       systemd:
         name: nut-monitor
         state: started
-      check_mode: yes
+      check_mode: true
       register: monitor_service
       failed_when: false
 
@@ -34,7 +34,7 @@
       systemd:
         name: nut-server
         state: started
-      check_mode: yes
+      check_mode: true
       register: server_service
       failed_when: false
       when: nut_mode_check.stdout == "standalone"
@@ -60,7 +60,7 @@
 
 - name: Summary
   hosts: proxmox
-  gather_facts: no
+  gather_facts: false
   tasks:
     - name: Show healthy hosts
       debug:

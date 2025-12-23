@@ -35,7 +35,7 @@
 
 - name: Update apt cache
   apt:
-    update_cache: yes
+    update_cache: true
     cache_valid_time: 3600
 
 # Distro packages are built with --disable-cloud, so state: latest
@@ -86,7 +86,7 @@
   systemd:
     name: netdata
     state: started
-    enabled: yes
+    enabled: true
 
 - name: Wait for netdata to connect to cloud
   pause:
