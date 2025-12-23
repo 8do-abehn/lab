@@ -163,7 +163,7 @@ All processes showed hardware acceleration:
 
 **AMD RX 570 Status:**
 - Removed from pve005
-- Available for other uses (pve009, gaming, compute workloads)
+- Available for other uses (pve007/pve009, gaming, compute workloads)
 - Better suited for gaming VMs or heavy compute than 24/7 transcoding
 
 ## Architecture Benefits
@@ -210,7 +210,7 @@ All processes showed hardware acceleration:
 - Consider HDR tone mapping (VPP tone mapping on Intel)
 - Monitor long-term stability
 - Test AV1 decode capability
-- Install pve009 with freed AMD RX 570 for other workloads
+- RX 570s now in pve007 (new pve007 with 2x RX 570)
 
 ## Summary
 

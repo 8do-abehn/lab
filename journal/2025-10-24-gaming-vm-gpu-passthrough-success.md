@@ -1,5 +1,7 @@
 # Lab Journal - October 24, 2025: The GPU Passthrough Gaming Quest
 
+> **Context**: The "pve007" referenced here later became pve009. See `dual-gpu-p2v-architecture.md` for final layout.
+
 ## Mission: Create a Windows Gaming VM with NVIDIA RTX 3080 Ti Passthrough for Sunshine/Moonlight Streaming
 
 Started with "let's set up gaming with GPU passthrough" and ended with a working Windows 11 VM streaming games. Along the way: discovered LXC limitations, learned why preparation matters, and proved that sometimes the documentation you need is scattered across multiple sources.
