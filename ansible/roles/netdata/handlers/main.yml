@@ -2,6 +2,7 @@
 - name: Reload netdata claiming
   command: /usr/sbin/netdatacli reload-claiming-state
   failed_when: false  # May fail if service not fully started yet
+  changed_when: true
 
 - name: Clean up netdata-repo package
   file:
