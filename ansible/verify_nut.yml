@@ -12,7 +12,9 @@
       changed_when: false
 
     - name: Determine if this is server or client
-      shell: grep "^MODE=" /etc/nut/nut.conf | cut -d= -f2
+      shell: set -o pipefail; grep "^MODE=" /etc/nut/nut.conf | cut -d= -f2
+      args:
+        executable: /bin/bash
       register: nut_mode_check
       changed_when: false
 

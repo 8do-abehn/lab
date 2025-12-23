@@ -6,10 +6,12 @@
 
 - name: Ensure Tailscale GPG key is properly formatted
   shell: |
+    set -o pipefail
     curl -fsSL https://pkgs.tailscale.com/stable/{{ tailscale_distro }}/{{ tailscale_codename }}.gpg | \
     gpg --dearmor > /usr/share/keyrings/tailscale-archive-keyring.gpg.tmp && \
     mv /usr/share/keyrings/tailscale-archive-keyring.gpg.tmp /usr/share/keyrings/tailscale-archive-keyring.gpg
   args:
+    executable: /bin/bash
     creates: /usr/share/keyrings/tailscale-archive-keyring.gpg
 
 - name: Add Tailscale repository
