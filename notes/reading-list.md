@@ -2,9 +2,12 @@
 
 ## Currently Reading
 
-- **How Not to Hate Your Husband After Kids** by Jancee Dunn
+- **Dare to Lead** by Brené Brown
 
 ## Finished
+
+- **How Not to Hate Your Husband After Kids** by Jancee Dunn
+  - Completed: January 6, 2026
 
 - **One Man's Wilderness: An Alaskan Odyssey** by Sam Keith (from the journals of Richard Proenneke)
   - Completed: December 21, 2025
@@ -39,7 +42,6 @@
 - **Legacy**
 - **The Goal**
 - **Empowered**
-- **Dare to Lead**
 - **Start with Why**
 - **Wiring the Wining Organization**
 
