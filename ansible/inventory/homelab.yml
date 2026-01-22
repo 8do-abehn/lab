@@ -17,7 +17,7 @@ all:
             pve003:
             pve005:
             pve006:
-            pve007:
+            # pve007:  # Needs BIOS VT-x/VT-d enabled
             pve008:
             pve009:
 #               ansible_host: 10.150.10.49
