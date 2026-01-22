@@ -1,0 +1,27 @@
+---
+# SLURM cluster configuration
+
+# Cluster name
+slurm_cluster_name: homelab
+
+# Controller settings (auto-detected from inventory)
+slurm_controller_host: "{{ groups['slurm_controller'][0] }}"
+slurm_controller_ip: "{{ hostvars[slurm_controller_host]['ansible_host'] }}"
+
+# Compute node settings (auto-detected from inventory)
+slurm_compute_hosts: "{{ groups['slurm_compute'] }}"
+
+# Partition configuration
+slurm_partition_name: batch
+slurm_partition_default: true
+
+# Resource defaults (can be overridden per-host in inventory)
+slurm_default_cpus: 4
+slurm_default_memory: 4096  # MB
+
+# Munge settings
+slurm_munge_key_path: /etc/munge/munge.key
+
+# Service user
+slurm_user: slurm
+slurm_group: slurm

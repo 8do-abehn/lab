@@ -1,0 +1,19 @@
+---
+# SLURM service handlers
+
+- name: Restart munge
+  ansible.builtin.systemd:
+    name: munge
+    state: restarted
+
+- name: Restart slurmctld
+  ansible.builtin.systemd:
+    name: slurmctld
+    state: restarted
+  when: inventory_hostname in groups['slurm_controller']
+
+- name: Restart slurmd
+  ansible.builtin.systemd:
+    name: slurmd
+    state: restarted
+  when: inventory_hostname in groups['slurm_compute']

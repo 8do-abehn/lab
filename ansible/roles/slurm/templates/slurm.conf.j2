@@ -1,0 +1,71 @@
+# slurm.conf - SLURM configuration file
+# Managed by Ansible - do not edit manually
+
+#
+# Cluster identification
+#
+ClusterName={{ slurm_cluster_name }}
+SlurmctldHost={{ slurm_controller_host }}
+
+#
+# Authentication
+#
+AuthType=auth/munge
+CryptoType=crypto/munge
+
+#
+# Logging
+#
+SlurmctldDebug=info
+SlurmdDebug=info
+SlurmctldLogFile=/var/log/slurm/slurmctld.log
+SlurmdLogFile=/var/log/slurm/slurmd.log
+
+#
+# State preservation
+#
+StateSaveLocation=/var/spool/slurmctld
+SlurmdSpoolDir=/var/spool/slurmd
+
+#
+# Process tracking
+#
+ProctrackType=proctrack/linuxproc
+
+#
+# Scheduling
+#
+SchedulerType=sched/backfill
+SelectType=select/cons_tres
+SelectTypeParameters=CR_Core
+
+#
+# Job handling
+#
+ReturnToService=2
+SlurmctldPidFile=/run/slurmctld.pid
+SlurmdPidFile=/run/slurmd.pid
+
+#
+# Timeouts
+#
+SlurmctldTimeout=120
+SlurmdTimeout=300
+InactiveLimit=0
+MinJobAge=300
+KillWait=30
+Waittime=0
+
+#
+# Compute nodes
+#
+{% for host in slurm_compute_hosts %}
+{% set node_cpus = hostvars[host].get('slurm_cpus', slurm_default_cpus) %}
+{% set node_memory = hostvars[host].get('slurm_memory', slurm_default_memory) %}
+NodeName={{ host }} NodeAddr={{ hostvars[host]['ansible_host'] }} CPUs={{ node_cpus }} RealMemory={{ node_memory }} State=UNKNOWN
+{% endfor %}
+
+#
+# Partitions
+#
+PartitionName={{ slurm_partition_name }} Nodes={{ slurm_compute_hosts | join(',') }} Default={{ 'YES' if slurm_partition_default else 'NO' }} MaxTime=INFINITE State=UP

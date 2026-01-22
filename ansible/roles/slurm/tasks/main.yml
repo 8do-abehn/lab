@@ -1,0 +1,15 @@
+---
+# SLURM installation and configuration
+# Works on openSUSE Leap 15.x
+
+- name: Install munge and SLURM packages
+  ansible.builtin.include_tasks: packages.yml
+
+- name: Configure munge authentication
+  ansible.builtin.include_tasks: munge.yml
+
+- name: Configure SLURM
+  ansible.builtin.include_tasks: config.yml
+
+- name: Start SLURM services
+  ansible.builtin.include_tasks: services.yml

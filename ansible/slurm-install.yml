@@ -1,0 +1,34 @@
+---
+# Install and configure SLURM cluster
+# Usage: ansible-playbook slurm-install.yml --check --diff
+#        ansible-playbook slurm-install.yml
+
+- name: Install SLURM on cluster
+  hosts: slurm_cluster
+  become: true
+  roles:
+    - slurm
+
+- name: Verify SLURM cluster status
+  hosts: slurm_controller
+  become: true
+  tasks:
+    - name: Check SLURM controller status
+      ansible.builtin.command: scontrol ping
+      register: scontrol_ping
+      changed_when: false
+      failed_when: false
+
+    - name: Display controller status
+      ansible.builtin.debug:
+        msg: "{{ scontrol_ping.stdout }}"
+
+    - name: Check node status
+      ansible.builtin.command: sinfo
+      register: sinfo_output
+      changed_when: false
+      failed_when: false
+
+    - name: Display node status
+      ansible.builtin.debug:
+        msg: "{{ sinfo_output.stdout_lines }}"
