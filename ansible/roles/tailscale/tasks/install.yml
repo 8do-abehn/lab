@@ -24,7 +24,7 @@
     mode: "0644"
   register: tailscale_repo_added
 
-- name: Force apt cache update after adding Tailscale repo
+- name: Force apt cache update after adding Tailscale repo  # noqa: no-handler
   ansible.builtin.apt:
     update_cache: true
   when: tailscale_repo_added.changed

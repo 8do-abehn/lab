@@ -39,7 +39,7 @@
   changed_when: auth_status.rc == 0
   no_log: true
 
-- name: Re-check Tailscale authentication status after initial auth
+- name: Re-check Tailscale authentication status after initial auth  # noqa: no-handler
   ansible.builtin.command: tailscale status
   register: tailscale_status
   failed_when: false
