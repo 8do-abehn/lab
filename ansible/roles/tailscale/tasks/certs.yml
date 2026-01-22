@@ -2,7 +2,9 @@
 - name: Fail if Tailscale is not authenticated
   ansible.builtin.fail:
     msg: "Tailscale is not authenticated on {{ inventory_hostname }}. Run 'tailscale up' first."
-  when: tailscale_status.rc != 0
+  when:
+    - tailscale_status.rc is defined
+    - tailscale_status.rc != 0
 
 - name: Get Tailscale hostname
   ansible.builtin.shell: set -o pipefail; tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//'

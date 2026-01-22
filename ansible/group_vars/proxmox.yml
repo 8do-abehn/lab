@@ -3,6 +3,7 @@
 ansible_user: root
 
 # Tailscale configuration for all Proxmox hosts
+tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
 tailscale_setup_proxmox_certs: true
 tailscale_tags: "tag:proxmox"
 
