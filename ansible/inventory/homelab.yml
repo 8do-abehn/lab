@@ -19,8 +19,8 @@ all:
             pve006:
             pve007:
             pve008:
-            # pve009:  # RTX 3080 Ti, 64GB RAM - pending cluster addition
-            #   ansible_host: 10.150.10.49
+            pve009:
+#               ansible_host: 10.150.10.49
 
     # Media Servers
     media_servers:

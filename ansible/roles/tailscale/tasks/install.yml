@@ -22,8 +22,15 @@
     owner: root
     group: root
     mode: "0644"
+  register: tailscale_repo_added
 
-- name: Update apt cache after adding Tailscale repo
+- name: Force apt cache update after adding Tailscale repo
+  ansible.builtin.apt:
+    update_cache: true
+  when: tailscale_repo_added.changed
+  changed_when: false
+
+- name: Ensure apt cache is updated (routine)
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
