@@ -1,0 +1,59 @@
+---
+# Configure munge authentication for SLURM
+# Key is generated on controller and distributed to compute nodes
+
+- name: Ensure munge directory permissions
+  ansible.builtin.file:
+    path: /etc/munge
+    state: directory
+    owner: munge
+    group: munge
+    mode: "0700"
+
+- name: Check if munge key exists on controller
+  ansible.builtin.stat:
+    path: "{{ slurm_munge_key_path }}"
+  register: munge_key_stat
+  when: inventory_hostname in groups['slurm_controller']
+
+- name: Generate munge key on controller
+  ansible.builtin.command: mungekey --create --force
+  when:
+    - inventory_hostname in groups['slurm_controller']
+    - not munge_key_stat.stat.exists | default(false)
+  changed_when: true
+  notify: Restart munge
+
+- name: Read munge key from controller
+  ansible.builtin.slurp:
+    src: "{{ slurm_munge_key_path }}"
+  register: munge_key_content
+  delegate_to: "{{ slurm_controller_host }}"
+  run_once: true
+  when: not ansible_check_mode
+
+- name: Distribute munge key to all nodes
+  ansible.builtin.copy:
+    content: "{{ munge_key_content.content | b64decode }}"
+    dest: "{{ slurm_munge_key_path }}"
+    owner: munge
+    group: munge
+    mode: "0400"
+  notify: Restart munge
+  when: not ansible_check_mode
+
+- name: Ensure munge log directory exists
+  ansible.builtin.file:
+    path: /var/log/munge
+    state: directory
+    owner: munge
+    group: munge
+    mode: "0700"
+
+- name: Ensure munge run directory exists
+  ansible.builtin.file:
+    path: /run/munge
+    state: directory
+    owner: munge
+    group: munge
+    mode: "0755"

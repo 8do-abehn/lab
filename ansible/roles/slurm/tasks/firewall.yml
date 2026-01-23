@@ -1,0 +1,29 @@
+---
+# Open SLURM ports in firewall (nftables on openSUSE)
+
+- name: Check if nftables is active
+  ansible.builtin.command: nft list ruleset
+  register: nft_check
+  changed_when: false
+  failed_when: false
+
+- name: Open slurmctld port (6817)
+  ansible.builtin.command: nft add rule inet firewalld filter_IN_public_allow tcp dport 6817 accept
+  when: nft_check.rc == 0
+  register: port_6817
+  changed_when: port_6817.rc == 0
+  failed_when: false
+
+- name: Open slurmd port (6818)
+  ansible.builtin.command: nft add rule inet firewalld filter_IN_public_allow tcp dport 6818 accept
+  when: nft_check.rc == 0
+  register: port_6818
+  changed_when: port_6818.rc == 0
+  failed_when: false
+
+- name: Open srun port range (6819)
+  ansible.builtin.command: nft add rule inet firewalld filter_IN_public_allow tcp dport 6819 accept
+  when: nft_check.rc == 0
+  register: port_6819
+  changed_when: port_6819.rc == 0
+  failed_when: false

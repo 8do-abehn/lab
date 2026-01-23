@@ -1,0 +1,25 @@
+---
+# Install SLURM and dependencies on openSUSE Leap
+
+- name: Install munge package
+  community.general.zypper:
+    name: munge
+    state: present
+
+- name: Install SLURM controller packages (controller only)
+  community.general.zypper:
+    name:
+      - slurm
+      - slurm-munge
+      - slurm-plugins
+    state: present
+  when: inventory_hostname in groups['slurm_controller']
+
+- name: Install SLURM compute packages (compute nodes only)
+  community.general.zypper:
+    name:
+      - slurm-node
+      - slurm-munge
+      - slurm-plugins
+    state: present
+  when: inventory_hostname in groups['slurm_compute']
