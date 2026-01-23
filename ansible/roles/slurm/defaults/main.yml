@@ -17,7 +17,7 @@ slurm_partition_default: true
 
 # Resource defaults (can be overridden per-host in inventory)
 slurm_default_cpus: 4
-slurm_default_memory: 4096  # MB
+slurm_default_memory: 3900  # MB (actual usable, accounting for OS overhead)
 
 # Munge settings
 slurm_munge_key_path: /etc/munge/munge.key
