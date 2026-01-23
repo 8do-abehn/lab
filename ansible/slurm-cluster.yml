@@ -1,0 +1,70 @@
+---
+# Create SLURM cluster VMs on Proxmox
+# Usage: ansible-playbook slurm-cluster.yml --check --diff
+#        ansible-playbook slurm-cluster.yml
+
+- name: Create SLURM cluster VMs
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vault.yml
+  vars:
+    proxmox_node: pve008  # 24 cores AMD, virtualization enabled
+    proxmox_storage: local-lvm
+    proxmox_iso: "cephfs:iso/openSUSE-Leap-15.6-DVD-x86_64-Media.iso"
+    proxmox_bridge: vmbr0
+
+    slurm_vms:
+      - vmid: 200
+        name: slurm-controller
+        cores: 2
+        memory: 4096
+        disk: 32
+      - vmid: 201
+        name: slurm-compute-01
+        cores: 4
+        memory: 4096
+        disk: 32
+      - vmid: 202
+        name: slurm-compute-02
+        cores: 4
+        memory: 4096
+        disk: 32
+
+  tasks:
+    - name: Create SLURM VMs
+      community.general.proxmox_kvm:
+        api_host: "{{ vault_proxmox_api_host }}"
+        api_user: "{{ vault_proxmox_api_user }}"
+        api_token_id: "{{ vault_proxmox_api_token_id }}"
+        api_token_secret: "{{ vault_proxmox_api_token_secret }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        name: "{{ item.name }}"
+        state: present
+        # Hardware
+        cores: "{{ item.cores }}"
+        memory: "{{ item.memory }}"
+        scsihw: virtio-scsi-pci
+        scsi:
+          scsi0: "{{ proxmox_storage }}:{{ item.disk }}"
+        ide:
+          ide2: "{{ proxmox_iso }},media=cdrom"
+        net:
+          net0: "virtio,bridge={{ proxmox_bridge }}"
+        # Boot order: disk first, then cdrom
+        boot: order=scsi0;ide2
+        ostype: l26
+        agent: true
+      loop: "{{ slurm_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Display next steps
+      ansible.builtin.debug:
+        msg:
+          - "VMs created successfully!"
+          - "Next steps:"
+          - "  1. Start VMs: qm start 200 && qm start 201 && qm start 202"
+          - "  2. Open console and install openSUSE Leap"
+          - "  3. After install, add VMs to inventory and run SLURM setup"

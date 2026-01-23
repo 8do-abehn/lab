@@ -1,0 +1,63 @@
+---
+# Configure SLURM with slurm.conf
+
+- name: Ensure SLURM config directory exists
+  ansible.builtin.file:
+    path: /etc/slurm
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy slurm.conf
+  ansible.builtin.template:
+    src: slurm.conf.j2
+    dest: /etc/slurm/slurm.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Restart slurmctld
+    - Restart slurmd
+
+- name: Ensure SLURM spool directory exists
+  ansible.builtin.file:
+    path: /var/spool/slurm
+    state: directory
+    owner: "{{ slurm_user }}"
+    group: "{{ slurm_group }}"
+    mode: "0755"
+
+- name: Ensure SLURM state directory exists (controller only)
+  ansible.builtin.file:
+    path: /var/spool/slurmctld
+    state: directory
+    owner: "{{ slurm_user }}"
+    group: "{{ slurm_group }}"
+    mode: "0755"
+  when: inventory_hostname in groups['slurm_controller']
+
+- name: Ensure SLURM slurmd spool directory exists (compute only)
+  ansible.builtin.file:
+    path: /var/spool/slurmd
+    state: directory
+    owner: "{{ slurm_user }}"
+    group: "{{ slurm_group }}"
+    mode: "0755"
+  when: inventory_hostname in groups['slurm_compute']
+
+- name: Ensure SLURM log directory exists
+  ansible.builtin.file:
+    path: /var/log/slurm
+    state: directory
+    owner: "{{ slurm_user }}"
+    group: "{{ slurm_group }}"
+    mode: "0755"
+
+- name: Configure /etc/hosts for cluster nodes
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item]['ansible_host'] }} {{ item }}"
+    state: present
+  loop: "{{ groups['slurm_cluster'] }}"
+  when: hostvars[item]['ansible_host'] is defined

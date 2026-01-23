@@ -1,0 +1,22 @@
+---
+# Start and enable SLURM services
+
+- name: Enable and start munge service
+  ansible.builtin.systemd:
+    name: munge
+    state: started
+    enabled: true
+
+- name: Enable and start slurmctld (controller only)
+  ansible.builtin.systemd:
+    name: slurmctld
+    state: started
+    enabled: true
+  when: inventory_hostname in groups['slurm_controller']
+
+- name: Enable and start slurmd (compute nodes only)
+  ansible.builtin.systemd:
+    name: slurmd
+    state: started
+    enabled: true
+  when: inventory_hostname in groups['slurm_compute']
