@@ -2,6 +2,7 @@
 
 ## Currently Reading
 
+- **Punishment-Free Parenting: The Brain-Based Way to Raise Kids Without Raising Your Voice** by Jon Fogel
 - **Dare to Lead** by Brené Brown
 
 ## Finished
@@ -33,9 +34,11 @@
 
 ## Want to Read
 
+- **The Money Player: The Confessions of America's Greatest Table Tennis Champion and Hustler** by Marty Reisman
 - **How to Talk So Kids Will Listen & Listen So Kids Will Talk** by Adele Faber and Elaine Mazlish
 - **Your Head Is a Houseboat** by Campbell Walker
 - **The Church of Baseball** by Ron Shelton
+- **The Automatic Millionaire** by David Bach
 
 ## From Jeff
 
