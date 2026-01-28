@@ -1,0 +1,61 @@
+#!/bin/bash
+set -euo pipefail
+
+# Restic backup script - managed by Ansible
+# Backs up to Pi backup server over Tailscale
+
+LOGFILE="{{ backup_log_path }}"
+RESTIC_REPOSITORY="sftp:{{ backup_server_user }}@{{ backup_server_host }}:{{ backup_server_repo_path }}"
+RESTIC_PASSWORD="{{ restic_password }}"
+
+export RESTIC_REPOSITORY
+export RESTIC_PASSWORD
+
+# Function to log messages with timestamp
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+}
+
+# Trap Ctrl+C or TERM and log
+trap 'log_message "Backup interrupted"; exit 130' INT TERM
+
+log_message "Starting restic backup"
+
+# Check if backup server is reachable
+if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
+    log_message "ERROR: Backup server {{ backup_server_host }} is not reachable"
+    exit 1
+fi
+
+# Run backup
+log_message "Backing up: {{ backup_paths | join(', ') }}"
+if restic backup \
+{% for path in backup_paths %}
+    "{{ path }}" \
+{% endfor %}
+{% for exclude in backup_excludes %}
+    --exclude "{{ exclude }}" \
+{% endfor %}
+    --verbose >> "$LOGFILE" 2>&1; then
+    log_message "Backup completed successfully"
+else
+    EXIT_CODE=$?
+    log_message "Backup failed with exit code $EXIT_CODE"
+    exit $EXIT_CODE
+fi
+
+# Run retention policy
+log_message "Applying retention policy"
+if restic forget \
+    --keep-daily {{ backup_keep_daily }} \
+    --keep-weekly {{ backup_keep_weekly }} \
+    --keep-monthly {{ backup_keep_monthly }} \
+    --prune >> "$LOGFILE" 2>&1; then
+    log_message "Retention policy applied successfully"
+else
+    EXIT_CODE=$?
+    log_message "Retention policy failed with exit code $EXIT_CODE"
+    exit $EXIT_CODE
+fi
+
+log_message "Backup process finished"

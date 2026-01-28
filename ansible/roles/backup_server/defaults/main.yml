@@ -1,0 +1,18 @@
+---
+# Backup server defaults
+
+# Disk configuration (typically overridden per-host in inventory)
+backup_disk_device: /dev/sda1
+backup_mount_point: /mnt/backup
+backup_filesystem_type: ext4
+
+# Restic repository
+restic_repo_path: "{{ backup_mount_point }}/restic-repo"
+restic_password: "{{ vault_restic_password }}"
+
+# Backup user for restricted SSH access
+backup_user: backup
+backup_user_home: /home/backup
+
+# SSH authorized keys for backup clients
+backup_authorized_keys: []

@@ -1,0 +1,33 @@
+---
+# Backup client defaults
+
+# Backup target - Pi backup server via Tailscale
+backup_server_host: pibackup
+backup_server_user: backup
+backup_server_repo_path: /mnt/backup/restic-repo
+
+# Restic password (same as server)
+restic_password: "{{ vault_restic_password }}"
+
+# Paths to backup
+backup_paths:
+  - /mnt/library
+
+# Paths to exclude
+backup_excludes:
+  - "*.tmp"
+  - "lost+found"
+  - "tmp/"
+
+# Schedule (cron format)
+backup_cron_hour: "2"
+backup_cron_minute: "0"
+
+# Retention policy
+backup_keep_daily: 7
+backup_keep_weekly: 4
+backup_keep_monthly: 6
+
+# Script and log locations
+backup_script_path: /usr/local/bin/backup-library.sh
+backup_log_path: /var/log/restic-backup.log
