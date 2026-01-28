@@ -1,0 +1,4 @@
+# Managed by Ansible - backup client authorized keys
+{% for key in backup_authorized_keys %}
+{{ key }}
+{% endfor %}

@@ -42,6 +42,16 @@ all:
             slurm-compute-02:
               ansible_host: 10.150.10.138
 
+    # Backup Servers
+    backup_servers:
+      hosts:
+        pibackup:
+          # Set ansible_host after finding Pi IP via nmap or DHCP leases
+          # ansible_host: 10.x.x.x
+          ansible_user: pi
+          backup_disk_device: /dev/sda1
+          backup_mount_point: /mnt/backup
+
     # Kubernetes Cluster (Currently decommissioned)
     # k3s_cluster:
     #   children:
