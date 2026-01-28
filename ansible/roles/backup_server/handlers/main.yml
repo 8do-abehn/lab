@@ -1,0 +1,3 @@
+---
+# Handlers for backup_server role
+# Currently no handlers needed - disk mount is handled by mount module
