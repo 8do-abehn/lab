@@ -22,6 +22,9 @@ ansible-playbook -i inventory/homelab.yml verify_nut.yml
 
 # Install tools on k3s cluster
 ansible-playbook -i inventory/homelab.yml k3s_setup_tools.yml
+
+# Setup Pi backup server and Jellyfin backup client
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass backup-setup.yml
 ```
 
 ## Structure
@@ -37,7 +40,9 @@ ansible/
 ├── roles/
 │   ├── proxmox/          # Base Proxmox configuration
 │   ├── tailscale/        # Tailscale VPN and certificates
-│   └── nut/              # Network UPS Tools (auto-detect server/client)
+│   ├── nut/              # Network UPS Tools (auto-detect server/client)
+│   ├── backup_server/    # Pi backup server (disk mount, restic repo)
+│   └── backup_client/    # Backup client (restic backup script, cron)
 ├── group_vars/           # Group-specific variables
 └── host_vars/            # Host-specific variables
 ```
@@ -143,6 +148,20 @@ include cloud support, so `latest` ensures they replace any pre-existing distro 
 
 **Note:** Run via `netdata_install.yml` playbook, not included in `site.yml`
 
+### backup_server
+Raspberry Pi backup server setup including:
+- External USB disk mounting with fstab
+- Restic repository initialization
+- Backup user with SSH access
+
+### backup_client
+Backup client configuration including:
+- Restic installation
+- Backup script deployment (daily 2am cron)
+- Log rotation
+
+**Note:** Run via `backup-setup.yml` playbook, not included in `site.yml`
+
 ## Inventory Groups
 
 ### Proxmox Groups
@@ -154,6 +173,10 @@ include cloud support, so `latest` ensures they replace any pre-existing distro 
 - `k3s_master`: Control plane node (k3s-master-01)
 - `k3s_workers`: Worker nodes (k3s-worker-01 through k3s-worker-06)
 - `k3s_cluster`: Parent group containing all k3s nodes
+
+### Backup Groups
+- `backup_servers`: Backup storage servers (pibackup)
+- `media_servers`: Media servers with backup clients (jellyfin)
 
 ## Tips
 

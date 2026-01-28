@@ -46,10 +46,9 @@ all:
     backup_servers:
       hosts:
         pibackup:
-          # Set ansible_host after finding Pi IP via nmap or DHCP leases
-          # ansible_host: 10.x.x.x
-          ansible_user: pi
-          backup_disk_device: /dev/sda1
+          ansible_host: 10.150.10.140
+          ansible_user: adambehn
+          backup_disk_device: /dev/sda2
           backup_mount_point: /mnt/backup
 
     # Kubernetes Cluster (Currently decommissioned)
