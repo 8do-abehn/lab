@@ -52,6 +52,10 @@ The `homelab.yml` inventory includes:
 - **k3s_workers:** `k3s-worker-01` through `k3s-worker-06` - Worker nodes
 - **k3s_cluster:** Parent group containing all k3s nodes
 
+### Backup Infrastructure
+- **backup_servers:** `pibackup` - Raspberry Pi with 2TB USB backup storage
+- **media_servers:** `jellyfin` - Media server backing up to pibackup
+
 ## Host Variables
 
 Host-specific variables are loaded from:
