@@ -1,0 +1,38 @@
+---
+# Install restic and initialize repository
+
+- name: Install restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create restic repository directory
+  ansible.builtin.file:
+    path: "{{ restic_repo_path }}"
+    state: directory
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: "0700"
+
+- name: Check if restic repo is already initialized
+  ansible.builtin.stat:
+    path: "{{ restic_repo_path }}/config"
+  register: restic_repo_config
+
+- name: Initialize restic repository
+  ansible.builtin.command: restic init --repo {{ restic_repo_path }}
+  environment:
+    RESTIC_PASSWORD: "{{ restic_password }}"
+  when: not restic_repo_config.stat.exists
+  become: true
+  become_user: "{{ backup_user }}"
+  changed_when: true
+
+- name: Set correct ownership on restic repo
+  ansible.builtin.file:
+    path: "{{ restic_repo_path }}"
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    recurse: true

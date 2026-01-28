@@ -1,0 +1,34 @@
+---
+# Install restic, deploy backup script, configure cron
+
+- name: Install restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Deploy backup script
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: "{{ backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Setup backup cron job
+  ansible.builtin.cron:
+    name: "Restic backup to Pi"
+    minute: "{{ backup_cron_minute }}"
+    hour: "{{ backup_cron_hour }}"
+    job: "{{ backup_script_path }}"
+    user: root
+    state: present
+
+- name: Deploy logrotate config
+  ansible.builtin.copy:
+    src: logrotate
+    dest: /etc/logrotate.d/restic-backup
+    owner: root
+    group: root
+    mode: "0644"

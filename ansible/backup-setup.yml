@@ -1,0 +1,20 @@
+---
+# Backup infrastructure setup
+# Configures Pi as backup server and Jellyfin as backup client
+
+- name: Configure backup server (Pi)
+  hosts: backup_servers
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - tailscale
+    - backup_server
+
+- name: Configure backup client (Jellyfin)
+  hosts: jellyfin
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - backup_client

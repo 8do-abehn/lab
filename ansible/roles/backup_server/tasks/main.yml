@@ -1,0 +1,11 @@
+---
+# Backup server role - configures disk, restic repo, and SSH access
+
+- name: Include disk mount tasks
+  ansible.builtin.include_tasks: disk.yml
+
+- name: Include restic setup tasks
+  ansible.builtin.include_tasks: restic.yml
+
+- name: Include SSH access tasks
+  ansible.builtin.include_tasks: ssh.yml
