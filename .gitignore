@@ -64,3 +64,6 @@ stts/
 
 # Build artifacts
 *.tar.gz
+
+# KubeCraft course emails (contain PII)
+mvb_k8s/emails/
