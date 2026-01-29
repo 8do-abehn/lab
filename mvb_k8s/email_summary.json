@@ -1,0 +1,388 @@
+{
+  "course_info": {
+    "name": "7-Day Kubernetes Quickstart Course",
+    "provider": "KubeCraft",
+    "instructor": "Mischa van den Burg",
+    "email": "news@kubecraft.dev"
+  },
+  "lesson_emails": [
+    {
+      "day": 1,
+      "subject": "Your Kubernetes journey starts now",
+      "date_received": "2025-12-08",
+      "file_name": "Your Kubernetes journey starts now.eml",
+      "topics_covered": [
+        "What Kubernetes is and the problem it solves",
+        "Container orchestration basics",
+        "Why containers are used",
+        "Kubernetes cluster architecture",
+        "Control Plane vs Worker Nodes",
+        "Core concepts introduction"
+      ],
+      "key_concepts": [
+        "Kubernetes as a container orchestrator",
+        "Declarative configuration",
+        "Pods as the smallest deployable unit",
+        "Clusters as sets of machines working together"
+      ],
+      "kubectl_commands": [],
+      "what_you_learned_today": null
+    },
+    {
+      "day": 2,
+      "subject": "Day 2: Deployments - The Magic of Self-Healing Applications",
+      "date_received": "2025-12-09",
+      "file_name": "Day 2_ Deployments - The Magic of Self-Healing Applications.eml",
+      "topics_covered": [
+        "The problem with standalone Pods",
+        "What Deployments are",
+        "Declarative configuration",
+        "The Controller Pattern",
+        "Self-healing demonstration",
+        "Scaling Deployments",
+        "ReplicaSets",
+        "Rolling updates and rollbacks",
+        "Labels and Selectors"
+      ],
+      "key_concepts": [
+        "Pods are ephemeral and can die at any time",
+        "Deployments manage pods and ensure desired replica count",
+        "Self-healing: Kubernetes automatically replaces failed pods",
+        "ReplicaSets sit between Deployments and Pods",
+        "Labels and selectors organize and find objects"
+      ],
+      "kubectl_commands": [
+        "kubectl create deployment my-app --image=nginx --replicas=3",
+        "kubectl get pods",
+        "kubectl get deployment my-app",
+        "kubectl get pods --watch",
+        "kubectl delete pod <pod-name>",
+        "kubectl scale deployment my-app --replicas=5",
+        "kubectl scale deployment my-app --replicas=2",
+        "kubectl get replicaset",
+        "kubectl set image deployment/my-app nginx=nginx:1.25",
+        "kubectl rollout status deployment/my-app",
+        "kubectl rollout history deployment/my-app",
+        "kubectl rollout undo deployment/my-app",
+        "kubectl get pods --show-labels",
+        "kubectl delete deployment my-app"
+      ],
+      "what_you_learned_today": [
+        "Pods are ephemeral and can die at any time. They won't come back on their own",
+        "Deployments manage pods and ensure your desired replica count is maintained",
+        "Self-healing means Kubernetes automatically replaces failed pods",
+        "Scaling lets you change replica count with a single command",
+        "ReplicaSets are the object between Deployments and Pods",
+        "Rolling updates deploy new versions without downtime",
+        "Labels and selectors are how Kubernetes organizes and finds objects"
+      ]
+    },
+    {
+      "day": 3,
+      "subject": "Day 3: Kubernetes Networking",
+      "date_received": "2025-12-10",
+      "file_name": "Day 3_ Kubernetes Networking.eml",
+      "topics_covered": [
+        "Pod IP addresses are ephemeral",
+        "What Services are",
+        "Service Types: ClusterIP, NodePort, LoadBalancer",
+        "Creating a Service",
+        "How Services find Pods using label selectors",
+        "Accessing Services via port-forward",
+        "DNS inside the cluster",
+        "Service Discovery in Practice",
+        "NodePort for external access"
+      ],
+      "key_concepts": [
+        "Pod IPs change on every restart",
+        "Services provide stable endpoints - one address that routes to multiple pods",
+        "Label selectors connect Services to pods based on key-value labels",
+        "ClusterIP is internal only, default type, needs port-forward for external access",
+        "NodePort opens a port on the node for quick external access",
+        "DNS works inside the cluster - pods reach services by name",
+        "Port-forward creates a tunnel from your laptop to the cluster"
+      ],
+      "kubectl_commands": [
+        "kubectl get pods -o wide",
+        "kubectl get deployment my-app",
+        "kubectl expose deployment my-app --port=80 --target-port=80",
+        "kubectl get services",
+        "kubectl describe service my-app",
+        "kubectl port-forward service/my-app 8080:80",
+        "kubectl delete pod <pod-name>",
+        "kubectl run test-pod --image=busybox --rm -it --restart=Never -- wget -qO- http://my-app",
+        "kubectl delete service my-app",
+        "kubectl expose deployment my-app --port=80 --type=NodePort",
+        "kubectl get service my-app"
+      ],
+      "what_you_learned_today": [
+        "Pod IPs are ephemeral. They change on every restart.",
+        "Services provide stable endpoints. One address that routes to multiple pods.",
+        "Label selectors connect Services to pods based on key-value labels.",
+        "ClusterIP is internal only. Default type, needs port-forward for external access.",
+        "NodePort opens a port on the node for quick external access.",
+        "DNS works inside the cluster. Pods reach services by name.",
+        "Port-forward creates a tunnel from your laptop to the cluster."
+      ]
+    },
+    {
+      "day": 4,
+      "subject": "Day 4: The real way to do Kubernetes",
+      "date_received": "2025-12-11",
+      "file_name": "Day 4_ The real way to do Kubernetes.eml",
+      "topics_covered": [
+        "Problems with imperative commands",
+        "Infrastructure as Code",
+        "YAML manifests introduction",
+        "Anatomy of Kubernetes YAML: apiVersion, kind, metadata, spec",
+        "Creating Deployment YAML files",
+        "kubectl apply and idempotency",
+        "Multiple resources in one file with --- separator",
+        "Generating YAML from commands with --dry-run",
+        "Viewing existing resources as YAML",
+        "Deleting with YAML"
+      ],
+      "key_concepts": [
+        "YAML manifests define resources declaratively",
+        "apiVersion, kind, metadata, spec form the structure of every Kubernetes resource",
+        "kubectl apply creates or updates resources to match the file",
+        "Multiple resources can live in one file separated by ---",
+        "--dry-run=client -o yaml generates YAML from commands",
+        "Infrastructure as Code means your cluster state is version controlled"
+      ],
+      "kubectl_commands": [
+        "kubectl create deployment my-app --image=nginx --replicas=3",
+        "kubectl expose deployment my-app --port=80",
+        "kubectl delete deployment my-app",
+        "kubectl delete service my-app",
+        "kubectl apply -f deployment.yaml",
+        "kubectl get pods",
+        "kubectl delete -f deployment.yaml",
+        "kubectl apply -f app.yaml",
+        "kubectl get deployment,service",
+        "kubectl create deployment test --image=nginx --replicas=2 --dry-run=client -o yaml",
+        "kubectl create deployment test --image=nginx --replicas=2 --dry-run=client -o yaml > test.yaml",
+        "kubectl create service clusterip test --tcp=80:80 --dry-run=client -o yaml",
+        "kubectl get deployment my-app -o yaml",
+        "kubectl delete -f app.yaml"
+      ],
+      "what_you_learned_today": [
+        "YAML manifests define resources declaratively.",
+        "apiVersion, kind, metadata, spec form the structure of every Kubernetes resource.",
+        "kubectl apply creates or updates resources to match the file.",
+        "Multiple resources can live in one file separated by ---.",
+        "--dry-run=client -o yaml generates YAML from commands.",
+        "Infrastructure as Code means your cluster state is version controlled."
+      ]
+    },
+    {
+      "day": 5,
+      "subject": "Day 5: Deploy something you'll actually use",
+      "date_received": "2025-12-12",
+      "file_name": "Day 5_ Deploy something you'll actually use.eml",
+      "topics_covered": [
+        "Namespaces for organizing resources",
+        "Creating and using namespaces",
+        "Setting default namespace",
+        "Deploying Linkding bookmark manager",
+        "Container images from Docker Hub",
+        "Environment variables in deployments",
+        "Creating complete Deployment + Service YAML",
+        "Viewing logs",
+        "Inspecting pods",
+        "Understanding why containers are ephemeral"
+      ],
+      "key_concepts": [
+        "Namespaces organize resources in your cluster",
+        "kubectl config set-context changes your default namespace",
+        "Environment variables configure containers",
+        "Multiple resources can live in one YAML file with --- separator",
+        "Containers are ephemeral - data doesn't persist by default"
+      ],
+      "kubectl_commands": [
+        "kubectl get namespaces",
+        "kubectl create namespace linkding",
+        "kubectl get namespace linkding",
+        "kubectl config set-context --current --namespace=linkding",
+        "kubectl get pods",
+        "kubectl config set-context --current --namespace=default",
+        "kubectl apply -f linkding.yaml",
+        "kubectl get pods -w",
+        "kubectl port-forward service/linkding 8080:9090",
+        "kubectl logs deployment/linkding",
+        "kubectl logs deployment/linkding -f",
+        "kubectl describe pod -l app=linkding",
+        "kubectl rollout restart deployment/linkding"
+      ],
+      "what_you_learned_today": [
+        "Namespaces organize resources in your cluster.",
+        "kubectl config set-context changes your default namespace.",
+        "Environment variables configure containers.",
+        "Multiple resources can live in one YAML file with --- separator.",
+        "kubectl logs shows container output.",
+        "kubectl describe shows detailed resource information.",
+        "Containers are ephemeral. Data doesn't persist by default."
+      ]
+    },
+    {
+      "day": 6,
+      "subject": "Day 6: Making your data survive in Kubernetes",
+      "date_received": "2025-12-13",
+      "file_name": "Day 6_ Making your data survive in Kubernetes.eml",
+      "topics_covered": [
+        "Why containers lose data",
+        "Volumes in Kubernetes",
+        "Volume types: emptyDir, hostPath, PersistentVolumeClaim, configMap, secret",
+        "Storage Architecture: PV, PVC, StorageClass",
+        "StorageClass and dynamic provisioning",
+        "Creating PersistentVolumeClaims",
+        "Access modes: ReadWriteOnce, ReadOnlyMany, ReadWriteMany",
+        "volumeMounts and volumes in pod spec",
+        "Testing persistence",
+        "Inspecting storage"
+      ],
+      "key_concepts": [
+        "Containers are ephemeral - data doesn't persist by default",
+        "PersistentVolume (PV) is actual storage provisioned in the cluster",
+        "PersistentVolumeClaim (PVC) is a request for storage",
+        "StorageClass defines how storage is provisioned",
+        "volumeMounts defines where to mount storage inside the container",
+        "volumes connects pods to PVCs",
+        "Data survives restarts because it lives outside the container"
+      ],
+      "kubectl_commands": [
+        "kubectl config set-context --current --namespace=linkding",
+        "kubectl get storageclass",
+        "kubectl delete -f linkding.yaml",
+        "kubectl apply -f linkding-with-storage.yaml",
+        "kubectl get pvc",
+        "kubectl get pods",
+        "kubectl port-forward service/linkding 8080:9090",
+        "kubectl rollout restart deployment/linkding",
+        "kubectl get pods -w",
+        "kubectl get pv",
+        "kubectl describe pvc linkding-data",
+        "kubectl exec -it deployment/linkding -- /bin/sh"
+      ],
+      "what_you_learned_today": [
+        "Containers are ephemeral. Data doesn't persist by default.",
+        "PersistentVolume (PV) is actual storage provisioned in the cluster.",
+        "PersistentVolumeClaim (PVC) is a request for storage.",
+        "StorageClass defines how storage is provisioned.",
+        "volumeMounts defines where to mount storage inside the container.",
+        "volumes connects pods to PVCs.",
+        "Data survives restarts because it lives outside the container."
+      ]
+    }
+  ],
+  "intro_welcome_emails": [
+    {
+      "subject": "Your Kubernetes Quickstart Course",
+      "date_received": "2025-12-08",
+      "file_name": "Your Kubernetes Quickstart Course.eml",
+      "type": "signup_confirmation",
+      "description": "Initial signup confirmation email asking user to confirm subscription to receive the free Kubernetes course."
+    },
+    {
+      "subject": "Re: IMPORTANT! Do this to receive the rest of your course.",
+      "date_received": "2025-12-08",
+      "file_name": "IMPORTANT! Do this to receive the rest of your course..eml",
+      "type": "engagement_request",
+      "description": "Email requesting user to reply with 'READY' to ensure future emails don't go to spam. This is the user's reply to that email."
+    },
+    {
+      "subject": "How are you feeling?",
+      "date_received": "2025-12-13",
+      "file_name": "How are you feeling_.eml",
+      "type": "progress_check",
+      "description": "Day 6 recap email summarizing what was learned over the 6 days and checking on the student's progress."
+    }
+  ],
+  "promotional_emails": [
+    {
+      "subject": "Running these apps in my homelab made me $600K",
+      "date_received": "2025-12-01",
+      "file_name": "Running these apps in my homelab made me $600K.eml",
+      "type": "promotional",
+      "description": "Newsletter email discussing home lab setup and promoting KubeCraft mentorship program."
+    },
+    {
+      "subject": "You asked, I built it",
+      "date_received": "2025-12-08",
+      "file_name": "You asked, I built it.eml",
+      "type": "promotional",
+      "description": "Promotional email about KubeCraft program features."
+    },
+    {
+      "subject": "He landed a Kubernetes job in 2 weeks",
+      "date_received": "2025-12-10",
+      "file_name": "He landed a Kubernetes job in 2 weeks.eml",
+      "type": "promotional",
+      "description": "Success story about a KubeCraft student named Lennard who got a Kubernetes job quickly after joining the program."
+    },
+    {
+      "subject": "Did you see it happen?",
+      "date_received": "2025-12-11",
+      "file_name": "Did you see it happen_.eml",
+      "type": "promotional",
+      "description": "Promotional email related to the course."
+    },
+    {
+      "subject": "Checking on your learning progress",
+      "date_received": "2025-12-12",
+      "file_name": "Checking on your learning progress.eml",
+      "type": "check_in",
+      "description": "Mid-course check-in email about learning progress."
+    },
+    {
+      "subject": "How To Land A Kubernetes Job That Pays $171K",
+      "date_received": "2025-12-14",
+      "file_name": "How To Land A Kubernetes Job That Pays $171K.eml",
+      "type": "promotional",
+      "description": "Post-course email summarizing what was learned and promoting advanced KubeCraft training for job seekers."
+    },
+    {
+      "subject": "Decision Time: Do You Want a 6-figure DevOps job?",
+      "date_received": "2025-12-15",
+      "file_name": "Decision Time_ Do You Want a 6-figure DevOps job_.eml",
+      "type": "promotional",
+      "description": "Final course email encouraging students to continue learning with KubeCraft to land DevOps jobs."
+    }
+  ],
+  "duplicate_emails": [
+    {
+      "subject": "Your Kubernetes journey starts now (1)",
+      "file_name": "Your Kubernetes journey starts now (1).eml",
+      "note": "Duplicate of the Day 1 email"
+    }
+  ],
+  "course_summary": {
+    "total_lesson_emails": 6,
+    "total_promotional_emails": 7,
+    "total_intro_emails": 3,
+    "date_range": {
+      "start": "2025-12-01",
+      "end": "2025-12-15"
+    },
+    "main_application_deployed": "Linkding (self-hosted bookmark manager)",
+    "key_kubernetes_concepts_covered": [
+      "Kubernetes architecture (Control Plane, Worker Nodes)",
+      "Pods",
+      "Deployments and ReplicaSets",
+      "Services (ClusterIP, NodePort, LoadBalancer)",
+      "Namespaces",
+      "YAML manifests and declarative configuration",
+      "Persistent Volumes and PersistentVolumeClaims",
+      "Labels and Selectors",
+      "Port-forwarding",
+      "DNS within clusters",
+      "Container ephemerality",
+      "Rolling updates and rollbacks"
+    ],
+    "tools_used": [
+      "kubectl",
+      "Rancher Desktop (local Kubernetes cluster)",
+      "Docker Hub (container images)"
+    ]
+  }
+}

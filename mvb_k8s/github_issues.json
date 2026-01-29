@@ -1,0 +1,146 @@
+[
+  {
+    "title": "[Day 1] Read and understand: Your Kubernetes journey starts now",
+    "body": "## Day 1 Task\n\nRead through the Day 1 email and understand the key concepts before practicing.\n\n### Key Concepts\n- Kubernetes as a container orchestrator\n- Declarative configuration\n- Pods as the smallest deployable unit\n- Clusters as sets of machines working together\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-1"
+    ]
+  },
+  {
+    "title": "[Day 2] Read and understand: Day 2: Deployments - The Magic of Self-Healing Applications",
+    "body": "## Day 2 Task\n\nRead through the Day 2 email and understand the key concepts before practicing.\n\n### Key Concepts\n- Pods are ephemeral and can die at any time\n- Deployments manage pods and ensure desired replica count\n- Self-healing: Kubernetes automatically replaces failed pods\n- ReplicaSets sit between Deployments and Pods\n- Labels and selectors organize and find objects\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-2"
+    ]
+  },
+  {
+    "title": "[Day 2] Practice kubectl commands from Day 2",
+    "body": "## Day 2 Task\n\nOpen a terminal with access to your Kubernetes cluster and practice these commands.\n\n### Commands to Practice\n```bash\nkubectl create deployment my-app --image=nginx --replicas=3\nkubectl get pods\nkubectl get deployment my-app\nkubectl get pods --watch\nkubectl delete pod <pod-name>\nkubectl scale deployment my-app --replicas=5\nkubectl scale deployment my-app --replicas=2\nkubectl get replicaset\n```\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-2"
+    ]
+  },
+  {
+    "title": "[Day 2] Self-assessment: Day 2 concepts",
+    "body": "## Day 2 Task\n\nReview what you learned and make sure you can explain each concept in your own words.\n\n### Key Concepts\n- Pods are ephemeral and can die at any time. They won't come back on their own\n- Deployments manage pods and ensure your desired replica count is maintained\n- Self-healing means Kubernetes automatically replaces failed pods\n- Scaling lets you change replica count with a single command\n- ReplicaSets are the object between Deployments and Pods\n- Rolling updates deploy new versions without downtime\n- Labels and selectors are how Kubernetes organizes and finds objects\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-2"
+    ]
+  },
+  {
+    "title": "[Day 3] Read and understand: Day 3: Kubernetes Networking",
+    "body": "## Day 3 Task\n\nRead through the Day 3 email and understand the key concepts before practicing.\n\n### Key Concepts\n- Pod IPs change on every restart\n- Services provide stable endpoints - one address that routes to multiple pods\n- Label selectors connect Services to pods based on key-value labels\n- ClusterIP is internal only, default type, needs port-forward for external access\n- NodePort opens a port on the node for quick external access\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-3"
+    ]
+  },
+  {
+    "title": "[Day 3] Practice kubectl commands from Day 3",
+    "body": "## Day 3 Task\n\nOpen a terminal with access to your Kubernetes cluster and practice these commands.\n\n### Commands to Practice\n```bash\nkubectl get pods -o wide\nkubectl get deployment my-app\nkubectl expose deployment my-app --port=80 --target-port=80\nkubectl get services\nkubectl describe service my-app\nkubectl port-forward service/my-app 8080:80\nkubectl delete pod <pod-name>\nkubectl run test-pod --image=busybox --rm -it --restart=Never -- wget -qO- http://my-app\n```\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-3"
+    ]
+  },
+  {
+    "title": "[Day 3] Self-assessment: Day 3 concepts",
+    "body": "## Day 3 Task\n\nReview what you learned and make sure you can explain each concept in your own words.\n\n### Key Concepts\n- Pod IPs are ephemeral. They change on every restart.\n- Services provide stable endpoints. One address that routes to multiple pods.\n- Label selectors connect Services to pods based on key-value labels.\n- ClusterIP is internal only. Default type, needs port-forward for external access.\n- NodePort opens a port on the node for quick external access.\n- DNS works inside the cluster. Pods reach services by name.\n- Port-forward creates a tunnel from your laptop to the cluster.\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-3"
+    ]
+  },
+  {
+    "title": "[Day 4] Read and understand: Day 4: The real way to do Kubernetes",
+    "body": "## Day 4 Task\n\nRead through the Day 4 email and understand the key concepts before practicing.\n\n### Key Concepts\n- YAML manifests define resources declaratively\n- apiVersion, kind, metadata, spec form the structure of every Kubernetes resource\n- kubectl apply creates or updates resources to match the file\n- Multiple resources can live in one file separated by ---\n- --dry-run=client -o yaml generates YAML from commands\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-4"
+    ]
+  },
+  {
+    "title": "[Day 4] Practice kubectl commands from Day 4",
+    "body": "## Day 4 Task\n\nOpen a terminal with access to your Kubernetes cluster and practice these commands.\n\n### Commands to Practice\n```bash\nkubectl create deployment my-app --image=nginx --replicas=3\nkubectl expose deployment my-app --port=80\nkubectl delete deployment my-app\nkubectl delete service my-app\nkubectl apply -f deployment.yaml\nkubectl get pods\nkubectl delete -f deployment.yaml\nkubectl apply -f app.yaml\n```\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-4"
+    ]
+  },
+  {
+    "title": "[Day 4] Self-assessment: Day 4 concepts",
+    "body": "## Day 4 Task\n\nReview what you learned and make sure you can explain each concept in your own words.\n\n### Key Concepts\n- YAML manifests define resources declaratively.\n- apiVersion, kind, metadata, spec form the structure of every Kubernetes resource.\n- kubectl apply creates or updates resources to match the file.\n- Multiple resources can live in one file separated by ---.\n- --dry-run=client -o yaml generates YAML from commands.\n- Infrastructure as Code means your cluster state is version controlled.\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-4"
+    ]
+  },
+  {
+    "title": "[Day 5] Read and understand: Day 5: Deploy something you'll actually use",
+    "body": "## Day 5 Task\n\nRead through the Day 5 email and understand the key concepts before practicing.\n\n### Key Concepts\n- Namespaces organize resources in your cluster\n- kubectl config set-context changes your default namespace\n- Environment variables configure containers\n- Multiple resources can live in one YAML file with --- separator\n- Containers are ephemeral - data doesn't persist by default\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-5"
+    ]
+  },
+  {
+    "title": "[Day 5] Practice kubectl commands from Day 5",
+    "body": "## Day 5 Task\n\nOpen a terminal with access to your Kubernetes cluster and practice these commands.\n\n### Commands to Practice\n```bash\nkubectl get namespaces\nkubectl create namespace linkding\nkubectl get namespace linkding\nkubectl config set-context --current --namespace=linkding\nkubectl get pods\nkubectl config set-context --current --namespace=default\nkubectl apply -f linkding.yaml\nkubectl get pods -w\n```\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-5"
+    ]
+  },
+  {
+    "title": "[Day 5] Self-assessment: Day 5 concepts",
+    "body": "## Day 5 Task\n\nReview what you learned and make sure you can explain each concept in your own words.\n\n### Key Concepts\n- Namespaces organize resources in your cluster.\n- kubectl config set-context changes your default namespace.\n- Environment variables configure containers.\n- Multiple resources can live in one YAML file with --- separator.\n- kubectl logs shows container output.\n- kubectl describe shows detailed resource information.\n- Containers are ephemeral. Data doesn't persist by default.\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-5"
+    ]
+  },
+  {
+    "title": "[Day 6] Read and understand: Day 6: Making your data survive in Kubernetes",
+    "body": "## Day 6 Task\n\nRead through the Day 6 email and understand the key concepts before practicing.\n\n### Key Concepts\n- Containers are ephemeral - data doesn't persist by default\n- PersistentVolume (PV) is actual storage provisioned in the cluster\n- PersistentVolumeClaim (PVC) is a request for storage\n- StorageClass defines how storage is provisioned\n- volumeMounts defines where to mount storage inside the container\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-6"
+    ]
+  },
+  {
+    "title": "[Day 6] Practice kubectl commands from Day 6",
+    "body": "## Day 6 Task\n\nOpen a terminal with access to your Kubernetes cluster and practice these commands.\n\n### Commands to Practice\n```bash\nkubectl config set-context --current --namespace=linkding\nkubectl get storageclass\nkubectl delete -f linkding.yaml\nkubectl apply -f linkding-with-storage.yaml\nkubectl get pvc\nkubectl get pods\nkubectl port-forward service/linkding 8080:9090\nkubectl rollout restart deployment/linkding\n```\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-6"
+    ]
+  },
+  {
+    "title": "[Day 6] Self-assessment: Day 6 concepts",
+    "body": "## Day 6 Task\n\nReview what you learned and make sure you can explain each concept in your own words.\n\n### Key Concepts\n- Containers are ephemeral. Data doesn't persist by default.\n- PersistentVolume (PV) is actual storage provisioned in the cluster.\n- PersistentVolumeClaim (PVC) is a request for storage.\n- StorageClass defines how storage is provisioned.\n- volumeMounts defines where to mount storage inside the container.\n- volumes connects pods to PVCs.\n- Data survives restarts because it lives outside the container.\n\n---\n*Generated from KubeCraft 7-Day Kubernetes Quickstart Course*",
+    "labels": [
+      "kubernetes",
+      "learning",
+      "day-6"
+    ]
+  }
+]
