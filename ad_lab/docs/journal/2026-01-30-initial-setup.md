@@ -24,7 +24,7 @@
 | 1004 | WS01 | Win11 LTSC | 4GB | 60GB | DHCP | Joined |
 | 1005 | WS02 | Win11 LTSC | 4GB | 60GB | DHCP | Joined |
 | 1006 | WS03 | Win11 LTSC | 4GB | 60GB | DHCP | Joined |
-| 1007 | LINUX01 | Ubuntu 24.04 | 2GB | 40GB | DHCP | Installed (not yet domain joined) |
+| 1007 | LINUX01 | Ubuntu 24.04 | 2GB | 40GB | DHCP | Domain joined |
 
 ### Active Directory Configuration
 - Forest: lab.local
@@ -43,14 +43,39 @@
 ### Cleanup
 - Archived slurm cluster (VMs 200-202 deleted, ansible/k8s configs moved to archive)
 
-### In Progress
-- DHCP failover setup (Issue #169) - DC02 authorized, troubleshooting scope replication
-  - Run `Get-DhcpServerInDC` to verify both DCs authorized
-  - Then retry: `Add-DhcpServerv4Failover -Name "DC-Failover" -PartnerServer DC02.lab.local -ScopeId 10.150.50.0 -SharedSecret (Read-Host "Secret") -AutoStateTransition $true -Force`
+### Completed (Session 2)
+- DHCP failover between DC01 and DC02 configured
+- LINUX01 joined to domain using SSSD/realmd
+- RSAT tools installed on WS01
+
+### Lessons Learned
+
+**DNS Forwarders are critical**
+- VLAN 50 needed a DNS forwarder on the UniFi gateway (10.150.50.1)
+- Without forwarders, internal DNS worked but external resolution failed
+- Symptom: google.com resolved, microsoft.com didn't (microsoft uses stricter DNS/cert validation)
+- Error 0x80072f8f on Windows Update = certificate/DNS issue, not actually time
+
+**DHCP Failover gotcha**
+- Both DCs must be authorized in AD before failover will work
+- DHCP service must be running on partner before creating relationship
+- `Get-DhcpServerInDC` to verify authorization status
+
+**Linux AD join (Ubuntu 24.04)**
+- Packages: `sssd-ad sssd-tools realmd adcli krb5-user samba-common-bin`
+- Kerberos realm must be UPPERCASE: `LAB.LOCAL`
+- Minimal Ubuntu installs need `libpam-runtime` for `pam-auth-update`
+- Enable home dirs: `echo "session required pam_mkhomedir.so" >> /etc/pam.d/common-session`
+
+**Proxmox/LVM limitations**
+- sda4tb (LVM) doesn't support live snapshots - need LVM-thin or ZFS
+- Issue #170 created to investigate options
+
+**Windows 11 OOBE annoyances**
+- Security questions required for local accounts (just put garbage answers)
+- "Domain join instead" skips Microsoft account requirement
 
 ### Next Steps
-- Complete DHCP failover configuration
-- Join LINUX01 to domain (Phase 9: SSSD/realmd)
-- Take Proxmox snapshots of all VMs (good baseline checkpoint)
-- Phase 3: OU structure, users, groups
+- Phase 3: OU structure, users, groups (#133-137)
 - Phase 4: Group Policy basics
+- Phase 5+: Security hardening, LAPS, file services
