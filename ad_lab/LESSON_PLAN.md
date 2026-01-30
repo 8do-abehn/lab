@@ -59,7 +59,7 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 - [ ] Create forward lookup zone for `lab.local`
 - [ ] Create reverse lookup zone for `10.150.50.x`
 - [ ] Configure DC01 to use itself for DNS (`127.0.0.1`)
-- [ ] Test DNS resolution with `nslookup`
+- [ ] **CHECKPOINT**: Test DNS resolution with `nslookup` (internal AND external - catches forwarder issues early)
 
 #### 2.2 AD DS Installation on DC01
 - [ ] Install AD DS role on DC01
