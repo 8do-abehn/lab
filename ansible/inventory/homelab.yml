@@ -28,19 +28,8 @@ all:
         jellyfin:
           ansible_user: root
 
-    # SLURM Cluster (openSUSE Leap 15.6 on pve008)
-    slurm_cluster:
-      children:
-        slurm_controller:
-          hosts:
-            slurm-controller:
-              ansible_host: 10.150.10.129
-        slurm_compute:
-          hosts:
-            slurm-compute-01:
-              ansible_host: 10.150.10.130
-            slurm-compute-02:
-              ansible_host: 10.150.10.138
+    # SLURM Cluster (archived - VMs deleted 2026-01-30)
+    # See ansible/archive/slurm-cluster/
 
     # Backup Servers
     backup_servers:

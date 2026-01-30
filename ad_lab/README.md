@@ -51,37 +51,41 @@ A hands-on Active Directory lab environment for refreshing enterprise AD skills,
 
 ## VM Specifications
 
-| VM | OS | vCPU | RAM | Disk | Role |
-|----|----|------|-----|------|------|
-| DC01 | Windows Server 2025 Eval | 2 | 4GB | 60GB | Primary DC, DNS, DHCP |
-| DC02 | Windows Server 2025 Eval | 2 | 4GB | 60GB | Secondary DC, Entra Connect |
-| FS01 | Windows Server 2025 Eval | 2 | 4GB | 60GB + 100GB data | File Server, DFS |
-| WS01 | Windows 11 Enterprise Eval | 2 | 4GB | 60GB | Tier 0 PAW, admin workstation |
-| WS02 | Windows 11 Enterprise Eval | 2 | 4GB | 60GB | Helpdesk workstation |
-| WS03 | Windows 11 Enterprise Eval | 2 | 4GB | 60GB | Standard end-user workstation |
-| LINUX01 | Ubuntu 24.04 LTS | 2 | 2GB | 40GB | Linux domain-joined client |
+| VM ID | VM | OS | vCPU | RAM | Disk | IP | Role |
+|-------|----|----|------|-----|------|----|------|
+| 1001 | DC01 | Windows Server 2025 Eval | 2 | 4GB | 60GB | 10.150.50.10 | Primary DC, DNS, DHCP |
+| 1002 | DC02 | Windows Server 2025 Eval | 2 | 4GB | 60GB | 10.150.50.11 | Secondary DC, DNS |
+| 1003 | FS01 | Windows Server 2025 Eval | 2 | 4GB | 60GB + 100GB | 10.150.50.20 | File Server, DFS |
+| 1004 | WS01 | Windows 11 Enterprise LTSC | 2 | 4GB | 60GB | DHCP | Tier 0 PAW |
+| 1005 | WS02 | Windows 11 Enterprise LTSC | 2 | 4GB | 60GB | DHCP | Helpdesk workstation |
+| 1006 | WS03 | Windows 11 Enterprise LTSC | 2 | 4GB | 60GB | DHCP | End-user workstation |
+| 1007 | LINUX01 | Ubuntu 24.04 LTS Server | 2 | 2GB | 40GB | DHCP | Linux AD client |
 
+**Proxmox Host**: pve008
+**Storage**: sda4tb
 **Total Resources**: 14 vCPU, 26GB RAM, 540GB disk
 
 ## Domain Details
 
 - **Domain Name**: `lab.local` (internal) / `yourtenantname.onmicrosoft.com` (Entra)
 - **NetBIOS**: `LAB`
-- **Forest/Domain Functional Level**: Windows Server 2025
+- **Forest/Domain Functional Level**: WinThreshold (Server 2016+)
 - **Sites**: Single site (Default-First-Site-Name)
+- **DHCP Scope**: 10.150.50.100-200
 
 ## Prerequisites
 
 ### Proxmox Setup
-- [ ] Proxmox VE 8.x installed and accessible
-- [ ] Sufficient resources (see VM specs above)
-- [ ] ISO storage configured
-- [ ] Network bridge configured (vmbr0 or similar)
+- [x] Proxmox VE 8.x installed and accessible (pve008)
+- [x] Sufficient resources (see VM specs above)
+- [x] ISO storage configured (local)
+- [x] Network bridge configured (vmbr1 on VLAN 50, 10.150.50.0/24)
 
 ### Downloads Required
-- [ ] [Windows Server 2025 Evaluation ISO](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2025)
-- [ ] [Windows 11 Enterprise Evaluation ISO](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-11-enterprise)
-- [ ] [Ubuntu 24.04 LTS Server ISO](https://ubuntu.com/download/server)
+- [x] [Windows Server 2025 Evaluation ISO](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2025)
+- [x] [Windows 11 Enterprise LTSC Evaluation ISO](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-11-enterprise)
+- [x] [Ubuntu 24.04 LTS Server ISO](https://ubuntu.com/download/server)
+- [x] [VirtIO Drivers ISO](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso) - Required for Windows VMs using VirtIO disk/network on Proxmox. Attach as second CD-ROM during install, load driver from `vioscsi\w11\amd64`.
 
 ### Cloud Requirements (for hybrid phases)
 - [ ] Microsoft 365 tenant (free developer tenant works)
