@@ -50,6 +50,10 @@
 
 ### Lessons Learned
 
+**Follow the lesson plan checkpoints**
+- Skipping `nslookup` verification step meant the DNS forwarder issue wasn't caught until RSAT install failed
+- The lesson plan has verification steps for a reason - use them
+
 **DNS Forwarders are critical**
 - VLAN 50 needed a DNS forwarder on the UniFi gateway (10.150.50.1)
 - Without forwarders, internal DNS worked but external resolution failed
