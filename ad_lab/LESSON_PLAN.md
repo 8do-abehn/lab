@@ -11,7 +11,7 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 1.1 Proxmox Preparation
-- [ ] Create dedicated network bridge for AD lab (e.g., `vmbr1` with `10.10.10.0/24`)
+- [x] Create dedicated network bridge for AD lab (`vmbr1` with VLAN 50, `10.150.50.0/24`)
 - [ ] Upload Windows Server 2025 Eval ISO to Proxmox storage
 - [ ] Upload Windows 11 Enterprise Eval ISO to Proxmox storage
 - [ ] Upload Ubuntu 24.04 LTS ISO to Proxmox storage
@@ -20,15 +20,15 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 #### 1.2 Domain Controller VMs
 - [ ] Create DC01 VM (2 vCPU, 4GB RAM, 60GB disk)
 - [ ] Install Windows Server 2025 on DC01 (Desktop Experience)
-- [ ] Configure static IP for DC01 (`10.10.10.10`)
+- [ ] Configure static IP for DC01 (`10.150.50.10`)
 - [ ] Create DC02 VM with same specs
 - [ ] Install Windows Server 2025 on DC02
-- [ ] Configure static IP for DC02 (`10.10.10.11`)
+- [ ] Configure static IP for DC02 (`10.150.50.11`)
 
 #### 1.3 Member Server VM
 - [ ] Create FS01 VM (2 vCPU, 4GB RAM, 60GB + 100GB disks)
 - [ ] Install Windows Server 2025 on FS01
-- [ ] Configure static IP for FS01 (`10.10.10.20`)
+- [ ] Configure static IP for FS01 (`10.150.50.20`)
 
 #### 1.4 Client VMs
 - [ ] Create WS01 VM (Tier 0 PAW) - 2 vCPU, 4GB RAM, 60GB
@@ -57,7 +57,7 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 #### 2.1 DNS Preparation
 - [ ] Install DNS Server role on DC01
 - [ ] Create forward lookup zone for `lab.local`
-- [ ] Create reverse lookup zone for `10.10.10.x`
+- [ ] Create reverse lookup zone for `10.150.50.x`
 - [ ] Configure DC01 to use itself for DNS (`127.0.0.1`)
 - [ ] Test DNS resolution with `nslookup`
 
@@ -73,7 +73,7 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 - [ ] Verify DNS SRV records created (`_ldap._tcp.lab.local`)
 
 #### 2.3 AD DS Replication (DC02)
-- [ ] Point DC02 DNS to DC01 (`10.10.10.10`)
+- [ ] Point DC02 DNS to DC01 (`10.150.50.10`)
 - [ ] Install AD DS role on DC02
 - [ ] Promote DC02 as additional domain controller
 - [ ] Verify replication with `repadmin /replsummary`
@@ -81,14 +81,29 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 - [ ] Test DNS redundancy (both DCs should resolve domain)
 
 #### 2.4 DHCP Configuration
-- [ ] Install DHCP role on DC01
-- [ ] Create DHCP scope for lab (`10.10.10.100-200`)
-- [ ] Configure scope options:
-  - Router: `10.10.10.1` (or your gateway)
-  - DNS Servers: `10.10.10.10, 10.10.10.11`
+- [x] Install DHCP role on DC01
+- [x] Create DHCP scope for lab (`10.150.50.100-200`)
+- [x] Configure scope options:
+  - Router: `10.150.50.1` (or your gateway)
+  - DNS Servers: `10.150.50.10, 10.150.50.11`
   - Domain Name: `lab.local`
-- [ ] Authorize DHCP server in AD
-- [ ] Test DHCP lease on a client
+- [x] Authorize DHCP server in AD
+- [x] Test DHCP lease on a client
+
+#### 2.4.1 DHCP Failover (Optional but recommended)
+- [ ] Install DHCP role on DC02 (from DC01):
+  ```powershell
+  Install-WindowsFeature -Name DHCP -IncludeManagementTools -ComputerName DC02
+  ```
+- [ ] Authorize DC02 in AD:
+  ```powershell
+  Add-DhcpServerInDC -DnsName DC02.lab.local -IPAddress 10.150.50.11
+  ```
+- [ ] Create failover relationship:
+  ```powershell
+  Add-DhcpServerv4Failover -Name "DC-Failover" -PartnerServer DC02.lab.local -ScopeId 10.150.50.0 -SharedSecret "YourSecretHere" -AutoStateTransition $true -Force
+  ```
+- [ ] Verify: `Get-DhcpServerv4Failover`
 
 #### 2.5 Domain Join Initial Clients
 - [ ] Configure WS01 DNS to point to DC01
