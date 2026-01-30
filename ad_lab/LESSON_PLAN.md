@@ -12,37 +12,37 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 
 #### 1.1 Proxmox Preparation
 - [x] Create dedicated network bridge for AD lab (`vmbr1` with VLAN 50, `10.150.50.0/24`)
-- [ ] Upload Windows Server 2025 Eval ISO to Proxmox storage
-- [ ] Upload Windows 11 Enterprise Eval ISO to Proxmox storage
-- [ ] Upload Ubuntu 24.04 LTS ISO to Proxmox storage
-- [ ] Document network topology and IP assignments
+- [x] Upload Windows Server 2025 Eval ISO to Proxmox storage
+- [x] Upload Windows 11 Enterprise Eval ISO to Proxmox storage
+- [x] Upload Ubuntu 24.04 LTS ISO to Proxmox storage
+- [x] Document network topology and IP assignments (see journal)
 
 #### 1.2 Domain Controller VMs
-- [ ] Create DC01 VM (2 vCPU, 4GB RAM, 60GB disk)
-- [ ] Install Windows Server 2025 on DC01 (Desktop Experience)
-- [ ] Configure static IP for DC01 (`10.150.50.10`)
-- [ ] Create DC02 VM with same specs
-- [ ] Install Windows Server 2025 on DC02
-- [ ] Configure static IP for DC02 (`10.150.50.11`)
+- [x] Create DC01 VM (2 vCPU, 4GB RAM, 60GB disk)
+- [x] Install Windows Server 2025 on DC01 (Desktop Experience)
+- [x] Configure static IP for DC01 (`10.150.50.10`)
+- [x] Create DC02 VM with same specs
+- [x] Install Windows Server 2025 on DC02
+- [x] Configure static IP for DC02 (`10.150.50.11`)
 
 #### 1.3 Member Server VM
-- [ ] Create FS01 VM (2 vCPU, 4GB RAM, 60GB + 100GB disks)
-- [ ] Install Windows Server 2025 on FS01
-- [ ] Configure static IP for FS01 (`10.150.50.20`)
+- [x] Create FS01 VM (2 vCPU, 4GB RAM, 60GB + 100GB disks)
+- [x] Install Windows Server 2025 on FS01
+- [x] Configure static IP for FS01 (`10.150.50.20`)
 
 #### 1.4 Client VMs
-- [ ] Create WS01 VM (Tier 0 PAW) - 2 vCPU, 4GB RAM, 60GB
-- [ ] Create WS02 VM (Helpdesk) - 2 vCPU, 4GB RAM, 60GB
-- [ ] Create WS03 VM (End User) - 2 vCPU, 4GB RAM, 60GB
-- [ ] Install Windows 11 Enterprise on all client VMs
-- [ ] Create LINUX01 VM - 2 vCPU, 2GB RAM, 40GB
-- [ ] Install Ubuntu 24.04 LTS Server on LINUX01
+- [x] Create WS01 VM (Tier 0 PAW) - 2 vCPU, 4GB RAM, 60GB
+- [x] Create WS02 VM (Helpdesk) - 2 vCPU, 4GB RAM, 60GB
+- [x] Create WS03 VM (End User) - 2 vCPU, 4GB RAM, 60GB
+- [x] Install Windows 11 Enterprise on all client VMs
+- [x] Create LINUX01 VM - 2 vCPU, 2GB RAM, 40GB
+- [x] Install Ubuntu 24.04 LTS Server on LINUX01
 
 #### 1.5 Initial Configuration
-- [ ] Set hostnames on all VMs
-- [ ] Verify network connectivity between all VMs
+- [x] Set hostnames on all VMs
+- [x] Verify network connectivity between all VMs
 - [ ] Configure Windows Updates (or disable for lab stability)
-- [ ] Take Proxmox snapshots of all fresh installs
+- [ ] Take Proxmox snapshots of all fresh installs (blocked: sda4tb LVM doesn't support snapshots - see Issue #170)
 
 **Checkpoint**: All VMs running, networked, and snapshotted
 
@@ -55,28 +55,28 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 2.1 DNS Preparation
-- [ ] Install DNS Server role on DC01
-- [ ] Create forward lookup zone for `lab.local`
+- [x] Install DNS Server role on DC01 (installed with AD DS)
+- [x] Create forward lookup zone for `lab.local` (auto-created with AD DS)
 - [ ] Create reverse lookup zone for `10.150.50.x`
-- [ ] Configure DC01 to use itself for DNS (`127.0.0.1`)
+- [x] Configure DC01 to use itself for DNS (`127.0.0.1`)
 - [ ] **CHECKPOINT**: Test DNS resolution with `nslookup` (internal AND external - catches forwarder issues early)
 
 #### 2.2 AD DS Installation on DC01
-- [ ] Install AD DS role on DC01
-- [ ] Promote DC01 to domain controller
+- [x] Install AD DS role on DC01
+- [x] Promote DC01 to domain controller
   - New forest: `lab.local`
-  - Forest functional level: Windows Server 2025
-  - Domain functional level: Windows Server 2025
+  - Forest functional level: WinThreshold (2016+)
+  - Domain functional level: WinThreshold (2016+)
   - Install DNS (integrated)
   - Set DSRM password (document securely!)
 - [ ] Verify AD DS installation with `dcdiag`
 - [ ] Verify DNS SRV records created (`_ldap._tcp.lab.local`)
 
 #### 2.3 AD DS Replication (DC02)
-- [ ] Point DC02 DNS to DC01 (`10.150.50.10`)
-- [ ] Install AD DS role on DC02
-- [ ] Promote DC02 as additional domain controller
-- [ ] Verify replication with `repadmin /replsummary`
+- [x] Point DC02 DNS to DC01 (`10.150.50.10`)
+- [x] Install AD DS role on DC02
+- [x] Promote DC02 as additional domain controller
+- [x] Verify replication with `repadmin /replsummary`
 - [ ] Verify both DCs appear in AD Sites and Services
 - [ ] Test DNS redundancy (both DCs should resolve domain)
 
@@ -91,26 +91,26 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 - [x] Test DHCP lease on a client
 
 #### 2.4.1 DHCP Failover (Optional but recommended)
-- [ ] Install DHCP role on DC02 (from DC01):
+- [x] Install DHCP role on DC02 (from DC01):
   ```powershell
   Install-WindowsFeature -Name DHCP -IncludeManagementTools -ComputerName DC02
   ```
-- [ ] Authorize DC02 in AD:
+- [x] Authorize DC02 in AD:
   ```powershell
   Add-DhcpServerInDC -DnsName DC02.lab.local -IPAddress 10.150.50.11
   ```
-- [ ] Create failover relationship:
+- [x] Create failover relationship:
   ```powershell
   Add-DhcpServerv4Failover -Name "DC-Failover" -PartnerServer DC02.lab.local -ScopeId 10.150.50.0 -SharedSecret "YourSecretHere" -AutoStateTransition $true -Force
   ```
-- [ ] Verify: `Get-DhcpServerv4Failover`
+- [x] Verify: `Get-DhcpServerv4Failover`
 
 #### 2.5 Domain Join Initial Clients
-- [ ] Configure WS01 DNS to point to DC01
-- [ ] Join WS01 to `lab.local` domain
+- [x] Configure WS01 DNS to point to DC01 (via DHCP)
+- [x] Join WS01 to `lab.local` domain
 - [ ] Verify WS01 computer object appears in AD
-- [ ] Repeat for WS02 and WS03
-- [ ] Install RSAT tools on WS01 (admin workstation)
+- [x] Repeat for WS02 and WS03
+- [x] Install RSAT tools on WS01 (admin workstation)
 
 **Checkpoint**: Two-DC domain running, replicating, clients joined
 
