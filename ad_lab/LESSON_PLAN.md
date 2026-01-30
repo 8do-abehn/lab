@@ -81,14 +81,29 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 - [ ] Test DNS redundancy (both DCs should resolve domain)
 
 #### 2.4 DHCP Configuration
-- [ ] Install DHCP role on DC01
-- [ ] Create DHCP scope for lab (`10.150.50.100-200`)
-- [ ] Configure scope options:
+- [x] Install DHCP role on DC01
+- [x] Create DHCP scope for lab (`10.150.50.100-200`)
+- [x] Configure scope options:
   - Router: `10.150.50.1` (or your gateway)
   - DNS Servers: `10.150.50.10, 10.150.50.11`
   - Domain Name: `lab.local`
-- [ ] Authorize DHCP server in AD
-- [ ] Test DHCP lease on a client
+- [x] Authorize DHCP server in AD
+- [x] Test DHCP lease on a client
+
+#### 2.4.1 DHCP Failover (Optional but recommended)
+- [ ] Install DHCP role on DC02 (from DC01):
+  ```powershell
+  Install-WindowsFeature -Name DHCP -IncludeManagementTools -ComputerName DC02
+  ```
+- [ ] Authorize DC02 in AD:
+  ```powershell
+  Add-DhcpServerInDC -DnsName DC02.lab.local -IPAddress 10.150.50.11
+  ```
+- [ ] Create failover relationship:
+  ```powershell
+  Add-DhcpServerv4Failover -Name "DC-Failover" -PartnerServer DC02.lab.local -ScopeId 10.150.50.0 -SharedSecret "YourSecretHere" -AutoStateTransition $true -Force
+  ```
+- [ ] Verify: `Get-DhcpServerv4Failover`
 
 #### 2.5 Domain Join Initial Clients
 - [ ] Configure WS01 DNS to point to DC01

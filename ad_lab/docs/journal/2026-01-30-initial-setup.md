@@ -23,8 +23,8 @@
 | 1003 | FS01 | Server 2025 | 4GB | 60GB + 100GB | 10.150.50.20 | Joined |
 | 1004 | WS01 | Win11 LTSC | 4GB | 60GB | DHCP | Joined |
 | 1005 | WS02 | Win11 LTSC | 4GB | 60GB | DHCP | Joined |
-| 1006 | WS03 | Win11 LTSC | 4GB | 60GB | DHCP | Installing |
-| 1007 | LINUX01 | Ubuntu 24.04 | 2GB | 40GB | DHCP | Installing |
+| 1006 | WS03 | Win11 LTSC | 4GB | 60GB | DHCP | Joined |
+| 1007 | LINUX01 | Ubuntu 24.04 | 2GB | 40GB | DHCP | Installed (not yet domain joined) |
 
 ### Active Directory Configuration
 - Forest: lab.local
@@ -43,8 +43,14 @@
 ### Cleanup
 - Archived slurm cluster (VMs 200-202 deleted, ansible/k8s configs moved to archive)
 
+### In Progress
+- DHCP failover setup (Issue #169) - DC02 authorized, troubleshooting scope replication
+  - Run `Get-DhcpServerInDC` to verify both DCs authorized
+  - Then retry: `Add-DhcpServerv4Failover -Name "DC-Failover" -PartnerServer DC02.lab.local -ScopeId 10.150.50.0 -SharedSecret (Read-Host "Secret") -AutoStateTransition $true -Force`
+
 ### Next Steps
-- Complete WS03 and LINUX01 installs
-- Take Proxmox snapshots of all VMs
+- Complete DHCP failover configuration
+- Join LINUX01 to domain (Phase 9: SSSD/realmd)
+- Take Proxmox snapshots of all VMs (good baseline checkpoint)
 - Phase 3: OU structure, users, groups
 - Phase 4: Group Policy basics
