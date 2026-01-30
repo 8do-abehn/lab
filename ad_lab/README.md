@@ -23,8 +23,8 @@ A hands-on Active Directory lab environment for refreshing enterprise AD skills,
 │  │              │  │              │  │              │                   │
 │  │ - AD DS      │  │ - AD DS      │  │ - File Svcs  │                   │
 │  │ - DNS        │  │ - DNS        │  │ - DFS        │                   │
-│  │ - DHCP       │  │ - Entra Conn │  │              │                   │
-│  │ - GPO Mgmt   │  │ - Backup DC  │  │              │                   │
+│  │ - DHCP       │  │ - DHCP (f/o) │  │              │                   │
+│  │ - GPO Mgmt   │  │ - Entra Conn │  │              │                   │
 │  └──────────────┘  └──────────────┘  └──────────────┘                   │
 │                                                                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
@@ -71,7 +71,7 @@ A hands-on Active Directory lab environment for refreshing enterprise AD skills,
 - **NetBIOS**: `LAB`
 - **Forest/Domain Functional Level**: WinThreshold (Server 2016+)
 - **Sites**: Single site (Default-First-Site-Name)
-- **DHCP Scope**: 10.150.50.100-200
+- **DHCP Scope**: 10.150.50.100-200 (failover between DC01 and DC02)
 
 ## Prerequisites
 
@@ -80,6 +80,7 @@ A hands-on Active Directory lab environment for refreshing enterprise AD skills,
 - [x] Sufficient resources (see VM specs above)
 - [x] ISO storage configured (local)
 - [x] Network bridge configured (vmbr1 on VLAN 50, 10.150.50.0/24)
+- [x] DNS forwarder on gateway (required for external resolution from isolated VLAN)
 
 ### Downloads Required
 - [x] [Windows Server 2025 Evaluation ISO](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2025)
@@ -193,6 +194,8 @@ Take Proxmox snapshots at these key points:
 
 Label snapshots clearly: `phase2-domain-working-2024-01-29`
 
+> **Note**: Plain LVM storage (like sda4tb) doesn't support live snapshots. Use LVM-thin or ZFS for snapshot capability, or use `vzdump` backups instead. See Issue #170.
+
 ## File Structure
 
 ```
@@ -200,12 +203,10 @@ ad_lab/
 ├── README.md                 # This file (PRD)
 ├── LESSON_PLAN.md           # Detailed lesson plan with tasks
 ├── docs/
-│   ├── phase-01-infrastructure.md
-│   ├── phase-02-adds-foundation.md
-│   └── ...
+│   └── journal/             # Session notes and lessons learned
 ├── scripts/
 │   ├── powershell/          # AD automation scripts
-│   └── bash/                # Linux integration scripts
+│   └── bash/                # VM creation and Linux scripts
 ├── gpos/
 │   └── exports/             # GPO backup exports
 └── templates/
