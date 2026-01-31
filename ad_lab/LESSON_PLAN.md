@@ -57,9 +57,9 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 #### 2.1 DNS Preparation
 - [x] Install DNS Server role on DC01 (installed with AD DS)
 - [x] Create forward lookup zone for `lab.local` (auto-created with AD DS)
-- [ ] Create reverse lookup zone for `10.150.50.x`
+- [x] Create reverse lookup zone for `10.150.50.x`
 - [x] Configure DC01 to use itself for DNS (`127.0.0.1`)
-- [ ] **CHECKPOINT**: Test DNS resolution with `nslookup` (internal AND external - catches forwarder issues early)
+- [x] **CHECKPOINT**: Test DNS resolution with `nslookup` (internal AND external - catches forwarder issues early)
 
 #### 2.2 AD DS Installation on DC01
 - [x] Install AD DS role on DC01
@@ -69,16 +69,16 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
   - Domain functional level: WinThreshold (2016+)
   - Install DNS (integrated)
   - Set DSRM password (document securely!)
-- [ ] Verify AD DS installation with `dcdiag`
-- [ ] Verify DNS SRV records created (`_ldap._tcp.lab.local`)
+- [x] Verify AD DS installation with `dcdiag`
+- [x] Verify DNS SRV records created (`_ldap._tcp.lab.local`)
 
 #### 2.3 AD DS Replication (DC02)
 - [x] Point DC02 DNS to DC01 (`10.150.50.10`)
 - [x] Install AD DS role on DC02
 - [x] Promote DC02 as additional domain controller
 - [x] Verify replication with `repadmin /replsummary`
-- [ ] Verify both DCs appear in AD Sites and Services
-- [ ] Test DNS redundancy (both DCs should resolve domain)
+- [x] Verify both DCs appear in AD Sites and Services
+- [x] Test DNS redundancy (both DCs should resolve domain)
 
 #### 2.4 DHCP Configuration
 - [x] Install DHCP role on DC01
@@ -108,7 +108,7 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 #### 2.5 Domain Join Initial Clients
 - [x] Configure WS01 DNS to point to DC01 (via DHCP)
 - [x] Join WS01 to `lab.local` domain
-- [ ] Verify WS01 computer object appears in AD
+- [x] Verify WS01 computer object appears in AD
 - [x] Repeat for WS02 and WS03
 - [x] Install RSAT tools on WS01 (admin workstation)
 
@@ -123,8 +123,8 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 3.1 OU Structure Design
-- [ ] Plan OU hierarchy (document in `docs/`)
-- [ ] Create top-level OUs:
+- [x] Plan OU hierarchy (document in `docs/`)
+- [x] Create top-level OUs:
   - `OU=LAB,DC=lab,DC=local` (root for all custom objects)
   - `OU=Admins,OU=LAB,...`
   - `OU=Users,OU=LAB,...`
@@ -134,54 +134,52 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
   - `OU=Service Accounts,OU=LAB,...`
 
 #### 3.2 Tiered OU Structure
-- [ ] Create Tier 0 sub-OUs (Domain Admin level)
+- [x] Create Tier 0 sub-OUs (Domain Admin level)
   - `OU=Tier 0,OU=Admins,OU=LAB,...`
-  - `OU=Tier 0,OU=Workstations,OU=LAB,...` (for PAWs)
-- [ ] Create Tier 1 sub-OUs (Server Admin level)
+  - `OU=Tier 0 PAW,OU=Workstations,OU=LAB,...` (for PAWs)
+- [x] Create Tier 1 sub-OUs (Server Admin level)
   - `OU=Tier 1,OU=Admins,OU=LAB,...`
-- [ ] Create Tier 2 sub-OUs (Workstation Admin level)
+- [x] Create Tier 2 sub-OUs (Workstation Admin level)
   - `OU=Tier 2,OU=Admins,OU=LAB,...`
   - `OU=Helpdesk,OU=Workstations,OU=LAB,...`
-- [ ] Create standard user OUs
+- [x] Create standard user OUs
   - `OU=Standard,OU=Users,OU=LAB,...`
 
 #### 3.3 Security Groups
-- [ ] Create Tier 0 groups:
+- [x] Create Tier 0 groups:
   - `SG-Tier0-Admins` (Domain Admins equivalent)
   - `SG-Tier0-PAW-Users` (can log into Tier 0 PAWs)
-- [ ] Create Tier 1 groups:
+- [x] Create Tier 1 groups:
   - `SG-Tier1-ServerAdmins`
   - `SG-Tier1-PAW-Users`
-- [ ] Create Tier 2 groups:
+- [x] Create Tier 2 groups:
   - `SG-Tier2-WorkstationAdmins`
   - `SG-Helpdesk`
-- [ ] Create standard groups:
+- [x] Create standard groups:
   - `SG-AllEmployees`
   - `SG-RemoteWorkers`
-  - `SG-DepartmentX` (example department groups)
 
 #### 3.4 User Accounts
-- [ ] Create Tier 0 admin accounts:
-  - `t0-yourname` (your Tier 0 admin)
-  - Use strong unique password
+- [x] Create Tier 0 admin accounts:
+  - `t0-adam` (Tier 0 admin)
   - Add to `SG-Tier0-Admins`
-- [ ] Create Tier 1 admin accounts:
-  - `t1-yourname` (server admin)
-- [ ] Create Tier 2 admin accounts:
-  - `t2-yourname` (workstation admin)
-- [ ] Create standard user accounts:
+- [x] Create Tier 1 admin accounts:
+  - `t1-adam` (server admin)
+- [x] Create Tier 2 admin accounts:
+  - `t2-adam` (workstation admin)
+- [x] Create standard user accounts:
   - `user1`, `user2`, `user3` (test users)
-- [ ] Create service accounts in Service Accounts OU:
+- [ ] Create service accounts in Service Accounts OU (deferred to Phase 7):
   - `svc-backup`, `svc-app1` (examples)
 
 #### 3.5 Move Computer Objects
-- [ ] Move WS01 to `Tier 0\Workstations` OU
-- [ ] Move WS02 to `Helpdesk\Workstations` OU
-- [ ] Move WS03 to standard Workstations OU
-- [ ] Move DC01, DC02 to Servers OU (or leave in Domain Controllers)
-- [ ] Move FS01 to Servers OU
+- [x] Move WS01 to `Tier 0 PAW\Workstations` OU
+- [x] Move WS02 to `Helpdesk\Workstations` OU
+- [x] Move WS03 to `Standard\Workstations` OU
+- [x] Move DC01, DC02 to Servers OU → N/A (left in Domain Controllers - best practice)
+- [x] Move FS01 and LINUX01 to Servers OU
 
-#### 3.6 Delegation of Control
+#### 3.6 Delegation of Control (deferred to Phase 7)
 - [ ] Delegate password reset to Helpdesk group for standard users OU
 - [ ] Delegate computer join to Tier 2 admins for Workstations OU
 - [ ] Document all delegations
@@ -458,44 +456,44 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 9.1 Linux Preparation
-- [ ] Update Ubuntu: `sudo apt update && sudo apt upgrade`
-- [ ] Configure static IP or DHCP reservation
-- [ ] Set hostname: `sudo hostnamectl set-hostname linux01`
-- [ ] Configure DNS to point to DC01
-- [ ] Test DNS resolution: `nslookup lab.local`
+- [x] Update Ubuntu: `sudo apt update && sudo apt upgrade`
+- [x] Configure static IP or DHCP reservation
+- [x] Set hostname: `sudo hostnamectl set-hostname linux01`
+- [x] Configure DNS to point to DC01
+- [x] Test DNS resolution: `nslookup lab.local`
 
 #### 9.2 Install Required Packages
-- [ ] Install SSSD and realmd:
+- [x] Install SSSD and realmd:
   ```bash
-  sudo apt install sssd sssd-tools realmd adcli krb5-user
+  sudo apt install sssd-ad sssd-tools realmd adcli krb5-user samba-common-bin
   ```
-- [ ] When prompted for Kerberos realm, enter `LAB.LOCAL`
+- [x] When prompted for Kerberos realm, enter `LAB.LOCAL`
 
 #### 9.3 Domain Discovery
-- [ ] Discover domain: `realm discover lab.local`
-- [ ] Review discovered information
-- [ ] Verify DNS SRV records are found
+- [x] Discover domain: `realm discover lab.local`
+- [x] Review discovered information
+- [x] Verify DNS SRV records are found
 
 #### 9.4 Domain Join
-- [ ] Join domain:
+- [x] Join domain:
   ```bash
-  sudo realm join lab.local -U t0-yourname
+  sudo realm join lab.local -U t0-adam
   ```
-- [ ] Verify join: `realm list`
-- [ ] Check computer object appears in AD
+- [x] Verify join: `realm list`
+- [x] Check computer object appears in AD
 
 #### 9.5 SSSD Configuration
-- [ ] Review `/etc/sssd/sssd.conf`
-- [ ] Configure home directory creation:
+- [x] Review `/etc/sssd/sssd.conf`
+- [x] Configure home directory creation:
   ```
   [domain/lab.local]
   fallback_homedir = /home/%u@%d
   ```
-- [ ] Enable mkhomedir PAM module:
+- [x] Enable mkhomedir PAM module:
   ```bash
-  sudo pam-auth-update --enable mkhomedir
+  echo "session required pam_mkhomedir.so" >> /etc/pam.d/common-session
   ```
-- [ ] Restart SSSD: `sudo systemctl restart sssd`
+- [x] Restart SSSD: `sudo systemctl restart sssd`
 
 #### 9.6 Access Control
 - [ ] Test login with AD user:
