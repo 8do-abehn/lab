@@ -258,43 +258,43 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 5.1 Microsoft Security Baselines
-- [ ] Download Windows Server 2025 Security Baseline
-- [ ] Download Windows 11 Security Baseline
-- [ ] Review baseline documentation
-- [ ] Import baselines using LGPO or GPO import
-- [ ] Link baselines to appropriate OUs
-- [ ] Document any baseline customizations
+- [x] Download Windows Server 2025 Security Baseline
+- [x] Download Windows 11 Security Baseline
+- [x] Review baseline documentation (Policy Analyzer)
+- [x] Import baselines using GPO import
+- [x] Link baselines to appropriate OUs
+- [x] Document any baseline customizations (see gpo-inventory.md)
 
 #### 5.2 Attack Surface Reduction (ASR)
-- [ ] Enable ASR rules via GPO:
+- [x] Enable ASR rules via GPO (POL-Workstations-ASR):
   - Block Office apps from creating child processes
   - Block credential stealing from LSASS
   - Block untrusted/unsigned processes from USB
-- [ ] Configure ASR in audit mode first
+- [x] Configure ASR in audit mode first
 - [ ] Review Event Viewer for ASR events
 - [ ] Switch to block mode after testing
 
 #### 5.3 Credential Protection
-- [ ] Enable Credential Guard on Windows 11 clients
-- [ ] Configure Remote Credential Guard
-- [ ] Disable WDigest authentication
-- [ ] Disable NTLM where possible (start with audit)
+- [ ] Enable Credential Guard on Windows 11 clients (skipped - requires nested virtualization)
+- [ ] Configure Remote Credential Guard (skipped - VM limitations)
+- [x] Disable WDigest authentication
+- [x] Audit NTLM (RestrictSendingNTLMTraffic=1, AuditReceivingNTLMTraffic=2)
 
 #### 5.4 SMB Hardening
-- [ ] Disable SMBv1 everywhere (GPO + server features)
-- [ ] Require SMB signing
-- [ ] Configure SMB encryption where supported
+- [x] Disable SMBv1 everywhere (already disabled by default on modern OS)
+- [x] Require SMB signing
+- [x] Configure SMB encryption
 
-#### 5.5 Administrative Restrictions
+#### 5.5 Administrative Restrictions (deferred to Phase 7)
 - [ ] Block domain admins from logging into workstations
 - [ ] Configure "Deny log on locally" for privileged groups
 - [ ] Configure "Deny log on through Remote Desktop" appropriately
 - [ ] Implement admin account logon restrictions
 
 #### 5.6 Event Log Configuration
-- [ ] Increase Security log size (at least 1GB)
-- [ ] Enable PowerShell script block logging
-- [ ] Enable command line process auditing
+- [x] Increase Security log size (1GB)
+- [x] Enable PowerShell script block logging
+- [x] Enable command line process auditing
 - [ ] Configure log forwarding (optional: to central SIEM)
 
 **Checkpoint**: Environment hardened with security baselines
