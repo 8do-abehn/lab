@@ -39,6 +39,9 @@ known_hosts
 *~
 .DS_Store
 
+# Claude Code project-local settings
+.claude/
+
 # Backup files
 *.backup
 *.bak
