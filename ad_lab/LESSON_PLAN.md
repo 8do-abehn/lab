@@ -493,18 +493,18 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 - [x] Restart SSSD: `sudo systemctl restart sssd`
 
 #### 9.6 Access Control
-- [ ] Test login with AD user:
+- [x] Test login with AD user:
   ```bash
-  ssh user1@lab.local@linux01.lab.local
+  ssh user1@lab.local@10.150.50.104
   ```
-- [ ] Configure sudo access for AD group:
+- [x] Configure sudo access for AD group:
   ```bash
-  echo "%SG-Tier2-WorkstationAdmins@lab.local ALL=(ALL) ALL" | sudo tee /etc/sudoers.d/ad-admins
+  echo "%SG-Tier1-ServerAdmins@lab.local ALL=(ALL) ALL" | sudo tee /etc/sudoers.d/ad-admins
   ```
-- [ ] Test sudo with AD admin account
+- [x] Test sudo with AD admin account (t1-adam)
 
 #### 9.7 GPO for Linux (Optional)
-- [ ] Explore ADSys (Canonical's AD GPO for Ubuntu)
+- [ ] Explore ADSys (Canonical's AD GPO for Ubuntu) - deferred
 - [ ] Or document manual configuration management approach
 
 **Checkpoint**: Linux client joined to domain, AD users can log in
