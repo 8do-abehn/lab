@@ -195,56 +195,53 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 4.1 GPO Structure Planning
-- [ ] Document GPO naming convention (e.g., `POL-Scope-Description`)
-- [ ] Plan GPO layering strategy:
+- [x] Document GPO naming convention (e.g., `POL-Scope-Description`)
+- [x] Plan GPO layering strategy:
   - Domain-level: Security settings that apply everywhere
   - OU-level: Role-specific settings
-- [ ] Create `docs/gpo-inventory.md` to track all GPOs
+- [x] Create `docs/gpo-inventory.md` to track all GPOs
 
 #### 4.2 Domain-Wide Policies
-- [ ] Create `POL-Domain-PasswordPolicy`:
+- [x] Create `POL-Domain-PasswordPolicy`:
   - Minimum password length: 14 characters
   - Password history: 24 passwords
-  - Maximum password age: 90 days
+  - Maximum password age: No expiration (NIST)
   - Complexity requirements: Enabled
-- [ ] Create `POL-Domain-AuditPolicy`:
+  - Lockout: 5 attempts / 30 min
+- [x] Create `POL-Domain-AuditPolicy`:
   - Audit logon events: Success, Failure
   - Audit account management: Success, Failure
   - Audit policy change: Success, Failure
 
 #### 4.3 Workstation Policies
-- [ ] Create `POL-Workstations-Security`:
+- [x] Create `POL-Workstations-Security`:
   - Disable guest account
   - Rename Administrator account
-  - Configure Windows Firewall defaults
-  - Disable SMBv1
-- [ ] Create `POL-Workstations-Restrictions`:
+  - (Firewall/SMBv1 skipped - already defaults on modern OS)
+- [x] Create `POL-Workstations-Restrictions`:
   - Prevent access to Control Panel (for standard users)
-  - Configure Windows Update settings
-  - Set screensaver timeout with password
+  - (Windows Update skipped - manual for lab)
+  - Set screensaver timeout with password (15 min)
 
 #### 4.4 Server Policies
-- [ ] Create `POL-Servers-Security`:
-  - Server-specific security settings
-  - Restrict local logon to admins only
-  - Disable unnecessary services
+- [ ] Create `POL-Servers-Security` (deferred to Phase 5)
 
 #### 4.5 Tier 0 PAW Policies
-- [ ] Create `POL-Tier0-PAW-Lockdown`:
+- [x] Create `POL-Tier0-PAW-Lockdown`:
   - Restrict logon to Tier 0 admins only
-  - Block internet access (or heavily restrict)
+  - (Internet blocking skipped for lab)
   - Disable USB storage
-  - Enable AppLocker/WDAC (basic rules)
+  - (AppLocker/WDAC deferred to Phase 5)
 
 #### 4.6 GPO Troubleshooting Practice
-- [ ] Run `gpresult /r` on a workstation to view applied policies
-- [ ] Run `gpresult /h report.html` for detailed HTML report
+- [x] Run `gpresult /r` on a workstation to view applied policies
+- [x] Run `gpresult /h report.html` for detailed HTML report
 - [ ] Use `rsop.msc` (Resultant Set of Policy) to troubleshoot
-- [ ] Practice forcing GP update with `gpupdate /force`
+- [x] Practice forcing GP update with `gpupdate /force`
 - [ ] Test policy processing order (Local, Site, Domain, OU)
 
 #### 4.7 GPO Backup
-- [ ] Export all GPOs using PowerShell:
+- [x] Export all GPOs using PowerShell:
   ```powershell
   Backup-GPO -All -Path C:\GPOBackups
   ```
