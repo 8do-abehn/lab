@@ -406,41 +406,41 @@ This document provides step-by-step tasks for each phase of the AD lab project. 
 ### Tasks
 
 #### 8.1 File Server Role
-- [ ] Install File Server role on FS01
-- [ ] Install DFS Namespaces role
-- [ ] Install File Server Resource Manager (optional)
+- [x] Install File Server role on FS01
+- [x] Install DFS Namespaces role
+- [x] Install File Server Resource Manager (optional)
 
 #### 8.2 Storage Configuration
-- [ ] Initialize 100GB data disk on FS01
-- [ ] Format as ReFS or NTFS (document choice)
-- [ ] Create folder structure:
-  - `D:\Shares\Departments`
-  - `D:\Shares\Home`
-  - `D:\Shares\Public`
+- [x] Initialize 100GB data disk on FS01
+- [x] Format as ReFS or NTFS (NTFS chosen for compatibility)
+- [x] Create folder structure:
+  - `F:\Shares\Departments` (F: due to CD-ROM on D:/E:)
+  - `F:\Shares\Home`
+  - `F:\Shares\Public`
 
 #### 8.3 Share Configuration
-- [ ] Create `Departments$` share (hidden)
-- [ ] Create `Home$` share for home folders
-- [ ] Create `Public` share
-- [ ] Configure share permissions (Everyone: Full for shares, restrict via NTFS)
+- [x] Create `Departments$` share (hidden)
+- [x] Create `Home$` share for home folders
+- [x] Create `Public` share
+- [x] Configure share permissions (Everyone: Full for shares, restrict via NTFS)
 
 #### 8.4 NTFS Permissions
-- [ ] Configure Departments folder permissions by group
-- [ ] Set up inheritance properly
-- [ ] Test access with different user accounts
+- [x] Configure Departments folder permissions by group (SG-Dept-IT/HR/Finance)
+- [x] Set up inheritance properly
+- [x] Test access with different user accounts
 - [ ] Document permission structure
 
 #### 8.5 DFS Namespace
-- [ ] Create DFS namespace: `\\lab.local\files`
-- [ ] Add folder targets for shares
-- [ ] Test accessing via DFS path
-- [ ] Verify namespace replication (if multiple servers)
+- [x] Create DFS namespace: `\\lab.local\Files`
+- [x] Add folder targets for shares (Departments, Home, Public)
+- [x] Test accessing via DFS path
+- [ ] Verify namespace replication (if multiple servers) - N/A single server
 
 #### 8.6 Home Folders (Optional)
-- [ ] Configure home folder path in user accounts
-- [ ] Set `%username%` substitution
-- [ ] Test home folder creation on logon
-- [ ] Configure folder redirection GPO (optional)
+- [x] Configure home folder path in user accounts
+- [x] Set `%username%` substitution
+- [x] Test home folder creation on logon
+- [x] Configure folder redirection GPO (POL-Users-FolderRedirection)
 
 **Checkpoint**: File server operational with proper permissions
 
