@@ -1,0 +1,98 @@
+baseURL = 'https://8do-abehn.github.io/lab/'
+languageCode = 'en-us'
+title = 'DevOps & Homelab Adventures'
+theme = 'PaperMod'
+
+# Enable RSS feeds for subscriptions
+[outputs]
+home = ["HTML", "RSS", "JSON"]
+section = ["HTML", "RSS"]
+
+[params]
+author = "Adam Behn"
+description = "Learning DevOps through homelab projects, Active Directory labs, and real-world automation"
+ShowReadingTime = true
+ShowShareButtons = true
+ShowPostNavLinks = true
+ShowBreadCrumbs = true
+ShowCodeCopyButtons = true
+ShowToc = true
+TocOpen = false
+defaultTheme = "auto"
+
+# RSS feed settings
+[params.fuseOpts]
+isCaseSensitive = false
+shouldSort = true
+location = 0
+distance = 1000
+threshold = 0.4
+minMatchCharLength = 0
+keys = ["title", "permalink", "summary", "content"]
+
+# Social links
+[[params.socialIcons]]
+name = "github"
+url = "https://github.com/8do-abehn"
+
+[[params.socialIcons]]
+name = "rss"
+url = "/lab/index.xml"
+
+# Home page info mode
+[params.homeInfoParams]
+Title = "DevOps & Homelab Adventures"
+Content = """
+Welcome! I document my journey learning DevOps, building homelabs, and automating everything.
+- **Journal**: Weekly learning logs from my DevOps journey
+- **Projects**: Deep dives into homelab builds and AD labs
+- **Docs**: Runbooks and reference guides
+- **Reading**: What I'm learning from books and courses
+
+[Subscribe via RSS](/lab/index.xml) to follow along.
+"""
+
+# Menu items
+[[menu.main]]
+identifier = "posts"
+name = "Posts"
+url = "/posts/"
+weight = 10
+
+[[menu.main]]
+identifier = "projects"
+name = "Projects"
+url = "/projects/"
+weight = 20
+
+[[menu.main]]
+identifier = "docs"
+name = "Docs"
+url = "/docs/"
+weight = 30
+
+[[menu.main]]
+identifier = "reading"
+name = "Reading"
+url = "/reading/"
+weight = 40
+
+[[menu.main]]
+identifier = "about"
+name = "About"
+url = "/about/"
+weight = 50
+
+# Syntax highlighting
+[markup]
+[markup.highlight]
+style = "dracula"
+lineNos = true
+codeFences = true
+guessSyntax = true
+
+[markup.goldmark.renderer]
+unsafe = true
+
+# Ignore private/planning files
+ignoreFiles = ["planning", "TODO", "scratch"]
