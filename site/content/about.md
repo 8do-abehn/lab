@@ -24,7 +24,7 @@ Documenting what I learn forces me to understand it better. If something here he
 
 ## Subscribe
 
-This site has an [RSS feed](/lab/index.xml) if you'd like to follow along.
+This site has an [RSS feed](/index.xml) if you'd like to follow along.
 
 ## Connect
 
