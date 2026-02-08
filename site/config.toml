@@ -1,4 +1,4 @@
-baseURL = 'https://8do-abehn.github.io/lab/'
+baseURL = 'https://lab.8devops.com/'
 languageCode = 'en-us'
 title = 'DevOps & Homelab Adventures'
 theme = 'PaperMod'
@@ -37,7 +37,7 @@ url = "https://github.com/8do-abehn"
 
 [[params.socialIcons]]
 name = "rss"
-url = "/lab/index.xml"
+url = "/index.xml"
 
 # Home page info mode
 [params.homeInfoParams]
@@ -49,7 +49,7 @@ Welcome! I document my journey learning DevOps, building homelabs, and automatin
 - **Docs**: Runbooks and reference guides
 - **Reading**: What I'm learning from books and courses
 
-[Subscribe via RSS](/lab/index.xml) to follow along.
+[Subscribe via RSS](/index.xml) to follow along.
 """
 
 # Menu items
