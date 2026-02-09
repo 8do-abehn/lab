@@ -1,8 +1,9 @@
 ---
-title: "Lab Journal - October 23, 2025: X1 Carbon Memory Crisis and the zram Solution"
+title: "X1 Carbon Memory Crisis and the zram Solution"
 date: 2025-10-23
-draft: true
-tags: ["media-server"]
+draft: false
+tags: ["linux", "optimization"]
+summary: "Started with 'why won't Brave start?' and ended with compressed RAM giving the equivalent of 16GB+ on hardware that can't be upgraded."
 ---
 
 
@@ -50,7 +51,7 @@ Similar lock file issue! But this time it needed manual intervention.
 **The Discovery:**
 ```bash
 find ~/snap/spotify -name "*lock*" -o -name "*Lock*"
-/home/adambehn/snap/spotify/common/.cache/spotify/SingletonLock
+~/snap/spotify/common/.cache/spotify/SingletonLock
 ```
 
 **The Fix:**
