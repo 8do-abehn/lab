@@ -60,10 +60,11 @@ A hands-on Active Directory lab environment for refreshing enterprise AD skills,
 | 1005 | WS02 | Windows 11 Enterprise LTSC | 2 | 4GB | 60GB | DHCP | Helpdesk workstation |
 | 1006 | WS03 | Windows 11 Enterprise LTSC | 2 | 4GB | 60GB | DHCP | End-user workstation |
 | 1007 | LINUX01 | Ubuntu 24.04 LTS Server | 2 | 2GB | 40GB | DHCP | Linux AD client |
+| 1008 | SYNC01 | Windows Server 2022 Eval | 2 | 4GB | 40GB | 10.150.50.12 | Entra Connect |
 
 **Proxmox Host**: pve008
 **Storage**: sda4tb
-**Total Resources**: 14 vCPU, 26GB RAM, 540GB disk
+**Total Resources**: 16 vCPU, 30GB RAM, 580GB disk
 
 ## Domain Details
 
