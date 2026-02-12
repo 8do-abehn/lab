@@ -1,5 +1,6 @@
 ---
 # Netdata installation and claiming configuration
+netdata_repo_version: "5-5"
 netdata_claim_url: https://app.netdata.cloud
 netdata_claim_token: "{{ vault_netdata_claim_token }}" # Set per host group or leave empty to skip claiming
 netdata_claim_rooms: "{{ vault_netdata_default_claim_rooms }}" # Set per host group or leave empty to skip claiming
