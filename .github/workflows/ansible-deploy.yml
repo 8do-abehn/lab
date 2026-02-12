@@ -67,6 +67,52 @@ jobs:
             $LIMIT_FLAG \
             -v
 
+      - name: Netdata fleet health check
+        if: >-
+          success() &&
+          (github.event.inputs.playbook == 'netdata_install.yml' ||
+           github.event.inputs.playbook == 'site.yml')
+        env:
+          NETDATA_API_TOKEN: ${{ secrets.NETDATA_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          SPACE="fdc5c86c-40e1-4c04-ba72-2c270dbcc2f2"
+          ROOM="b9b8607a-73ca-4de7-b5ae-86c3c74766be"
+          API_URL="https://app.netdata.cloud/api/v2/spaces/${SPACE}/rooms/${ROOM}/nodes"
+
+          echo "Querying Netdata Cloud for node status..."
+          RESPONSE=$(curl -sf -H "Authorization: Bearer ${NETDATA_API_TOKEN}" \
+            -H "Accept: application/json" \
+            "${API_URL}")
+
+          # Parse node names and states
+          NODES=$(echo "$RESPONSE" | jq -r '.nodes[] | "\(.name)\t\(.state)"')
+
+          # Print summary table
+          echo ""
+          echo "Node Health Summary"
+          echo "===================="
+          printf "%-25s %s\n" "NODE" "STATE"
+          printf "%-25s %s\n" "----" "-----"
+          echo "$NODES" | while IFS=$'\t' read -r name state; do
+            printf "%-25s %s\n" "$name" "$state"
+          done
+          echo ""
+
+          # Check for unreachable nodes
+          UNREACHABLE=$(echo "$NODES" | grep -v "reachable$" || true)
+          if [ -n "$UNREACHABLE" ]; then
+            echo "::error::Unreachable nodes detected after deploy:"
+            echo "$UNREACHABLE" | while IFS=$'\t' read -r name state; do
+              echo "  - ${name}: ${state}"
+            done
+            exit 1
+          fi
+
+          TOTAL=$(echo "$NODES" | wc -l | tr -d ' ')
+          echo "All ${TOTAL} nodes are reachable."
+
       - name: Clean up vault password
         if: always()
         run: |
