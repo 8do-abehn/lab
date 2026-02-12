@@ -86,8 +86,16 @@ jobs:
             -H "Accept: application/json" \
             "${API_URL}")
 
-          # Parse node names and states
-          NODES=$(echo "$RESPONSE" | jq -r '.nodes[] | "\(.name)\t\(.state)"')
+          # Debug: show response structure
+          echo "Response type: $(echo "$RESPONSE" | jq -r 'type')"
+          echo "Response keys/length: $(echo "$RESPONSE" | jq -r 'if type == "object" then keys | join(", ") else length end')"
+          echo "First element sample: $(echo "$RESPONSE" | jq -c 'if type == "array" then .[0] else .nodes[0] // .data[0] // empty end' 2>/dev/null | head -c 500)"
+
+          # Parse node names and states (handle both array and object responses)
+          NODES=$(echo "$RESPONSE" | jq -r '
+            (if type == "array" then . else .nodes // .data // [] end)[]
+            | "\(.name // .hostname // .node_id)\t\(.state // .status // "unknown")"
+          ')
 
           # Print summary table
           echo ""
