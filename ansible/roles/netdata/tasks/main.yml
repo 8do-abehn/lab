@@ -1,4 +1,13 @@
 ---
+- name: Detect OS distribution
+  ansible.builtin.set_fact:
+    netdata_distro: "{{ 'ubuntu' if ansible_facts['distribution'] == 'Ubuntu' else 'debian' }}"
+    netdata_codename: "{{ ansible_facts['distribution_release'] }}"
+    netdata_version_suffix: >-
+      {{ ansible_facts['distribution_version'].split('.')[0]
+         if ansible_facts['distribution'] != 'Ubuntu'
+         else ansible_facts['distribution_version'] }}
+
 - name: Check if netdata-repo package is already installed
   ansible.builtin.command: dpkg-query -W -f='${Status}' netdata-repo
   register: netdata_repo_check
@@ -11,7 +20,9 @@
 
 - name: Download netdata-repo package
   ansible.builtin.get_url:
-    url: https://repo.netdata.cloud/repos/repoconfig/ubuntu/jammy/netdata-repo_5-1+ubuntu22.04_all.deb
+    url: >-
+      https://repo.netdata.cloud/repos/repoconfig/{{ netdata_distro }}/{{ netdata_codename }}/netdata-repo_{{
+      netdata_repo_version }}+{{ netdata_distro }}{{ netdata_version_suffix }}_all.deb
     dest: /tmp/netdata-repo.deb
     mode: "0644"
   when: not netdata_repo_installed
@@ -32,6 +43,13 @@
     - not netdata_repo_installed
     - netdata_deb_file is not skipped
     - netdata_deb_file.stat.exists
+  register: netdata_repo_installed_result
+
+- name: Force apt cache update after adding Netdata repo  # noqa: no-handler
+  ansible.builtin.apt:
+    update_cache: true
+  when: netdata_repo_installed_result.changed
+  changed_when: false
 
 - name: Update apt cache
   ansible.builtin.apt:
@@ -88,14 +106,11 @@
     state: started
     enabled: true
 
-- name: Wait for netdata to connect to cloud
-  ansible.builtin.pause:
-    seconds: 10
-  when: netdata_claim_token | length > 0
-
 - name: Verify netdata cloud connection
-  ansible.builtin.command: netdatacli aclk-state
-  register: aclk_status
+  ansible.builtin.command: /usr/sbin/netdatacli aclk-state
+  register: netdata_aclk_status
   changed_when: false
-  failed_when: "'Claimed: No' in aclk_status.stdout or 'Online: No' in aclk_status.stdout"
+  until: "'Claimed: Yes' in netdata_aclk_status.stdout and 'Online: Yes' in netdata_aclk_status.stdout"
+  retries: 6
+  delay: 10
   when: netdata_claim_token | length > 0
