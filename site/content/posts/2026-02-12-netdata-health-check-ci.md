@@ -34,6 +34,23 @@ The step only runs for `netdata_install.yml` and `site.yml` playbooks — skippe
 - Uses `jq` to parse the API response and `grep` to detect unreachable nodes
 - Outputs GitHub Actions error annotations (`::error::`) for visibility in the Actions UI
 
+## Issues Hit Along the Way
+
+### pibackup unreachable from CI
+
+First deploy failed because `pibackup` had a hardcoded LAN IP (`10.150.10.140`) in the Ansible inventory. The CI runner connects via Tailscale and can't reach LAN addresses. All other hosts resolved by Tailscale DNS hostname — pibackup was the only one with `ansible_host` set. Fix: removed the `ansible_host` entry so it resolves via Tailscale like everything else.
+
+### Netdata Cloud API response format
+
+The health check initially assumed the API returned `{"nodes": [...]}` but it actually returns a top-level array. The jq expression `.nodes[]` failed with `Cannot index array with string "nodes"`. Fix: changed to `.[]` after confirming the format with debug output.
+
+### API response structure (for reference)
+
+- Endpoint: `GET /api/v2/spaces/{space}/rooms/{room}/nodes`
+- Response: top-level JSON array
+- Each element has `name` (string) and `state` (string, e.g. `"reachable"`)
+- Currently returns 11 nodes across proxmox hosts, jellyfin, docker, and pi-burg
+
 ## Required Setup
 
 - Generate a new Netdata Cloud API token (previous one was revoked)
@@ -42,3 +59,4 @@ The step only runs for `netdata_install.yml` and `site.yml` playbooks — skippe
 ## Files Changed
 
 - `.github/workflows/ansible-deploy.yml` — added "Netdata fleet health check" step
+- `ansible/inventory/homelab.yml` — removed hardcoded LAN IP from pibackup
