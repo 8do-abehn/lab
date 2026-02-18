@@ -2,6 +2,7 @@ baseURL = 'https://lab.8devops.com/'
 languageCode = 'en-us'
 title = 'DevOps & Homelab Adventures'
 theme = 'PaperMod'
+googleAnalytics = 'G-P0LDRLNCXJ'
 
 # Enable RSS feeds for subscriptions
 [outputs]
