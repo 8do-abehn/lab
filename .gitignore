@@ -67,6 +67,3 @@ stts/
 
 # Build artifacts
 *.tar.gz
-
-# KubeCraft course emails (contain PII - scrub headers before re-adding)
-.mvb_k8s_backup/
