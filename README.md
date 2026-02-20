@@ -52,6 +52,10 @@ Runners connect to the homelab via Tailscale VPN using OAuth authentication with
 ## Quick Start
 
 ```bash
+# Enable gitleaks pre-commit hook
+git config core.hooksPath .githooks
+
+# Run Ansible
 cd ansible/
 ansible-vault create vault.yml
 ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml
