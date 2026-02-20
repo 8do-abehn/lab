@@ -1,21 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Migrate markdown content to Hugo site with frontmatter
+# Migrate archived markdown content to Hugo site with frontmatter
+# Source content lives in the v1-archive tag (removed from main during cleanup)
 # All content starts as draft: true for privacy review
+#
+# Usage:
+#   ./scripts/migrate-content.sh              # migrate all sections
+#   ./scripts/migrate-content.sh journal      # migrate journal only
+#   ./scripts/migrate-content.sh ad_lab       # migrate AD lab only
+#   ./scripts/migrate-content.sh notes        # migrate notes only
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB_ROOT="$(dirname "$SCRIPT_DIR")"
 SITE_DIR="$LAB_ROOT/site"
 CONTENT_DIR="$SITE_DIR/content"
+ARCHIVE_TAG="v1-archive"
+STAGING_DIR=$(mktemp -d)
 
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+RED='\033[0;31m'
 log() { echo -e "${GREEN}[migrate]${NC} $1"; }
 warn() { echo -e "${YELLOW}[migrate]${NC} $1"; }
+error() { echo -e "${RED}[error]${NC} $1"; }
+
+# Clean up staging dir on exit
+cleanup() { rm -rf "$STAGING_DIR"; }
+trap cleanup EXIT
+
+# Restore archived content from v1-archive tag into staging dir
+restore_from_archive() {
+    local path="$1"
+    log "Restoring $path from $ARCHIVE_TAG..."
+    if ! git -C "$LAB_ROOT" show "$ARCHIVE_TAG:$path" &>/dev/null; then
+        error "$path not found in $ARCHIVE_TAG tag"
+        return 1
+    fi
+    mkdir -p "$STAGING_DIR/$(dirname "$path")"
+    git -C "$LAB_ROOT" archive "$ARCHIVE_TAG" -- "$path" | tar -x -C "$STAGING_DIR"
+}
 
 # Extract title from first H1 or filename
 extract_title() {
@@ -111,8 +138,9 @@ EOF
 
 # Migrate journal entries to posts/
 migrate_journal() {
+    restore_from_archive "journal/" || return
     log "Migrating journal entries..."
-    for file in "$LAB_ROOT"/journal/*.md; do
+    for file in "$STAGING_DIR"/journal/*.md; do
         [[ -f "$file" ]] || continue
         local dest="$CONTENT_DIR/posts/$(basename "$file")"
         add_frontmatter "$file" "$dest" "posts"
@@ -121,8 +149,9 @@ migrate_journal() {
 
 # Migrate AD Lab journal to projects/
 migrate_ad_lab() {
+    restore_from_archive "ad_lab/docs/journal/" || return
     log "Migrating AD Lab entries..."
-    for file in "$LAB_ROOT"/ad_lab/docs/journal/*.md; do
+    for file in "$STAGING_DIR"/ad_lab/docs/journal/*.md; do
         [[ -f "$file" ]] || continue
         local dest="$CONTENT_DIR/projects/ad-lab-$(basename "$file")"
         add_frontmatter "$file" "$dest" "projects"
@@ -131,6 +160,7 @@ migrate_ad_lab() {
 
 # Migrate technical notes (curated selection)
 migrate_notes() {
+    restore_from_archive "notes/" || return
     log "Migrating technical notes..."
 
     # Technical/runbook files to include
@@ -151,39 +181,61 @@ migrate_notes() {
     )
 
     for filename in "${include_files[@]}"; do
-        local file="$LAB_ROOT/notes/$filename"
+        local file="$STAGING_DIR/notes/$filename"
         if [[ -f "$file" ]]; then
             local dest="$CONTENT_DIR/docs/$filename"
             add_frontmatter "$file" "$dest" "docs"
         else
-            warn "Not found: $filename"
+            warn "Not found in archive: $filename"
         fi
     done
 }
 
 # Main
 main() {
+    local section="${1:-all}"
+
+    # Verify the archive tag exists
+    if ! git -C "$LAB_ROOT" rev-parse "$ARCHIVE_TAG" &>/dev/null; then
+        error "Tag $ARCHIVE_TAG not found. Cannot restore archived content."
+        exit 1
+    fi
+
     log "Starting content migration..."
-    log "Source: $LAB_ROOT"
+    log "Source: $ARCHIVE_TAG tag"
     log "Destination: $CONTENT_DIR"
+    log "Staging: $STAGING_DIR"
     echo
 
     # Create section index files
-    for section in posts projects docs reading; do
-        if [[ ! -f "$CONTENT_DIR/$section/_index.md" ]]; then
+    for s in posts projects docs reading; do
+        mkdir -p "$CONTENT_DIR/$s"
+        if [[ ! -f "$CONTENT_DIR/$s/_index.md" ]]; then
             echo "---
-title: \"$(echo "$section" | sed 's/\b\(.\)/\u\1/g')\"
----" > "$CONTENT_DIR/$section/_index.md"
+title: \"$(echo "$s" | sed 's/\b\(.\)/\u\1/g')\"
+---" > "$CONTENT_DIR/$s/_index.md"
         fi
     done
 
-    migrate_journal
-    echo
-    migrate_ad_lab
-    echo
-    migrate_notes
-    echo
+    case "$section" in
+        journal)  migrate_journal ;;
+        ad_lab)   migrate_ad_lab ;;
+        notes)    migrate_notes ;;
+        all)
+            migrate_journal
+            echo
+            migrate_ad_lab
+            echo
+            migrate_notes
+            ;;
+        *)
+            error "Unknown section: $section"
+            echo "Usage: $0 [journal|ad_lab|notes|all]"
+            exit 1
+            ;;
+    esac
 
+    echo
     log "Migration complete!"
     log "All content is set to draft: true"
     log "Run scripts/audit-content.sh to check for sensitive data"
