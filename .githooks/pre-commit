@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Scan staged changes for secrets/PII before committing
+if ! command -v gitleaks &>/dev/null; then
+  echo "gitleaks not found — install with: brew install gitleaks"
+  exit 1
+fi
+
+gitleaks protect --config .gitleaks.toml --staged --verbose
