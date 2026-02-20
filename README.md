@@ -1,26 +1,6 @@
 # Homelab Infrastructure
 
-A comprehensive homelab infrastructure project running on Proxmox with Kubernetes, managed through Infrastructure as Code principles.
-
-## Overview
-
-This repository contains the complete infrastructure setup for a homelab environment, including:
-
-- **Virtualization Platform**: Proxmox VE cluster with Ceph storage
-- **Container Orchestration**: Kubernetes cluster for running applications
-- **Configuration Management**: Ansible automation for Proxmox hosts
-- **Infrastructure Provisioning**: Terraform and Packer for VM template creation and deployment
-- **Self-hosted Applications**: Various services including Mealie, Homarr, Minecraft, and more
-
-## Tech Stack
-
-- **Proxmox VE**: Virtualization platform with Ceph distributed storage
-- **Kubernetes (K3s)**: Lightweight Kubernetes distribution for container orchestration
-- **Ansible**: Configuration management and automation
-- **Terraform**: Infrastructure provisioning
-- **Packer**: VM template building
-- **Tailscale**: VPN, secure access, and automatic certificate management
-- **Network UPS Tools (NUT)**: UPS monitoring and management
+Ansible automation and Hugo blog for a Proxmox-based homelab, with CI/CD via GitHub Actions and Tailscale.
 
 ## Structure
 
@@ -31,146 +11,65 @@ lab/
 │   │   ├── proxmox/     # Base Proxmox configuration
 │   │   ├── tailscale/   # VPN and certificate management
 │   │   └── nut/         # UPS monitoring setup
-│   └── README.md        # Ansible documentation
+│   └── README.md
 │
-├── k8s/                  # Kubernetes infrastructure
-│   ├── terraform/       # Infrastructure provisioning
-│   ├── packer/          # VM template building
-│   ├── deployments/     # Application deployments
-│   └── README.md        # K8s setup documentation
+├── site/                 # Hugo blog (lab.8devops.com)
+│   └── themes/PaperMod/  # PaperMod theme (submodule)
 │
-├── journal/             # Learning journal and documentation
-│   └── *.md            # Day-by-day learnings and challenges
+├── scripts/              # Backup and migration scripts
 │
-└── notes/              # Quick reference notes
-    └── favorite_commands.md
+├── .github/workflows/    # CI/CD pipelines
+│   ├── ansible-ci.yml    # PR lint + dry-run validation
+│   ├── ansible-deploy.yml # Manual deployment
+│   └── deploy-blog.yml   # Hugo site deployment
+│
+└── .gitignore
 ```
 
-## Components
+## Ansible ([ansible/](ansible/))
 
-### Infrastructure Management ([ansible/](ansible/))
-
-Ansible automation for managing Proxmox hosts, including:
+Automation for managing Proxmox hosts:
 - Base system configuration
-- Tailscale VPN setup with automatic Let's Encrypt certificate management for HTTPS
+- Tailscale VPN with automatic Let's Encrypt certificates
 - Network UPS Tools (NUT) for power management
 - Repository management and package installation
 
-See [ansible/README.md](ansible/README.md) for detailed usage instructions.
+See [ansible/README.md](ansible/README.md) for usage instructions.
 
-### Kubernetes Cluster ([k8s/](k8s/))
+## Blog ([site/](site/))
 
-Complete Kubernetes infrastructure setup:
-- Terraform configurations for VM provisioning
-- Packer templates for creating K8s node images
-- Application deployments (Mealie, Homarr, Minecraft, etc.)
-- Storage configurations using Ceph/CephFS
-
-See [k8s/README.md](k8s/README.md) for setup and deployment instructions.
-
-### Deployed Applications
-
-Current applications running in the cluster:
-- **Mealie**: Recipe management and meal planning
-- **Homarr**: Dashboard for homelab services
-- **Minecraft**: Vanilla server deployment
-- **Nginx**: Documentation hosting
-
-### Learning Journal ([journal/](journal/))
-
-Documentation of the journey, challenges, and solutions discovered while building and maintaining the homelab. Each entry captures real-world problems and their resolutions.
-
-## Quick Start
-
-### Prerequisites
-
-- Proxmox VE cluster with Ceph storage configured
-- AWS account for Terraform state storage
-- SSH access to Proxmox nodes
-- Bitwarden CLI (optional, for credential management)
-
-### Initial Setup
-
-1. **Configure Ansible**
-   ```bash
-   cd ansible/
-   # Create vault for secrets
-   ansible-vault create vault.yml
-   # Run site playbook
-   ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml
-   ```
-
-2. **Deploy Kubernetes Infrastructure**
-   ```bash
-   cd k8s/
-   # Load credentials
-   export BW_SESSION=$(bw unlock --raw)
-   source set-proxmox-creds.sh
-
-   # Initialize Terraform
-   cd terraform/
-   terraform init -backend-config=backend.hcl
-   terraform apply
-
-   # Build K8s node template
-   cd ../packer/
-   packer build k8s-node.pkr.hcl
-   ```
-
-3. **Deploy Applications**
-   ```bash
-   cd k8s/deployments/
-   kubectl apply -f <application>.yaml
-   ```
-
-## Key Features
-
-- **Infrastructure as Code**: Everything defined in code for reproducibility
-- **Automated Configuration**: Ansible playbooks for consistent host setup
-- **Templated Deployments**: Packer templates for rapid VM creation
-- **Distributed Storage**: Ceph for resilient, shared storage across cluster
-- **Secure Access**: Tailscale VPN with automatic Let's Encrypt certificate management for HTTPS
-- **CI/CD Pipeline**: GitHub Actions connected to homelab via Tailscale for automated testing and deployment
-- **Power Management**: NUT integration for graceful shutdown during power events
-- **Self-documenting**: Journal entries track learnings and decision-making process
+Hugo site published to [lab.8devops.com](https://lab.8devops.com), using the PaperMod theme. Deployed automatically via GitHub Actions on push to `main`.
 
 ## CI/CD Pipeline
 
-The repository includes a complete CI/CD pipeline using GitHub Actions with Tailscale integration:
+GitHub Actions with Tailscale integration:
+- **ansible-ci**: PR triggers lint checks and dry-run validation against real infrastructure
+- **ansible-deploy**: Manual workflow dispatch with playbook selection
+- **deploy-blog**: Automatic Hugo build and deploy on push
 
-- **Automatic Testing**: Pull requests trigger Ansible lint checks and dry-run validation against real infrastructure
-- **Secure Access**: GitHub Actions runners connect to the homelab via Tailscale VPN using OAuth authentication
-- **Tag-based ACLs**: CI runners are restricted to infrastructure hosts only (not personal devices) using Tailscale tags
-- **Manual Deployment**: Production deployments run via workflow dispatch with playbook selection
-- **Ephemeral Runners**: GitHub runners are automatically cleaned up after each run
+Runners connect to the homelab via Tailscale VPN using OAuth authentication with tag-based ACLs.
 
-The CI/CD setup enables:
-- Validation of Ansible playbooks against actual Proxmox and K3s hosts before merge
-- Secure, encrypted connection to private homelab infrastructure without exposing it to the internet
-- Automated testing in 3-4 minutes per PR
-- Safe production deployments with Ansible check mode
+## Quick Start
 
-See [journal/2025-10-18-tailscale-cicd-adventure.md](journal/2025-10-18-tailscale-cicd-adventure.md) for the complete setup story.
+```bash
+cd ansible/
+ansible-vault create vault.yml
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml
+```
 
-## Documentation
+## Archive
 
-- [Ansible Setup](ansible/README.md) - Proxmox host configuration and management
-- [Kubernetes Infrastructure](k8s/README.md) - K8s cluster setup and deployment
-- [Journal](journal/) - Day-by-day learnings and troubleshooting
-- [Notes](notes/) - Quick reference commands and links
+Previous content (K8s configs, AD lab, OpenPLC, journals, notes) is preserved at the `v1-archive` tag. To restore any file:
 
-## Development
+```bash
+git checkout v1-archive -- path/to/file
+```
 
-The repository includes configurations for development environments:
-- Packer templates for development VMs with pre-installed tools
-- VSCode Remote SSH ready
-- Git, Terraform, Packer, Python3, and Claude CLI pre-configured
-
-## Security Notes
+## Security
 
 - Credentials managed via Ansible Vault
-- SSH key-based authentication throughout
-- Secrets stored in Bitwarden (optional)
+- SSH key-based authentication
+- Secrets stored in Bitwarden CLI
 - `.gitignore` configured to prevent accidental credential commits
 
 ## License
