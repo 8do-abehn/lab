@@ -4,6 +4,7 @@ useDefault = true
 [allowlist]
 paths = [
   '''.gitleaks.toml''',
+  '''.gitleaksbaseline''',
 ]
 
 [[rules]]
