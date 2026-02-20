@@ -1,0 +1,19 @@
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''.gitleaks.toml''',
+]
+
+[[rules]]
+id = "eml-email-header"
+description = "Email header with personal address"
+regex = '''(?i)(From|To|Cc|Bcc|Reply-To|Delivered-To|Return-Path):\s*.*<[^@]+@[^>]+>'''
+tags = ["pii", "email"]
+
+[[rules]]
+id = "eml-x-header-email"
+description = "X-header containing email address"
+regex = '''(?i)X-[A-Za-z-]+:.*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'''
+tags = ["pii", "email"]
