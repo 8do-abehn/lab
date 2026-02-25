@@ -11,6 +11,18 @@ RESTIC_PASSWORD="{{ restic_password }}"
 export RESTIC_REPOSITORY
 export RESTIC_PASSWORD
 
+{% if backup_notify_enabled | default(false) %}
+APPRISE_URLS="{{ backup_apprise_urls }}"
+
+notify() {
+    local title="$1"
+    local body="$2"
+    if [ -n "$APPRISE_URLS" ] && command -v apprise &>/dev/null; then
+        apprise -t "$title" --body "$body" "$APPRISE_URLS" 2>/dev/null || true
+    fi
+}
+{% endif %}
+
 # Function to log messages with timestamp
 log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
@@ -24,6 +36,9 @@ log_message "Starting restic backup"
 # Check if backup server is reachable
 if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     log_message "ERROR: Backup server {{ backup_server_host }} is not reachable"
+{% if backup_notify_enabled | default(false) %}
+    notify "Backup FAILED on $(hostname)" "Server {{ backup_server_host }} unreachable at $(date)"
+{% endif %}
     exit 1
 fi
 
@@ -41,6 +56,9 @@ if restic backup \
 else
     EXIT_CODE=$?
     log_message "Backup failed with exit code $EXIT_CODE"
+{% if backup_notify_enabled | default(false) %}
+    notify "Backup FAILED on $(hostname)" "restic backup exited with code $EXIT_CODE at $(date)"
+{% endif %}
     exit $EXIT_CODE
 fi
 
@@ -55,7 +73,13 @@ if restic forget \
 else
     EXIT_CODE=$?
     log_message "Retention policy failed with exit code $EXIT_CODE"
+{% if backup_notify_enabled | default(false) %}
+    notify "Backup FAILED on $(hostname)" "Retention policy failed with code $EXIT_CODE at $(date)"
+{% endif %}
     exit $EXIT_CODE
 fi
 
 log_message "Backup process finished"
+{% if backup_notify_enabled | default(false) %}
+notify "Backup OK on $(hostname)" "Completed at $(date)"
+{% endif %}

@@ -8,6 +8,28 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Install pipx for Python package management
+  ansible.builtin.apt:
+    name: pipx
+    state: present
+  when: backup_notify_enabled | bool
+
+- name: Check if apprise is installed
+  ansible.builtin.command: apprise --version
+  register: apprise_check
+  failed_when: false
+  changed_when: false
+  when: backup_notify_enabled | bool
+
+- name: Install apprise for backup notifications
+  ansible.builtin.command: pipx install apprise
+  environment:
+    PIPX_HOME: /opt/pipx
+    PIPX_BIN_DIR: /usr/local/bin
+  when:
+    - backup_notify_enabled | bool
+    - apprise_check.rc != 0
+
 - name: Deploy backup script
   ansible.builtin.template:
     src: backup.sh.j2
@@ -15,6 +37,7 @@
     owner: root
     group: root
     mode: "0755"
+  no_log: true
 
 - name: Setup backup cron job
   ansible.builtin.cron:

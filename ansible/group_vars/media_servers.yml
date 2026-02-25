@@ -1,0 +1,4 @@
+---
+# Tailscale configuration for media servers
+tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
+tailscale_tags: "tag:media"

@@ -2,7 +2,7 @@
 # Backup client defaults
 
 # Backup target - Pi backup server via Tailscale
-backup_server_host: pibackup
+backup_server_host: pi-burg
 backup_server_user: backup
 backup_server_repo_path: /mnt/backup/restic-repo
 
@@ -27,6 +27,10 @@ backup_cron_minute: "0"
 backup_keep_daily: 7
 backup_keep_weekly: 4
 backup_keep_monthly: 6
+
+# Notifications (Apprise)
+backup_notify_enabled: true
+backup_apprise_urls: "{{ vault_backup_apprise_urls | default('') }}"
 
 # Script and log locations
 backup_script_path: /usr/local/bin/backup-library.sh
