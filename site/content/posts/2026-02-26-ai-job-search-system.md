@@ -81,7 +81,7 @@ I set up a separate Claude Project where AI acts as a changedetection.io expert 
 
 A few other things I used alongside the Claude Project:
 
-- **[job-scout](https://github.com/8do-abehn/job-scout)** - An MCP server I built that searches job listings directly from Claude. Instead of switching between job boards, you can search from within your conversation and pipe results straight into fit assessment.
+- **[job-scout](https://github.com/8do-abehn/job-scout)** - A self-hosted job search tool that scrapes multiple job boards, tracks applications via GitHub Issues with a project board, and includes an MCP server for searching directly from Claude. Fair warning: I recently had AI anonymize the repo for public release and haven't had time to verify the setup instructions from scratch yet. If something's off, open an issue.
 - **Claude Code Chrome extension** - Useful for pulling job descriptions off company career pages and gathering company info during interview prep. Having AI read the page you're looking at and summarize it in context saves a lot of copy-pasting.
 - **changedetection.io** - Monitors career pages at companies you want to work for and notifies you when new roles appear.
 
