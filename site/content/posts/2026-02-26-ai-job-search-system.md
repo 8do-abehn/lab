@@ -63,6 +63,12 @@ If you're collecting unemployment, most states require documented proof of job s
 
 This was one of those features that came out of real need. When you're already stressed about finding work, the last thing you want is another tracking chore.
 
+## Watching Career Pages with Change Detection
+
+Don't just refresh your dream company's careers page every week. Use a change detection tool like [changedetection.io](https://changedetection.io) to monitor it for you. When a new role gets posted, you get a notification. Drop the posting into your project chat and you're already running through fit assessment while everyone else is still finding it on LinkedIn three weeks later.
+
+I set up a separate Claude Project where AI acts as a changedetection.io expert to help me tune the CSS selectors and filters for each company's careers page. Different sites structure their job listings differently, and having AI help dial in the detection saves a lot of trial and error.
+
 ## What I Published
 
 I genericized the whole system and published it as a starter kit:
