@@ -32,6 +32,7 @@ log_message() {
 trap 'log_message "Backup interrupted"; exit 130' INT TERM
 
 log_message "Starting restic backup"
+BACKUP_START=$(date +%s)
 
 # Check if backup server is reachable
 if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
@@ -44,22 +45,33 @@ fi
 
 # Run backup
 log_message "Backing up: {{ backup_paths | join(', ') }}"
-if restic backup \
+BACKUP_OUTPUT=$(restic backup \
 {% for path in backup_paths %}
     "{{ path }}" \
 {% endfor %}
 {% for exclude in backup_excludes %}
     --exclude "{{ exclude }}" \
 {% endfor %}
-    --verbose >> "$LOGFILE" 2>&1; then
+    --json 2>&1) && BACKUP_RC=0 || BACKUP_RC=$?
+echo "$BACKUP_OUTPUT" >> "$LOGFILE"
+
+if [ $BACKUP_RC -eq 0 ]; then
     log_message "Backup completed successfully"
+    # Parse stats from JSON summary line
+    SUMMARY=$(echo "$BACKUP_OUTPUT" | grep '"message_type":"summary"' || true)
+    if [ -n "$SUMMARY" ]; then
+        FILES_NEW=$(echo "$SUMMARY" | sed -n 's/.*"files_new":\([0-9]*\).*/\1/p')
+        FILES_CHANGED=$(echo "$SUMMARY" | sed -n 's/.*"files_changed":\([0-9]*\).*/\1/p')
+        FILES_UNMODIFIED=$(echo "$SUMMARY" | sed -n 's/.*"files_unmodified":\([0-9]*\).*/\1/p')
+        BYTES_ADDED=$(echo "$SUMMARY" | sed -n 's/.*"data_added":\([0-9]*\).*/\1/p')
+        DATA_ADDED=$(numfmt --to=iec --suffix=B "${BYTES_ADDED:-0}" 2>/dev/null || echo "${BYTES_ADDED:-0} bytes")
+    fi
 else
-    EXIT_CODE=$?
-    log_message "Backup failed with exit code $EXIT_CODE"
+    log_message "Backup failed with exit code $BACKUP_RC"
 {% if backup_notify_enabled | default(false) %}
-    notify "Backup FAILED on $(hostname)" "restic backup exited with code $EXIT_CODE at $(date)"
+    notify "Backup FAILED on $(hostname)" "restic backup exited with code $BACKUP_RC at $(date)"
 {% endif %}
-    exit $EXIT_CODE
+    exit $BACKUP_RC
 fi
 
 # Run retention policy
@@ -81,5 +93,19 @@ fi
 
 log_message "Backup process finished"
 {% if backup_notify_enabled | default(false) %}
-notify "Backup OK on $(hostname)" "Completed at $(date)"
+BACKUP_END=$(date +%s)
+DURATION=$(( BACKUP_END - BACKUP_START ))
+DURATION_MIN=$(( DURATION / 60 ))
+DURATION_SEC=$(( DURATION % 60 ))
+SNAPSHOT_COUNT=$(restic snapshots --json 2>/dev/null | grep -c '"short_id"' || echo "?")
+
+notify "Backup OK on $(hostname)" "$(cat <<NOTIFY
+Completed at $(date)
+
+Files: ${FILES_NEW:-0} new, ${FILES_CHANGED:-0} changed, ${FILES_UNMODIFIED:-0} unmodified
+Data added: ${DATA_ADDED:-n/a}
+Duration: ${DURATION_MIN}m ${DURATION_SEC}s
+Snapshots: ${SNAPSHOT_COUNT}
+NOTIFY
+)"
 {% endif %}
