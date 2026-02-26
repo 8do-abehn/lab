@@ -30,36 +30,36 @@ The plan: one host, two GPUs, two Windows VMs. Each boy gets a dedicated GPU, th
 
   AFTER
   ─────
-                        ┌──────────────────────────────────────────────┐
-                        │          pve008 (Proxmox Host)               │
-                        │     AMD Ryzen 9 5900X · 64GB RAM             │
-                        │          SSH-only (headless)                  │
-                        ├──────────────────────────────────────────────┤
-                        │  IOMMU Group 26       IOMMU Group 27         │
-                        │  ┌──────────────┐     ┌──────────────┐       │
-                        │  │  RTX 3080 #1 │     │  RTX 3080 #2 │       │
-                        │  │  vfio-pci     │     │  vfio-pci     │      │
-                        │  └──────┬───────┘     └──────┬───────┘       │
-                        │         │                    │               │
-                        │  ┌──────▼───────┐     ┌──────▼───────┐       │
-                        │  │  VM 701      │     │  VM 702      │       │
-                        │  │  Windows 11  │     │  Windows 11  │       │
-                        │  │  8 cores     │     │  8 cores     │       │
-                        │  │  32GB RAM    │     │  32GB RAM    │       │
-                        │  │  750GB disk  │     │  750GB disk  │       │
-                        │  └──────┬───────┘     └──────┬───────┘       │
-                        └─────────┼────────────────────┼───────────────┘
-                                  │                    │
-                        ┌─────────▼────────┐  ┌───────▼──────────┐
-                        │  Monitor #1      │  │  Monitor #2      │
-                        │  Keyboard #1     │  │  Keyboard #2     │
-                        │  Mouse #1        │  │  Mouse #2        │
-                        └──────────────────┘  └──────────────────┘
-                              SEB's Desk            RTB's Desk
+  ┌──────────────────────────────────────────────┐
+  │          pve008 (Proxmox Host)               │
+  │     AMD Ryzen 9 5900X · 64GB RAM             │
+  │          SSH-only (headless)                  │
+  ├──────────────────────────────────────────────┤
+  │  IOMMU Group 26       IOMMU Group 27         │
+  │  ┌──────────────┐     ┌──────────────┐       │
+  │  │  RTX 3080 #1 │     │  RTX 3080 #2 │       │
+  │  │  vfio-pci     │     │  vfio-pci     │      │
+  │  └──────┬───────┘     └──────┬───────┘       │
+  │         │                    │               │
+  │  ┌──────▼───────┐     ┌──────▼───────┐       │
+  │  │  VM 701      │     │  VM 702      │       │
+  │  │  Windows 11  │     │  Windows 11  │       │
+  │  │  8 cores     │     │  8 cores     │       │
+  │  │  32GB RAM    │     │  32GB RAM    │       │
+  │  │  750GB disk  │     │  750GB disk  │       │
+  │  └──────┬───────┘     └──────┬───────┘       │
+  └─────────┼────────────────────┼───────────────┘
+            │                    │
+  ┌─────────▼────────┐  ┌───────▼──────────┐
+  │  Monitor #1      │  │  Monitor #2      │
+  │  Keyboard #1     │  │  Keyboard #2     │
+  │  Mouse #1        │  │  Mouse #2        │
+  └──────────────────┘  └──────────────────┘
+        SEB's Desk            RTB's Desk
 
-                        1 host · SSH managed
-                        snapshots · backups
-                        dad controls the power button
+  1 host · SSH managed
+  snapshots · backups
+  dad controls the power button
 ```
 
 ## The LXC Detour
@@ -89,7 +89,7 @@ blacklist nvidiafb
 blacklist nvidia_drm
 ```
 
-**3. VFIO device binding** to reserve the GPU for VM passthrough:
+**3. VFIO device binding** to reserve the GPU for VM passthrough (this was the initial config for the single RTX 3080 Ti on the loaner machine):
 ```
 options vfio-pci ids=10de:2208,10de:1aef disable_vga=1
 ```
@@ -110,7 +110,12 @@ The second GPU (RTX 3080) went into the same host. Both cards landed in separate
 
 The only real hiccup was a display routing confusion. After binding the first GPU to VFIO, the host appeared to "not boot" when a monitor was connected to it. The system was running fine, just outputting video through the wrong card. SSH confirmed it was up the whole time.
 
-Updated VFIO config to include both GPU PCI IDs, regenerated initramfs, rebooted. Two GPUs bound to `vfio-pci`, two VMs each with a dedicated card.
+Updated VFIO config to include both GPU PCI IDs:
+```
+options vfio-pci ids=10de:2208,10de:2206,10de:1aef disable_vga=1
+```
+
+Regenerated initramfs, rebooted. Two GPUs bound to `vfio-pci`, two VMs each with a dedicated card.
 
 ## Migration to the Permanent Host
 
