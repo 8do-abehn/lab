@@ -13,8 +13,8 @@ My two boys each had their own gaming PC. Two towers, two sets of peripherals, t
 The plan: one host, two GPUs, two Windows VMs. Each boy gets a dedicated GPU, their own monitor, keyboard, and mouse. They can game simultaneously without knowing they're on virtual machines.
 
 ```
-  BEFORE
-  ──────
+  BEFORE (two standalone PCs)
+  ───────────────────────────
   ┌──────────────┐         ┌──────────────┐
   │  Gaming PC #1│         │  Gaming PC #2│
   │              │         │              │
@@ -28,8 +28,8 @@ The plan: one host, two GPUs, two Windows VMs. Each boy gets a dedicated GPU, th
    kids control the power button
 
 
-  AFTER
-  ─────
+  AFTER (single Proxmox host)
+  ───────────────────────────
   ┌──────────────────────────────────────────────┐
   │          pve008 (Proxmox Host)               │
   │     AMD Ryzen 9 5900X · 64GB RAM             │
