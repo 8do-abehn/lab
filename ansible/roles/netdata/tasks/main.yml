@@ -108,6 +108,7 @@
 
 - name: Verify netdata cloud connection
   ansible.builtin.command: /usr/sbin/netdatacli aclk-state
+  check_mode: false
   register: netdata_aclk_status
   changed_when: false
   until: "'Claimed: Yes' in netdata_aclk_status.stdout and 'Online: Yes' in netdata_aclk_status.stdout"
