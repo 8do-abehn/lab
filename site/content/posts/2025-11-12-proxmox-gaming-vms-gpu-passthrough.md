@@ -12,6 +12,56 @@ My two boys each had their own gaming PC. Two towers, two sets of peripherals, t
 
 The plan: one host, two GPUs, two Windows VMs. Each boy gets a dedicated GPU, their own monitor, keyboard, and mouse. They can game simultaneously without knowing they're on virtual machines.
 
+```
+  BEFORE
+  ──────
+  ┌──────────────┐         ┌──────────────┐
+  │  Gaming PC #1│         │  Gaming PC #2│
+  │              │         │              │
+  │  RTX 3080   │         │  RTX 3080    │
+  │  Win 11     │         │  Win 11      │
+  │  Monitor    │         │  Monitor     │
+  │  KB+Mouse   │         │  KB+Mouse    │
+  └──────────────┘         └──────────────┘
+   2 towers · 2x maintenance
+   2x power · 2x updates
+   kids control the power button
+
+
+  AFTER
+  ─────
+                        ┌──────────────────────────────────────────────┐
+                        │          pve008 (Proxmox Host)               │
+                        │     AMD Ryzen 9 5900X · 64GB RAM             │
+                        │          SSH-only (headless)                  │
+                        ├──────────────────────────────────────────────┤
+                        │  IOMMU Group 26       IOMMU Group 27         │
+                        │  ┌──────────────┐     ┌──────────────┐       │
+                        │  │  RTX 3080 #1 │     │  RTX 3080 #2 │       │
+                        │  │  vfio-pci     │     │  vfio-pci     │      │
+                        │  └──────┬───────┘     └──────┬───────┘       │
+                        │         │                    │               │
+                        │  ┌──────▼───────┐     ┌──────▼───────┐       │
+                        │  │  VM 701      │     │  VM 702      │       │
+                        │  │  Windows 11  │     │  Windows 11  │       │
+                        │  │  8 cores     │     │  8 cores     │       │
+                        │  │  32GB RAM    │     │  32GB RAM    │       │
+                        │  │  750GB disk  │     │  750GB disk  │       │
+                        │  └──────┬───────┘     └──────┬───────┘       │
+                        └─────────┼────────────────────┼───────────────┘
+                                  │                    │
+                        ┌─────────▼────────┐  ┌───────▼──────────┐
+                        │  Monitor #1      │  │  Monitor #2      │
+                        │  Keyboard #1     │  │  Keyboard #2     │
+                        │  Mouse #1        │  │  Mouse #2        │
+                        └──────────────────┘  └──────────────────┘
+                              SEB's Desk            RTB's Desk
+
+                        1 host · SSH managed
+                        snapshots · backups
+                        dad controls the power button
+```
+
 ## The LXC Detour
 
 I started where most container enthusiasts start: trying to do it in LXC. Lighter than VMs, better resource sharing, GPU passthrough "should work."
