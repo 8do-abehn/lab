@@ -47,6 +47,14 @@ This context is what lets AI tell you "this role is a bad fit because the last t
 
 Write it in whatever format works for you. Stream of consciousness is fine. Share as much or as little as you're comfortable with. It only lives in your AI project.
 
+## Review Everything, Trust Nothing Blindly
+
+One thing I learned quickly: always read every resume and cover letter before sending it. Even with explicit instructions not to fabricate, AI will sometimes hallucinate experience, exaggerate scope, or claim you worked in an industry you've never touched. It's not malicious, it's just pattern matching gone wrong.
+
+The fix is simple but ongoing. When you catch something, tell AI to remember it: "Add a memory: I did not complete the SOC2 audit" or "Add a memory: stop saying I worked in healthcare." The more corrections you make, the more accurate the output gets. Think of the first few rounds as a calibration period where you're training it on what's actually true about your career.
+
+The instructions include an honesty policy, but you are still the final quality check. Do not skip this step.
+
 ## Tracking and Reporting
 
 Each chat gets renamed to `Company_RoleName` and each opportunity gets a folder following `Company_Role_Stage` naming. When a role closes, I do a quick debrief in the chat: how far I got, what feedback I received, what I'd do differently.
