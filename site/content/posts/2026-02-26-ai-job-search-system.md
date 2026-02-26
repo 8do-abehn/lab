@@ -69,6 +69,16 @@ Don't just refresh your dream company's careers page every week. Use a change de
 
 I set up a separate Claude Project where AI acts as a changedetection.io expert to help me tune the CSS selectors and filters for each company's careers page. Different sites structure their job listings differently, and having AI help dial in the detection saves a lot of trial and error.
 
+## Other Tools That Helped
+
+A few other things I used alongside the Claude Project:
+
+- **[job-scout](https://github.com/8do-abehn/job-scout)** - An MCP server I built that searches job listings directly from Claude. Instead of switching between job boards, you can search from within your conversation and pipe results straight into fit assessment.
+- **Claude Code Chrome extension** - Useful for pulling job descriptions off company career pages and gathering company info during interview prep. Having AI read the page you're looking at and summarize it in context saves a lot of copy-pasting.
+- **changedetection.io** - Monitors career pages at companies you want to work for and notifies you when new roles appear.
+
+I plan to write more about each of these in future posts.
+
 ## What I Published
 
 I genericized the whole system and published it as a starter kit:
