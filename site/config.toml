@@ -3,6 +3,7 @@ languageCode = 'en-us'
 title = 'DevOps & Homelab Adventures'
 theme = 'PaperMod'
 googleAnalytics = 'G-P0LDRLNCXJ'
+enableRobotsTXT = true
 
 # Enable RSS feeds for subscriptions
 [outputs]
@@ -10,6 +11,7 @@ home = ["HTML", "RSS", "JSON"]
 section = ["HTML", "RSS"]
 
 [params]
+env = "production"
 author = "Adam Behn"
 description = "Learning DevOps through homelab projects, Active Directory labs, and real-world automation"
 ShowReadingTime = true
