@@ -102,7 +102,7 @@ It includes:
 - Project instructions ready to paste into a Claude Project
 - Starter templates for resume, cover letter, and career history (use your own if you have them)
 
-Fork it, fill in your own materials, and you have a working system. The instructions evolve as you use it and learn what works for your search.
+Fork it, fill in your own materials, and you have a working system. But actually read the instructions before you use them. Remove stuff. Add stuff. See what it does. I built all of this iteratively as I went through my own search, so I could see the impact of each change in real time. If you just copy-paste it blindly, you're trusting a stranger's workflow without understanding why any of it is there. Make it yours. Good luck.
 
 ## One More Thing: Don't Sound Like AI
 
