@@ -23,6 +23,7 @@
 
 - name: Install apprise for backup notifications
   ansible.builtin.command: pipx install apprise
+  changed_when: true
   environment:
     PIPX_HOME: /opt/pipx
     PIPX_BIN_DIR: /usr/local/bin

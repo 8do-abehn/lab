@@ -32,7 +32,9 @@ log_message() {
 trap 'log_message "Backup interrupted"; exit 130' INT TERM
 
 log_message "Starting restic backup"
+{% if backup_notify_enabled | default(false) %}
 BACKUP_START=$(date +%s)
+{% endif %}
 
 # Check if backup server is reachable
 if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
