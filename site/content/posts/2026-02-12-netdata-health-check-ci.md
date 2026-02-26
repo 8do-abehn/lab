@@ -2,7 +2,7 @@
 title: "Netdata Fleet Health Check in CI/CD"
 date: 2026-02-12
 draft: true
-tags: ["netdata", "github-actions", "ansible", "ci-cd", "monitoring"]
+tags: ["proxmox", "ansible", "tailscale", "containers", "media-server", "ci-cd"]
 ---
 
 
