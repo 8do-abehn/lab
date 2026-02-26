@@ -106,6 +106,6 @@ Fork it, fill in your own materials, and you have a working system. But actually
 
 ## One More Thing: Don't Sound Like AI
 
-AI has recognizable writing patterns, and recruiters are increasingly aware of them. If your resume reads like a chatbot wrote it, that undermines everything this system is trying to do.
+AI has recognizable writing patterns, and recruiters are increasingly aware of them. If your resume reads like a chatbot wrote it, that undermines everything this system is trying to do. You want to have your flair. People want to hire you, not a robot. This is a tool to help with the heavy lifting, not to replace your voice.
 
-The project instructions include rules to avoid common AI tells: inflated language, overused transitions, uniform sentence structure, and that polished-but-generic tone. But you still need to read every output and make sure it sounds like you. For a detailed reference on what to watch for, see [Wikipedia: Signs of AI Writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) (h/t Tim Braun for surfacing this). It's worth reading once and keeping in mind as you review your materials.
+The project instructions include rules to avoid common AI tells: inflated language, overused transitions, uniform sentence structure, and that polished-but-generic tone. But instructions only go so far. You still need to read every output and make sure it sounds like you. For a detailed reference on what to watch for, see [Wikipedia: Signs of AI Writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) (h/t Tim Braun for surfacing this). It's worth reading once and keeping in mind as you review your materials.
