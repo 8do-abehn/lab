@@ -11,6 +11,10 @@ Job hunting is repetitive. Every application means re-reading your own resume, f
 
 I wanted a system where I could drop in a job posting and get back an honest fit assessment, a tailored resume, and a cover letter without re-explaining my entire background every time.
 
+## The Philosophy
+
+Your goal is to get interviews. Not every one will be for your dream job, and that's the point. Every interview makes you sharper. Your answers get tighter. Your ability to read a room improves. With a system that captures debriefs and tracks your progress, all of that experience compounds. When the role you really want comes along, you're not walking in cold. You're walking in with reps.
+
 ## The Approach
 
 I set up a Claude Project as a persistent job search assistant. The key insight is that Claude Projects retain context across conversations, so you seed it once with your career materials and then each new chat starts with full knowledge of who you are.
