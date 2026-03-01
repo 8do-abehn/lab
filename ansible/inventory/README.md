@@ -53,8 +53,8 @@ The `homelab.yml` inventory includes:
 - **k3s_cluster:** Parent group containing all k3s nodes
 
 ### Backup Infrastructure
-- **backup_servers:** `pibackup` - Raspberry Pi with 2TB USB backup storage
-- **media_servers:** `jellyfin` - Media server backing up to pibackup
+- **backup_servers:** `pi-burg` - Raspberry Pi with 8TB USB backup storage
+- **media_servers:** `jellyfin` - Media server backing up to pi-burg
 
 ## Host Variables
 

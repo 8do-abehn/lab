@@ -2,7 +2,7 @@
 # Backup server defaults
 
 # Disk configuration (typically overridden per-host in inventory)
-backup_disk_device: /dev/sda1
+backup_disk_uuid: ""
 backup_mount_point: /mnt/backup
 backup_filesystem_type: ext4
 

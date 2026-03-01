@@ -36,7 +36,7 @@ all:
       hosts:
         pi-burg:
           ansible_user: adambehn
-          backup_disk_device: /dev/sda2
+          backup_disk_uuid: ffbe8e24-8713-4c30-8500-1474d7adc397
           backup_mount_point: /mnt/backup
 
     # Kubernetes Cluster (Currently decommissioned)

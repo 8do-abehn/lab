@@ -10,7 +10,7 @@
     mode: "0755"
 
 - name: Check if disk is already formatted
-  ansible.builtin.command: blkid -s TYPE -o value {{ backup_disk_device }}
+  ansible.builtin.command: blkid -s TYPE -o value /dev/disk/by-uuid/{{ backup_disk_uuid }}
   register: disk_filesystem
   changed_when: false
   failed_when: false
@@ -18,13 +18,13 @@
 - name: Format disk if not already formatted
   community.general.filesystem:
     fstype: "{{ backup_filesystem_type }}"
-    dev: "{{ backup_disk_device }}"
+    dev: "/dev/disk/by-uuid/{{ backup_disk_uuid }}"
   when: disk_filesystem.stdout == ""
 
 - name: Mount backup disk
   ansible.posix.mount:
     path: "{{ backup_mount_point }}"
-    src: "{{ backup_disk_device }}"
+    src: "UUID={{ backup_disk_uuid }}"
     fstype: "{{ backup_filesystem_type }}"
     opts: defaults,nofail
     state: mounted
