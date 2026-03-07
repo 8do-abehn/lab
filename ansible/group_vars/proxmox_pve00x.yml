@@ -1,8 +1,7 @@
 ---
 # Legacy cluster settings (pve001-006, 10.150.10.0/24)
 
-# NUT configuration (auto-detects server vs client)
-nut_mode: auto
+# NUT configuration (server/client determined by inventory group membership)
 
 # UPS device configuration (for server)
 ups_name: myups
@@ -12,8 +11,8 @@ ups_desc: "APC SMART-UPS 2200"
 ups_admin_user: admin
 ups_monitor_user: monuser
 
-# Client configuration (server IP is auto-detected from 10.150.10.x range)
-ups_server_ip: 10.150.10.44  # Fallback only if auto-detection fails
+# Client configuration
+ups_server_ip: 10.150.10.44
 ups_user: monuser
 
 # IMPORTANT: For maximum reliability during power outages, consider adding

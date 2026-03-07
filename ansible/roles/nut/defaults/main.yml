@@ -1,6 +1,5 @@
 ---
-# NUT mode: 'auto' (detect), 'server', or 'client'
-nut_mode: auto
+# NUT mode: determined by inventory group membership (nut_server group = server, all others = client)
 
 # UPS device configuration (server mode)
 ups_name: myups
@@ -15,6 +14,6 @@ ups_admin_pass: "{{ vault_ups_admin_pass }}"
 ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
 
 # Client configuration
-# Default NUT server (pve004) - used if detection doesn't find a server
+# Default NUT server (pve004)
 ups_server_ip: 10.150.10.44 # pve004
 ups_user: monuser
