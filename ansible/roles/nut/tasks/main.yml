@@ -1,12 +1,7 @@
 ---
-- name: Detect UPS presence on this host
-  ansible.builtin.include_tasks: detect.yml
-  when: nut_mode == 'auto' or nut_mode is not defined
-
-- name: Set nut_mode from detection if auto
+- name: Set NUT mode from inventory group membership
   ansible.builtin.set_fact:
-    nut_mode: "{{ detected_nut_mode }}"
-  when: (nut_mode == 'auto' or nut_mode is not defined) and detected_nut_mode is defined
+    nut_mode: "{{ 'server' if 'nut_server' in group_names else 'client' }}"
 
 - name: Display NUT mode
   ansible.builtin.debug:

@@ -105,12 +105,20 @@ Email: your-email@example.com (or appropriate)
 ```
 Management Interface: Choose primary NIC (usually eno1, ens18, etc.)
 Hostname (FQDN): pveXXX.localdomain (e.g., pve009.localdomain)
-IP Address: 10.x.x.XX/24
-Gateway: 10.x.x.1
-DNS Server: 10.x.x.1 (or appropriate)
+IP Address: 10.150.60.XX/24
+Gateway: 10.150.60.1
+DNS Server: 10.150.60.1 (or appropriate)
 ```
 
 **Important:** Double-check IP is not in use!
+
+### F. BIOS Settings (Before Install)
+- [ ] **SVM Mode** (AMD-V) → Enabled — required for VMs
+- [ ] **IOMMU** → Enabled (not Auto) — required for PCIe passthrough
+- [ ] **Secure Boot** → Disabled — Proxmox doesn't support it
+- [ ] **CSM** → Disabled — UEFI only
+- [ ] **Above 4G Decoding** → Enabled — needed for GPU passthrough
+- [ ] **AER Cap** → Enabled, then **ACS Enable** → Enabled — for proper IOMMU groups
 
 ### F. Complete Installation
 - Review summary
@@ -139,19 +147,20 @@ systemctl enable --now systemd-timesyncd
 timedatectl set-ntp true
 ```
 
-### B. Disable Enterprise Repositories (if no subscription)
-```bash
-# This is automated by Ansible, but good to verify manually first
-cat /etc/apt/sources.list.d/pve-enterprise.list
-cat /etc/apt/sources.list.d/ceph.list
+### B. Fix Repositories and Subscription Nag (before updates)
 
-# Should see they're commented out or have the right repos
+**Run from the Proxmox host shell (not SSH)** — the script uses interactive prompts that work best from the web UI console.
+
+```bash
+# Run community post-install script — fixes enterprise repos, adds no-subscription repos,
+# sets up Ceph repos, and removes subscription nag popup
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)"
 ```
+**Note:** Ansible (`roles/proxmox/tasks/repositories.yml`) also handles this, but repos must be correct before `apt update` and `pveceph install` will work.
 
 ### C. Update System
 ```bash
-apt update
-apt dist-upgrade -y
+apt update && apt full-upgrade -y
 
 # May require reboot
 reboot
@@ -164,6 +173,60 @@ https://10.x.x.XX:8006
 Login: root
 Password: <root password>
 ```
+
+## Phase 3.5: VLAN Network Configuration
+
+### Current VLAN Layout
+| VLAN | Purpose | Subnet | Host IPs |
+|------|---------|--------|----------|
+| 60 | Management + cluster (untagged/native) | 10.150.60.0/24 | .21, .22, ... |
+| 65 | Storage / Ceph | 10.150.65.0/24 | .21, .22, ... (no gateway) |
+| 70 | Guest / VM traffic | 10.150.70.0/24 | no host IP needed |
+
+### Network Interfaces Config
+```
+auto lo
+iface lo inet loopback
+
+iface nic0 inet manual
+
+auto vmbr0
+iface vmbr0 inet static
+    address 10.150.60.XX/24
+    gateway 10.150.60.1
+    bridge-ports nic0
+    bridge-stp off
+    bridge-fd 0
+    bridge-vlan-aware yes
+    bridge-vids 65 70
+
+auto vmbr0.65
+iface vmbr0.65 inet static
+    address 10.150.65.XX/24
+
+source /etc/network/interfaces.d/*
+```
+
+### Verify VLAN Configuration
+```bash
+# Apply config
+ifreload -a
+
+# Verify VLAN interface
+ip addr show vmbr0.65
+
+# Verify bridge is passing VLANs on physical port
+bridge vlan show dev nic0
+# Must show VLANs 65 and 70, not just VLAN 1
+
+# Test cross-node connectivity on storage VLAN
+ping -c 3 10.150.65.XX  # other node's storage IP
+```
+
+### Switch Requirements (USW Flex / UniFi)
+- Port profile: trunk with native VLAN 60
+- Tagged VLANs: 65, 70 (or "allow all")
+- VLANs 65 and 70 must exist as networks in UniFi controller
 
 ## Phase 4: Join Proxmox Cluster
 
@@ -585,6 +648,77 @@ ssh-keygen -R pveXXX.your-tailnet.ts.net
 ssh root@10.x.x.XX
 ```
 
+### Issue: NVIDIA GPU causes blank screen during install
+**Solution:** At boot menu, select Terminal UI, press `e`, add `nomodeset` to the `linux` line, Ctrl+X to boot.
+If install still freezes: add `initcall_blacklist=nvidiafb_init` as well.
+
+After install, make permanent in `/etc/default/grub`:
+```
+GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt nomodeset"
+```
+Then `update-grub` and blacklist nouveau:
+```bash
+cat > /etc/modprobe.d/blacklist-nvidia.conf << 'EOF'
+blacklist nouveau
+blacklist nvidia
+blacklist nvidiafb
+EOF
+update-initramfs -u
+```
+
+### Issue: VLAN traffic not passing on bridge-vlan-aware bridge
+**Symptom:** VLAN interface (e.g. vmbr0.65) transmits frames but receives 0. Pings between nodes on VLAN fail.
+**Cause:** `bridge-vlan-aware yes` is set but `bridge-vids` is missing. The bridge only passes VLAN 1 (default) on the physical port.
+**Verify:**
+```bash
+bridge vlan show dev nic0
+# If only VLAN 1 is listed, that's the problem
+```
+**Solution:** Add `bridge-vids` to vmbr0 in `/etc/network/interfaces`:
+```
+auto vmbr0
+iface vmbr0 inet static
+    address 10.150.60.XX/24
+    gateway 10.150.60.1
+    bridge-ports nic0
+    bridge-stp off
+    bridge-fd 0
+    bridge-vlan-aware yes
+    bridge-vids 65 70
+```
+Then `ifreload -a` and verify with `bridge vlan show dev nic0`.
+
+### Issue: Ceph `pveceph mon create` fails with "Could not connect to ceph cluster"
+**Cause:** On a fresh cluster, `pveceph mon create` tries to connect to monitors that don't exist yet. The auto-bootstrap can fail if directories or keyrings are missing.
+**Solution — manual bootstrap:**
+```bash
+# 1. Ensure directories exist
+mkdir -p /var/lib/ceph/mon /var/lib/ceph/mgr
+chown -R ceph:ceph /var/lib/ceph
+
+# 2. Create monmap
+monmaptool --create --add $(hostname) <storage-ip> \
+  --fsid $(grep fsid /etc/pve/ceph.conf | awk '{print $3}') /tmp/monmap
+
+# 3. Bootstrap monitor as root, then fix ownership
+ceph-mon --mkfs -i $(hostname) --monmap /tmp/monmap \
+  --keyring /etc/pve/priv/ceph.mon.keyring
+chown -R ceph:ceph /var/lib/ceph/mon/ceph-$(hostname)
+
+# 4. Start and verify
+systemctl start ceph-mon@$(hostname)
+ceph -s
+```
+
+### Issue: `/etc/pve/priv/ceph.*` keyrings deleted across cluster
+**Cause:** `/etc/pve/priv/` is shared via pmxcfs. Running `rm -f /etc/pve/priv/ceph.*` on ANY node deletes keyrings for ALL nodes.
+**Recovery:** Extract from running monitor:
+```bash
+ceph --keyring /var/lib/ceph/mon/ceph-$(hostname)/keyring \
+  --name mon. auth get client.admin -o /etc/pve/priv/ceph.client.admin.keyring
+cp /var/lib/ceph/mon/ceph-$(hostname)/keyring /etc/pve/priv/ceph.mon.keyring
+```
+
 ## Post-Onboarding Tasks
 
 ### Immediate (Same Day)
@@ -659,6 +793,12 @@ ping pveXXX.your-tailnet.ts.net
 
 ## Changelog
 
+- 2026-02-28: Updated with pve01/pve02 rebuild lessons
+  - Added BIOS settings checklist (IOMMU, SVM, Secure Boot, Above 4G Decoding)
+  - Added NVIDIA nomodeset boot fix for installer
+  - Added VLAN network config with bridge-vids requirement
+  - Added Ceph manual bootstrap procedure
+  - Added bridge-vlan-aware troubleshooting
 - 2024-12-04: Initial runbook created
   - Added Tailscale hostname conflict prevention
   - Added Ansible automation steps

@@ -1,0 +1,5 @@
+---
+# New cluster settings (pve01-03, 10.150.60.0/24, Proxmox 9)
+
+# Tailscale auth key with tag:proxmox (separate from legacy ci/media key)
+tailscale_auth_key: "{{ vault_tailscale_proxmox_auth_key }}"

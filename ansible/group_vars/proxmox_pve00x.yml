@@ -1,0 +1,19 @@
+---
+# Legacy cluster settings (pve001-006, 10.150.10.0/24)
+
+# NUT configuration (server/client determined by inventory group membership)
+
+# UPS device configuration (for server)
+ups_name: myups
+ups_driver: apcsmart
+ups_port: /dev/ttyS0
+ups_desc: "APC SMART-UPS 2200"
+ups_admin_user: admin
+ups_monitor_user: monuser
+
+# Client configuration
+ups_server_ip: 10.150.10.44
+ups_user: monuser
+
+# IMPORTANT: For maximum reliability during power outages, consider adding
+# an /etc/hosts entry mapping the UPS server IP to hostname on all clients
