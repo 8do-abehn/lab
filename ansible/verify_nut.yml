@@ -1,6 +1,6 @@
 ---
 - name: Verify NUT UPS monitoring setup
-  hosts: proxmox
+  hosts: proxmox_pve00x
   become: true
   gather_facts: false
 
@@ -61,7 +61,7 @@
         nut_healthy: "{{ upsc_check.rc == 0 and ups_status.rc == 0 and monitor_service.status.ActiveState == 'active' }}"
 
 - name: Summary
-  hosts: proxmox
+  hosts: proxmox_pve00x
   gather_facts: false
   tasks:
     - name: Show healthy hosts

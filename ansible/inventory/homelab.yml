@@ -1,11 +1,16 @@
 ---
 # Homelab Infrastructure Inventory
-# Proxmox cluster and k3s cluster
 
 all:
   children:
-    # Proxmox Infrastructure
+    # Parent group — all Proxmox hosts (used by site.yml)
     proxmox:
+      children:
+        proxmox_pve00x:
+        proxmox_pve0x:
+
+    # Proxmox Legacy Cluster (10.150.10.0/24, UPS connected)
+    proxmox_pve00x:
       children:
         nut_server:
           hosts:
@@ -18,9 +23,18 @@ all:
             pve005:
             pve006:
             # pve007:  # Needs BIOS VT-x/VT-d enabled
-            pve008:
-            pve009:
-#               ansible_host: 10.150.10.49
+            # pve008:  # Decommissioned, rebuilt as pve02
+            # pve009:  # Decommissioned, rebuilt as pve03
+
+    # Proxmox New Cluster (3-node, Proxmox 9, Ceph)
+    # Management VLAN 60: 10.150.60.0/24
+    # Storage VLAN 65: 10.150.65.0/24
+    # Guest VLAN 70: 10.150.70.0/24
+    proxmox_pve0x:
+      hosts:
+        pve01:  # Ryzen 9 5900X, 128GB, 2x RX 570, Intel I225-V 2.5G
+        pve02:  # Ryzen 9 5900X, 64GB, 1x RTX 3080 Ti, Aquantia 10G + Intel I225-V 2.5G
+        pve03:  # Ryzen 9 5900X, 128GB, 2x RTX 3080, Intel I225-V 2.5G
 
     # Media Servers
     media_servers:

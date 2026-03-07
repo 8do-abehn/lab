@@ -12,7 +12,7 @@ ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml
 ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --check --diff
 
 # Run on single host
-ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve001
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve01
 
 # Install Netdata monitoring
 ansible-playbook -i inventory/homelab.yml --ask-vault-pass netdata_install.yml
@@ -81,9 +81,9 @@ Shows what would change and displays file differences.
 
 ### Run on specific host only
 ```bash
-ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve004
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve01
 ```
-Applies playbook only to the specified host (pve004 in this example).
+Applies playbook only to the specified host (pve01 in this example).
 
 ### Verbose output
 ```bash
@@ -93,7 +93,7 @@ Shows detailed execution output. Use `-vv` or `-vvv` for more verbosity.
 
 ### Combine options
 ```bash
-ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve004 --check --diff -v
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve01 --check --diff -v
 ```
 Runs check mode on a specific host with diff and verbose output.
 
@@ -133,8 +133,9 @@ Tailscale VPN setup including:
 Network UPS Tools configuration with:
 - Auto-detection of server vs. client role based on inventory groups
 - UPS monitoring and shutdown coordination
-- Server configuration (pve004)
-- Client configuration (all other hosts)
+- Server configuration (pve004 on legacy cluster)
+- Client configuration (pve001-003, pve005-006 on legacy cluster)
+- New cluster (pve01-03) not yet connected to UPS
 
 ### netdata
 Netdata monitoring setup including:
@@ -165,17 +166,17 @@ Backup client configuration including:
 ## Inventory Groups
 
 ### Proxmox Groups
-- `nut_server`: Host with UPS directly connected (pve004)
-- `nut_netclients`: Hosts that monitor UPS over network (pve001-003, pve005-007)
-- `proxmox`: Parent group containing all Proxmox hosts
+- `proxmox`: Parent group containing all Proxmox hosts (both clusters)
+- `proxmox_pve0x`: New cluster (pve01-03, Proxmox 9, Ceph, 10.150.60.0/24)
+- `proxmox_pve00x`: Legacy cluster (pve001-006, 10.150.10.0/24, UPS connected)
+  - `nut_server`: Host with UPS directly connected (pve004)
+  - `nut_netclients`: Hosts that monitor UPS over network (pve001-003, pve005-006)
 
-### k3s Groups
-- `k3s_master`: Control plane node (k3s-master-01)
-- `k3s_workers`: Worker nodes (k3s-worker-01 through k3s-worker-06)
-- `k3s_cluster`: Parent group containing all k3s nodes
+### k3s Groups (decommissioned 2026-01)
+- `k3s_cluster`: Commented out in inventory, preserved for history
 
 ### Backup Groups
-- `backup_servers`: Backup storage servers (pibackup)
+- `backup_servers`: Backup storage servers (pi-burg)
 - `media_servers`: Media servers with backup clients (jellyfin)
 
 ## Tips

@@ -1,5 +1,5 @@
 ---
-# Ansible connection settings
+# Shared settings for all Proxmox clusters (proxmox_pve00x + proxmox_pve0x)
 ansible_user: root
 
 # Tailscale configuration for all Proxmox hosts
@@ -10,21 +10,3 @@ tailscale_tags: "tag:proxmox"
 # Netdata claiming
 netdata_claim_token: "{{ vault_netdata_claim_token }}"
 netdata_claim_rooms: "{{ vault_netdata_proxmox_claim_rooms }}"
-
-# NUT configuration (auto-detects server vs client)
-nut_mode: auto
-
-# UPS device configuration (for server)
-ups_name: myups
-ups_driver: apcsmart
-ups_port: /dev/ttyS0
-ups_desc: "APC SMART-UPS 2200"
-ups_admin_user: admin
-ups_monitor_user: monuser
-
-# Client configuration (server IP is auto-detected from 10.150.10.x range)
-ups_server_ip: 10.150.10.44 # Fallback only if auto-detection fails - consider using IP address
-ups_user: monuser
-
-# IMPORTANT: For maximum reliability during power outages, consider adding
-# an /etc/hosts entry mapping the UPS server IP to hostname on all clients
