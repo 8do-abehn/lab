@@ -17,3 +17,4 @@ proxmox_default_packages:
   - ncdu
   - lsof
   - strace
+  - attr
