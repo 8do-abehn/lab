@@ -11,8 +11,8 @@
     - tailscale
     - backup_server
 
-- name: Configure backup client (Jellyfin)
-  hosts: jellyfin
+- name: Configure backup client
+  hosts: backup_clients
   become: true
   vars_files:
     - vault.yml

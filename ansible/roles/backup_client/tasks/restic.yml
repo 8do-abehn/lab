@@ -49,6 +49,25 @@
     user: root
     state: present
 
+- name: Deploy restic check script
+  ansible.builtin.template:
+    src: restic-check.sh.j2
+    dest: "{{ backup_check_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  no_log: true
+
+- name: Setup weekly restic check cron
+  ansible.builtin.cron:
+    name: "Restic repository check"
+    minute: "{{ backup_check_cron_minute }}"
+    hour: "{{ backup_check_cron_hour }}"
+    weekday: "{{ backup_check_cron_weekday }}"
+    job: "{{ backup_check_script_path }}"
+    user: root
+    state: present
+
 - name: Deploy logrotate config
   ansible.builtin.copy:
     src: logrotate

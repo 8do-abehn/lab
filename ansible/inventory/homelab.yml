@@ -45,6 +45,12 @@ all:
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
     # See ansible/archive/slurm-cluster/
 
+    # Backup Clients (hosts that back up to pi-burg)
+    backup_clients:
+      hosts:
+        jellyfin01:
+          backup_server_host: 100.85.209.80  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+
     # Backup Servers
     backup_servers:
       hosts:
