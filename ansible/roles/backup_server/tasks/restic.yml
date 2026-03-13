@@ -1,9 +1,11 @@
 ---
 # Install restic and initialize repository
 
-- name: Install restic
+- name: Install restic and smartmontools
   ansible.builtin.apt:
-    name: restic
+    name:
+      - restic
+      - smartmontools
     state: present
     update_cache: true
     cache_valid_time: 3600
