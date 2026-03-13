@@ -1,5 +1,10 @@
 # Homelab Infrastructure
 
+[![Ansible CI/CD](https://github.com/8do-abehn/lab/actions/workflows/ansible-ci.yml/badge.svg)](https://github.com/8do-abehn/lab/actions/workflows/ansible-ci.yml)
+[![Deploy Blog](https://github.com/8do-abehn/lab/actions/workflows/deploy-blog.yml/badge.svg)](https://github.com/8do-abehn/lab/actions/workflows/deploy-blog.yml)
+[![Gitleaks](https://github.com/8do-abehn/lab/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/8do-abehn/lab/actions/workflows/gitleaks.yml)
+[![Build CI Image](https://github.com/8do-abehn/lab/actions/workflows/build-ci-image.yml/badge.svg)](https://github.com/8do-abehn/lab/actions/workflows/build-ci-image.yml)
+
 Ansible automation and Hugo blog for a Proxmox-based homelab, with CI/CD via GitHub Actions and Tailscale.
 
 ## Structure
@@ -18,10 +23,15 @@ lab/
 │
 ├── scripts/              # Backup and migration scripts
 │
-├── .github/workflows/    # CI/CD pipelines
-│   ├── ansible-ci.yml    # PR lint + dry-run validation
-│   ├── ansible-deploy.yml # Manual deployment
-│   └── deploy-blog.yml   # Hugo site deployment
+├── .github/
+│   ├── ci/               # CI container image
+│   │   └── Dockerfile
+│   └── workflows/        # CI/CD pipelines
+│       ├── ansible-ci.yml      # PR lint + dry-run validation
+│       ├── ansible-deploy.yml  # Manual deployment
+│       ├── build-ci-image.yml  # Build CI container image
+│       ├── deploy-blog.yml     # Hugo site deployment
+│       └── gitleaks.yml        # Secret scanning
 │
 └── .gitignore
 ```
