@@ -1,5 +1,6 @@
 ---
 # Homelab Infrastructure Inventory
+# Managed by Ansible — see ansible/README.md for usage
 
 all:
   children:
