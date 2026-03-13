@@ -1,0 +1,54 @@
+#!/bin/bash
+set -euo pipefail
+
+# Restic repository integrity check - managed by Ansible
+# Runs weekly to verify backup data on Pi backup server
+
+LOGFILE="{{ backup_log_path }}"
+RESTIC_REPOSITORY="sftp:{{ backup_server_user }}@{{ backup_server_host }}:{{ backup_server_repo_path }}"
+RESTIC_PASSWORD="{{ restic_password }}"
+
+export RESTIC_REPOSITORY
+export RESTIC_PASSWORD
+
+{% if backup_notify_enabled | default(false) %}
+APPRISE_URLS="{{ backup_apprise_urls }}"
+
+notify() {
+    local title="$1"
+    local body="$2"
+    if [ -n "$APPRISE_URLS" ] && command -v apprise &>/dev/null; then
+        apprise -t "$title" --body "$body" "$APPRISE_URLS" 2>/dev/null || true
+    fi
+}
+{% endif %}
+
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+}
+
+log_message "Starting restic repository check"
+
+if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
+    log_message "ERROR: Backup server {{ backup_server_host }} is not reachable"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic check FAILED on $(hostname)" "Server {{ backup_server_host }} unreachable at $(date)"
+{% endif %}
+    exit 1
+fi
+
+CHECK_OUTPUT=$(restic check 2>&1) && CHECK_RC=0 || CHECK_RC=$?
+echo "$CHECK_OUTPUT" >> "$LOGFILE"
+
+if [ $CHECK_RC -eq 0 ]; then
+    log_message "Repository check passed"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic check OK on $(hostname)" "Repository integrity verified at $(date)"
+{% endif %}
+else
+    log_message "Repository check FAILED with exit code $CHECK_RC"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic check FAILED on $(hostname)" "Repository check failed with code $CHECK_RC at $(date). Check $LOGFILE for details."
+{% endif %}
+    exit $CHECK_RC
+fi

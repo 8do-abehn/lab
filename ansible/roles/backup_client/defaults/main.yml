@@ -34,4 +34,10 @@ backup_apprise_urls: "{{ vault_backup_apprise_urls | default('') }}"
 
 # Script and log locations
 backup_script_path: /usr/local/bin/backup-library.sh
+backup_check_script_path: /usr/local/bin/restic-check.sh
 backup_log_path: /var/log/restic-backup.log
+
+# Weekly check schedule (default: Sunday 6am)
+backup_check_cron_hour: "6"
+backup_check_cron_minute: "0"
+backup_check_cron_weekday: "0"
