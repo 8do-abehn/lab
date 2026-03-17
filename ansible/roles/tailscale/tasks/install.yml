@@ -1,4 +1,12 @@
 ---
+- name: Ensure prerequisites for Tailscale repo setup
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
 - name: Detect OS distribution
   ansible.builtin.set_fact:
     tailscale_distro: "{{ 'ubuntu' if ansible_facts['distribution'] == 'Ubuntu' else 'debian' }}"

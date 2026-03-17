@@ -1,4 +1,11 @@
 ---
+- name: Disable systemd-resolved to free port 53
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: false
+    state: stopped
+  failed_when: false
+
 - name: Check if AdGuard Home is already installed
   ansible.builtin.stat:
     path: /opt/AdGuardHome/AdGuardHome
