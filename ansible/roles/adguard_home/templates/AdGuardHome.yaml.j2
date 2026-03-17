@@ -1,0 +1,39 @@
+http:
+  pprof:
+    port: 6060
+    enabled: false
+  address: {{ adguard_home_web_bind }}:{{ adguard_home_web_port }}
+  session_ttl: 720h
+users: []
+dns:
+  bind_hosts:
+    - {{ adguard_home_dns_bind }}
+  port: {{ adguard_home_dns_port }}
+  upstream_dns:
+{% for upstream in adguard_home_upstream_dns %}
+    - {{ upstream }}
+{% endfor %}
+{% for forward in adguard_home_conditional_forwards %}
+    - "[/{{ forward.domain }}/]{{ forward.upstream }}"
+{% endfor %}
+  bootstrap_dns:
+{% for dns in adguard_home_bootstrap_dns %}
+    - {{ dns }}
+{% endfor %}
+  all_servers: false
+  fastest_addr: true
+  cache_size: 4194304
+  cache_ttl_min: 0
+  cache_ttl_max: 0
+  cache_optimistic: true
+  upstream_mode: fastest_addr
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+    name: AdAway Default Blocklist
+    id: 2
+schema_version: 29

@@ -7,7 +7,7 @@
     - proxmox
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers
   become: true
   vars_files:
     - vault.yml
@@ -37,3 +37,12 @@
     - vault.yml
   roles:
     - jellyfin_backup
+
+- name: Setup DNS servers
+  hosts: dns_servers
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - tailscale
+    - adguard_home

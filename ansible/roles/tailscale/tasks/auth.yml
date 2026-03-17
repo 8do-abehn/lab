@@ -34,6 +34,7 @@
     --hostname={{ inventory_hostname }}
     {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
     {% if tailscale_enable_ssh | default(true) %}--ssh{% endif %}
+    {% if tailscale_advertise_routes | default([]) | length > 0 %}--advertise-routes={{ tailscale_advertise_routes | join(',') }}{% endif %}
   when: tailscale_status.rc != 0
   register: auth_status
   changed_when: auth_status.rc == 0
@@ -52,6 +53,7 @@
     --hostname={{ inventory_hostname }}
     {% if tailscale_tags is defined %}--advertise-tags={{ tailscale_tags }}{% endif %}
     {% if tailscale_enable_ssh | default(true) %}--ssh{% endif %}
+    {% if tailscale_advertise_routes | default([]) | length > 0 %}--advertise-routes={{ tailscale_advertise_routes | join(',') }}{% endif %}
   when:
     - tailscale_status.rc is defined
     - tailscale_status.rc == 0
@@ -68,3 +70,8 @@
     - tailscale_tags is not defined
   register: ssh_result
   changed_when: ssh_result.rc == 0
+
+- name: Disable Tailscale DNS acceptance
+  ansible.builtin.command: tailscale set --accept-dns=false
+  when: not (tailscale_accept_dns | default(true))
+  changed_when: true

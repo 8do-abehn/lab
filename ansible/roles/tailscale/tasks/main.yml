@@ -1,4 +1,7 @@
 ---
+- name: Include sysctl tasks for subnet routing
+  ansible.builtin.include_tasks: sysctl.yml
+  when: tailscale_advertise_routes | default([]) | length > 0
 - name: Include installation tasks
   ansible.builtin.include_tasks: install.yml
 - name: Include authentication tasks
