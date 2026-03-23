@@ -9,7 +9,7 @@
   ansible.builtin.shell: set -o pipefail; tailscale status --json 2>/dev/null | jq -r '.Peer[].HostName' | grep -c "^{{ inventory_hostname }}$" || echo "0"
   args:
     executable: /bin/bash
-  register: hostname_conflict_check
+  register: tailscale_hostname_conflict_check
   failed_when: false
   changed_when: false
   when: tailscale_status.rc != 0
@@ -26,7 +26,7 @@
       3. Re-run this playbook
   when:
     - tailscale_status.rc != 0
-    - hostname_conflict_check.stdout | default('0') | int > 0
+    - tailscale_hostname_conflict_check.stdout | default('0') | int > 0
 
 - name: Authenticate Tailscale
   ansible.builtin.command: >
@@ -36,8 +36,8 @@
     {% if tailscale_enable_ssh | default(true) %}--ssh{% endif %}
     {% if tailscale_advertise_routes | default([]) | length > 0 %}--advertise-routes={{ tailscale_advertise_routes | join(',') }}{% endif %}
   when: tailscale_status.rc != 0
-  register: auth_status
-  changed_when: auth_status.rc == 0
+  register: tailscale_auth_status
+  changed_when: tailscale_auth_status.rc == 0
   no_log: true
 
 - name: Re-check Tailscale authentication status after initial auth  # noqa: no-handler
@@ -45,7 +45,7 @@
   register: tailscale_status
   failed_when: false
   changed_when: false
-  when: auth_status.changed | default(false)
+  when: tailscale_auth_status.changed | default(false)
 
 - name: Update Tailscale tags on already-authenticated devices
   ansible.builtin.command: >
@@ -58,7 +58,7 @@
     - tailscale_status.rc is defined
     - tailscale_status.rc == 0
     - tailscale_tags is defined
-  register: tags_update
+  register: tailscale_tags_update
   changed_when: false
 
 - name: Enable Tailscale SSH (if not already set via up command)
@@ -68,8 +68,8 @@
     - tailscale_status.rc is defined
     - tailscale_status.rc == 0
     - tailscale_tags is not defined
-  register: ssh_result
-  changed_when: ssh_result.rc == 0
+  register: tailscale_ssh_result
+  changed_when: tailscale_ssh_result.rc == 0
 
 - name: Check current Tailscale DNS acceptance setting
   ansible.builtin.shell: set -o pipefail; tailscale debug prefs | jq -r '.CorpDNS'

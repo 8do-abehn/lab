@@ -16,7 +16,7 @@
 - name: Check if certificate exists
   ansible.builtin.stat:
     path: "{{ tailscale_cert_path }}"
-  register: cert_file
+  register: tailscale_cert_file
 
 - name: Check certificate expiration
   ansible.builtin.shell: |
@@ -28,26 +28,26 @@
     echo $days_left
   args:
     executable: /bin/bash
-  register: cert_days_left
+  register: tailscale_cert_days_left
   changed_when: false
-  when: cert_file.stat.exists
+  when: tailscale_cert_file.stat.exists
 
 - name: Determine if certificate renewal needed
   ansible.builtin.set_fact:
-    needs_renewal: "{{ not cert_file.stat.exists or (cert_days_left.stdout | default('0') | int < tailscale_cert_renewal_days) }}"
+    tailscale_needs_renewal: "{{ not tailscale_cert_file.stat.exists or (tailscale_cert_days_left.stdout | default('0') | int < tailscale_cert_renewal_days) }}"
 
 - name: Request Tailscale TLS certificate to temp location
   ansible.builtin.command: tailscale cert --cert-file /tmp/pveproxy-ssl.pem --key-file /tmp/pveproxy-ssl.key {{ tailscale_hostname.stdout }}
-  when: needs_renewal
-  register: cert_result
-  changed_when: cert_result.rc == 0
+  when: tailscale_needs_renewal
+  register: tailscale_cert_result
+  changed_when: tailscale_cert_result.rc == 0
 
 - name: Copy certificate to Proxmox location
   ansible.builtin.shell: |
     cat /tmp/pveproxy-ssl.pem > {{ tailscale_cert_path }}
     chown {{ tailscale_cert_owner }}:{{ tailscale_cert_group }} {{ tailscale_cert_path }}
     chmod {{ tailscale_cert_mode }} {{ tailscale_cert_path }}
-  when: needs_renewal
+  when: tailscale_needs_renewal
   changed_when: true
 
 - name: Copy key to Proxmox location
@@ -55,7 +55,7 @@
     cat /tmp/pveproxy-ssl.key > {{ tailscale_key_path }}
     chown {{ tailscale_cert_owner }}:{{ tailscale_cert_group }} {{ tailscale_key_path }}
     chmod {{ tailscale_cert_mode }} {{ tailscale_key_path }}
-  when: needs_renewal
+  when: tailscale_needs_renewal
   changed_when: true
 
 - name: Clean up temp certificate files
@@ -65,11 +65,11 @@
   loop:
     - pveproxy-ssl.pem
     - pveproxy-ssl.key
-  when: needs_renewal
+  when: tailscale_needs_renewal
 
 - name: Restart pveproxy service
   ansible.builtin.systemd:
     name: pveproxy
     state: restarted
-  when: needs_renewal
+  when: tailscale_needs_renewal
   notify: Display Proxmox access message
