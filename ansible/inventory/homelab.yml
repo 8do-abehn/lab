@@ -41,7 +41,6 @@ all:
     dns_servers:
       hosts:
         dns01:  # LXC 3002 on pve01, AdGuard Home + Tailscale subnet router
-          ansible_host: 10.150.60.11
           ansible_user: root
 
     # Media Servers (VLAN 70, new cluster LXCs)
