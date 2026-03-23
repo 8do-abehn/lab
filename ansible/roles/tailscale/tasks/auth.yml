@@ -71,7 +71,17 @@
   register: ssh_result
   changed_when: ssh_result.rc == 0
 
+- name: Check current Tailscale DNS acceptance setting
+  ansible.builtin.shell: set -o pipefail; tailscale debug prefs | jq -r '.CorpDNS'
+  args:
+    executable: /bin/bash
+  register: tailscale_current_accept_dns
+  changed_when: false
+  when: not (tailscale_accept_dns | default(true))
+
 - name: Disable Tailscale DNS acceptance
   ansible.builtin.command: tailscale set --accept-dns=false
-  when: not (tailscale_accept_dns | default(true))
+  when:
+    - not (tailscale_accept_dns | default(true))
+    - tailscale_current_accept_dns.stdout | default('false') == 'true'
   changed_when: true

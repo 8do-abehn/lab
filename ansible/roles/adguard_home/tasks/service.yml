@@ -12,10 +12,21 @@
   check_mode: false
   failed_when: "':53 ' not in adguard_home_ports.stdout"
 
+- name: Check if Tailscale Service is already registered
+  ansible.builtin.shell: set -o pipefail; tailscale serve status --json | jq -e '.Services["{{ adguard_home_tailscale_service }}"]'
+  args:
+    executable: /bin/bash
+  register: adguard_home_tailscale_svc_status
+  changed_when: false
+  failed_when: false
+  when: adguard_home_tailscale_service | length > 0
+
 - name: Register Tailscale Service for AdGuard Home
   ansible.builtin.command: >
     tailscale serve
     --service={{ adguard_home_tailscale_service }}
     --bg --https=443 127.0.0.1:{{ adguard_home_web_port }}
-  when: adguard_home_tailscale_service | length > 0
+  when:
+    - adguard_home_tailscale_service | length > 0
+    - adguard_home_tailscale_svc_status.rc != 0
   changed_when: true
