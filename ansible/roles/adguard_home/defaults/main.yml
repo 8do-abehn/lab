@@ -1,0 +1,23 @@
+---
+adguard_home_version: "0.107.55"
+adguard_home_arch: "linux_amd64"
+
+# DNS settings
+adguard_home_dns_bind: "0.0.0.0"
+adguard_home_dns_port: 53
+adguard_home_upstream_dns:
+  - "https://dns.cloudflare.com/dns-query"
+  - "https://dns.google/dns-query"
+adguard_home_bootstrap_dns:
+  - "1.1.1.1"
+  - "8.8.8.8"
+
+# Web UI
+adguard_home_web_bind: "0.0.0.0"
+adguard_home_web_port: 3000
+
+# Conditional forwarding (list of {domain, upstream})
+adguard_home_conditional_forwards: []
+
+# Tailscale Service (empty string = disabled)
+adguard_home_tailscale_service: ""

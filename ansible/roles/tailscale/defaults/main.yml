@@ -3,6 +3,10 @@
 tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
 tailscale_enable_ssh: true
 
+# Subnet routing
+tailscale_advertise_routes: []
+tailscale_accept_dns: true
+
 # Certificate settings
 tailscale_setup_proxmox_certs: false
 tailscale_cert_path: /etc/pve/local/pveproxy-ssl.pem

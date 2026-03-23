@@ -37,6 +37,12 @@ all:
         pve02:  # Ryzen 9 5900X, 64GB, 1x RTX 3080 Ti, Aquantia 10G + Intel I225-V 2.5G
         pve03:  # Ryzen 9 5900X, 128GB, 2x RTX 3080, Intel I225-V 2.5G
 
+    # DNS Servers (VLAN 60, AdGuard Home + Tailscale subnet router)
+    dns_servers:
+      hosts:
+        dns01:  # LXC 3002 on pve01, AdGuard Home + Tailscale subnet router
+          ansible_user: root
+
     # Media Servers (VLAN 70, new cluster LXCs)
     media_servers:
       hosts:

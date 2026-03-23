@@ -1,0 +1,14 @@
+---
+tailscale_auth_key: "{{ vault_tailscale_dns_auth_key }}"
+tailscale_tags: "tag:dns"
+tailscale_accept_dns: false
+tailscale_advertise_routes:
+  - "10.150.10.0/24"
+  - "10.150.60.0/24"
+  - "10.150.65.0/24"
+  - "10.150.70.0/24"
+
+adguard_home_tailscale_service: "svc:dns"
+adguard_home_conditional_forwards:
+  - domain: "taile975f.ts.net"
+    upstream: "100.100.100.100"

@@ -1,0 +1,32 @@
+---
+- name: Disable systemd-resolved to free port 53
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: false
+    state: stopped
+  failed_when: false
+
+- name: Check if AdGuard Home is already installed
+  ansible.builtin.stat:
+    path: /opt/AdGuardHome/AdGuardHome
+  register: adguard_home_binary
+
+- name: Download AdGuard Home
+  ansible.builtin.get_url:
+    url: "https://github.com/AdguardTeam/AdGuardHome/releases/download/v{{ adguard_home_version }}/AdGuardHome_{{ adguard_home_arch }}.tar.gz"
+    dest: /tmp/AdGuardHome.tar.gz
+    mode: "0644"
+  when: not adguard_home_binary.stat.exists
+
+- name: Extract AdGuard Home
+  ansible.builtin.unarchive:
+    src: /tmp/AdGuardHome.tar.gz
+    dest: /opt
+    remote_src: true
+  when: not adguard_home_binary.stat.exists
+
+- name: Install AdGuard Home systemd service
+  ansible.builtin.command: /opt/AdGuardHome/AdGuardHome -s install
+  args:
+    creates: /etc/systemd/system/AdGuardHome.service
+  changed_when: true

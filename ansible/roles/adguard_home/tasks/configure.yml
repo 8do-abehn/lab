@@ -1,0 +1,15 @@
+---
+- name: Check if AdGuard Home config exists (setup wizard creates it)
+  ansible.builtin.stat:
+    path: /opt/AdGuardHome/AdGuardHome.yaml
+  register: adguard_home_config
+
+- name: Deploy initial AdGuard Home configuration
+  ansible.builtin.template:
+    src: AdGuardHome.yaml.j2
+    dest: /opt/AdGuardHome/AdGuardHome.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  when: not adguard_home_config.stat.exists
+  notify: Restart AdGuard Home
