@@ -1,0 +1,9 @@
+---
+proxmox_gpu_passthrough_enabled: true
+proxmox_gpu_vfio_ids: "10de:2206,10de:1aef"
+proxmox_gpu_blacklist_drivers:
+  - nouveau
+  - nvidia
+  - nvidiafb
+  - nvidia_drm
+proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"

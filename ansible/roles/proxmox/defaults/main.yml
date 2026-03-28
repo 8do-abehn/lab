@@ -18,3 +18,9 @@ proxmox_default_packages:
   - lsof
   - strace
   - attr
+
+# GPU passthrough defaults
+proxmox_gpu_passthrough_enabled: false
+proxmox_gpu_vfio_ids: ""
+proxmox_gpu_blacklist_drivers: []
+proxmox_gpu_grub_extra: ""

@@ -1,0 +1,7 @@
+---
+proxmox_gpu_passthrough_enabled: true
+proxmox_gpu_vfio_ids: "1002:67df,1002:aaf0"
+proxmox_gpu_blacklist_drivers:
+  - radeon
+  - amdgpu
+proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
