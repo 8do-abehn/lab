@@ -48,6 +48,7 @@ all:
       hosts:
         mem01:  # LXC 3003 on pve02, Qdrant + Ollama + Neo4j + Open WebUI
           ansible_user: root
+          ansible_host: 100.85.177.56
 
     # Media Servers (VLAN 70, new cluster LXCs)
     media_servers:

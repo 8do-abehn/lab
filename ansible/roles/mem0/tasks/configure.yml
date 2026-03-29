@@ -1,8 +1,8 @@
 ---
-- name: Deploy podman-compose.yml
+- name: Deploy docker-compose.yml
   ansible.builtin.template:
-    src: podman-compose.yml.j2
-    dest: "{{ mem0_compose_dir }}/podman-compose.yml"
+    src: docker-compose.yml.j2
+    dest: "{{ mem0_compose_dir }}/docker-compose.yml"
     mode: "0600"
   no_log: true
   notify: Restart mem0 stack

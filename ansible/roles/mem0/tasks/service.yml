@@ -1,7 +1,7 @@
 ---
 - name: Pull container images
   ansible.builtin.command:
-    cmd: "podman-compose pull"
+    cmd: "docker compose pull"
     chdir: "{{ mem0_compose_dir }}"
   register: mem0_pull_result
   changed_when: "'Pulling' in mem0_pull_result.stdout or 'Downloading' in mem0_pull_result.stderr"
@@ -9,7 +9,7 @@
 
 - name: Start mem0 stack
   ansible.builtin.command:
-    cmd: "podman-compose up -d"
+    cmd: "docker compose up -d"
     chdir: "{{ mem0_compose_dir }}"
   register: mem0_up_result
   changed_when: "'Creating' in mem0_up_result.stdout or 'Starting' in mem0_up_result.stdout"
@@ -27,7 +27,7 @@
 
 - name: Pull Ollama models
   ansible.builtin.command:
-    cmd: "podman exec mem0-ollama ollama pull {{ item }}"
+    cmd: "docker exec mem0-ollama ollama pull {{ item }}"
   loop: "{{ mem0_ollama_models }}"
   register: mem0_model_pull
   changed_when: "'pulling' in mem0_model_pull.stdout"
