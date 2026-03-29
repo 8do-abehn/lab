@@ -7,7 +7,7 @@
     - proxmox
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers
   become: true
   vars_files:
     - vault.yml
@@ -23,7 +23,7 @@
     - nut
 
 - name: Install Netdata monitoring
-  hosts: proxmox:k3s_cluster:dns_servers:media_servers
+  hosts: proxmox:k3s_cluster:dns_servers:media_servers:mem0_servers
   become: true
   vars_files:
     - vault.yml
@@ -45,3 +45,11 @@
     - vault.yml
   roles:
     - adguard_home
+
+- name: Deploy mem0 AI memory stack
+  hosts: mem0_servers
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - mem0

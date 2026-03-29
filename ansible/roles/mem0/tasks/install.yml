@@ -1,0 +1,23 @@
+---
+- name: Install Podman and dependencies
+  ansible.builtin.apt:
+    name:
+      - podman
+      - python3-pip
+      - uidmap
+      - slirp4netns
+      - fuse-overlayfs
+    state: present
+    update_cache: true
+
+- name: Install podman-compose
+  ansible.builtin.pip:
+    name: podman-compose
+    state: present
+    break_system_packages: true
+
+- name: Create mem0 compose directory
+  ansible.builtin.file:
+    path: "{{ mem0_compose_dir }}"
+    state: directory
+    mode: "0755"

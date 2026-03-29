@@ -1,0 +1,6 @@
+---
+- name: Restart mem0 stack
+  ansible.builtin.shell:
+    cmd: podman-compose down && podman-compose up -d
+    chdir: "{{ mem0_compose_dir }}"
+  changed_when: true

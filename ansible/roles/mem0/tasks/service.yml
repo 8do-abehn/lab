@@ -1,0 +1,60 @@
+---
+- name: Pull container images
+  ansible.builtin.command:
+    cmd: "podman-compose pull"
+    chdir: "{{ mem0_compose_dir }}"
+  register: mem0_pull_result
+  changed_when: "'Pulling' in mem0_pull_result.stdout or 'Downloading' in mem0_pull_result.stderr"
+  check_mode: false
+
+- name: Start mem0 stack
+  ansible.builtin.command:
+    cmd: "podman-compose up -d"
+    chdir: "{{ mem0_compose_dir }}"
+  register: mem0_up_result
+  changed_when: "'Creating' in mem0_up_result.stdout or 'Starting' in mem0_up_result.stdout"
+  check_mode: false
+
+- name: Wait for Ollama to be ready
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_ollama_port }}/api/tags"
+    method: GET
+  register: mem0_ollama_ready
+  until: mem0_ollama_ready.status == 200
+  retries: 30
+  delay: 5
+  check_mode: false
+
+- name: Pull Ollama models
+  ansible.builtin.command:
+    cmd: "podman exec mem0-ollama ollama pull {{ item }}"
+  loop: "{{ mem0_ollama_models }}"
+  register: mem0_model_pull
+  changed_when: "'pulling' in mem0_model_pull.stdout"
+  check_mode: false
+
+- name: Verify Qdrant is healthy
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_qdrant_port }}/healthz"
+    method: GET
+  register: mem0_qdrant_health
+  failed_when: mem0_qdrant_health.status != 200
+  check_mode: false
+
+- name: Verify Neo4j is healthy
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_neo4j_http_port }}"
+    method: GET
+  register: mem0_neo4j_health
+  failed_when: mem0_neo4j_health.status != 200
+  check_mode: false
+  when: mem0_neo4j_enabled
+
+- name: Verify Ollama has models loaded
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_ollama_port }}/api/tags"
+    method: GET
+    return_content: true
+  register: mem0_ollama_tags
+  failed_when: "'bge-m3' not in mem0_ollama_tags.content"
+  check_mode: false

@@ -1,0 +1,5 @@
+FROM python:3.12-slim
+RUN pip install --no-cache-dir \
+    "mem0-mcp-selfhosted @ git+https://github.com/elvismdev/mem0-mcp-selfhosted.git"
+EXPOSE {{ mem0_mcp_port }}
+CMD ["mem0-mcp-selfhosted"]

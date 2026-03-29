@@ -1,0 +1,103 @@
+---
+# mem0 stack — managed by Ansible, do not edit manually
+version: "3"
+
+services:
+  qdrant:
+    image: {{ mem0_qdrant_image }}
+    container_name: mem0-qdrant
+    ports:
+      - "{{ mem0_qdrant_port }}:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  ollama:
+    image: {{ mem0_ollama_image }}
+    container_name: mem0-ollama
+    ports:
+      - "{{ mem0_ollama_port }}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+{% if mem0_neo4j_enabled %}
+  neo4j:
+    image: {{ mem0_neo4j_image }}
+    container_name: mem0-neo4j
+    ports:
+      - "{{ mem0_neo4j_http_port }}:7474"
+      - "{{ mem0_neo4j_bolt_port }}:7687"
+    volumes:
+      - neo4j_data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/{{ mem0_neo4j_password }}
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "-q", "http://localhost:7474"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    restart: unless-stopped
+{% endif %}
+
+{% if mem0_mcp_enabled %}
+  mem0-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mem0-mcp
+    container_name: mem0-mcp
+    ports:
+      - "{{ mem0_mcp_port }}:{{ mem0_mcp_port }}"
+    environment:
+      - MEM0_TRANSPORT={{ mem0_mcp_transport }}
+      - MEM0_PORT={{ mem0_mcp_port }}
+      - MEM0_PROVIDER=ollama
+      - MEM0_LLM_MODEL=qwen3:8b
+      - MEM0_EMBED_MODEL=bge-m3
+      - MEM0_EMBED_DIMS=1024
+      - MEM0_QDRANT_URL=http://qdrant:6333
+      - MEM0_OLLAMA_URL=http://ollama:11434
+{% if mem0_neo4j_enabled %}
+      - MEM0_ENABLE_GRAPH=true
+      - MEM0_NEO4J_URL=bolt://neo4j:7687
+      - MEM0_NEO4J_PASSWORD={{ mem0_neo4j_password }}
+{% endif %}
+      - MEM0_USER_ID={{ mem0_mcp_user_id }}
+    depends_on:
+      - qdrant
+      - ollama
+{% if mem0_neo4j_enabled %}
+      - neo4j
+{% endif %}
+    restart: unless-stopped
+{% endif %}
+
+{% if mem0_openwebui_enabled %}
+  open-webui:
+    image: {{ mem0_openwebui_image }}
+    container_name: mem0-openwebui
+    ports:
+      - "{{ mem0_openwebui_port }}:8080"
+    volumes:
+      - openwebui_data:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:{{ mem0_ollama_port }}
+    depends_on:
+      - ollama
+    restart: unless-stopped
+{% endif %}
+
+volumes:
+  qdrant_data:
+  ollama_data:
+{% if mem0_neo4j_enabled %}
+  neo4j_data:
+{% endif %}
+{% if mem0_openwebui_enabled %}
+  openwebui_data:
+{% endif %}

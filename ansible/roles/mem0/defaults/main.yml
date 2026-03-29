@@ -1,0 +1,36 @@
+---
+# mem0 stack defaults
+
+# Podman compose project directory
+mem0_compose_dir: /opt/mem0
+
+# Container images
+mem0_qdrant_image: "docker.io/qdrant/qdrant:latest"
+mem0_ollama_image: "docker.io/ollama/ollama:latest"
+mem0_neo4j_image: "docker.io/neo4j:5"
+mem0_openwebui_image: "ghcr.io/open-webui/open-webui:main"
+
+# Ports (bound to 0.0.0.0 for Tailscale access)
+mem0_qdrant_port: 6333
+mem0_ollama_port: 11434
+mem0_neo4j_http_port: 7474
+mem0_neo4j_bolt_port: 7687
+mem0_openwebui_port: 3000
+
+# Neo4j credentials (from vault)
+mem0_neo4j_password: "{{ vault_mem0_neo4j_password }}"
+
+# Ollama models to pull on first deploy
+mem0_ollama_models:
+  - bge-m3
+  - qwen3:8b
+
+# mem0 MCP server
+mem0_mcp_enabled: true
+mem0_mcp_transport: sse
+mem0_mcp_port: 8081
+mem0_mcp_user_id: adam
+
+# Feature flags
+mem0_neo4j_enabled: true
+mem0_openwebui_enabled: true
