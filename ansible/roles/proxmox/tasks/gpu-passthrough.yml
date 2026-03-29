@@ -1,0 +1,51 @@
+---
+- name: Configure GRUB kernel parameters for GPU passthrough
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet {{ proxmox_gpu_grub_extra }}"'
+    backup: true
+  notify: Update grub
+
+- name: Ensure VFIO modules in /etc/modules
+  ansible.builtin.lineinfile:
+    path: /etc/modules
+    line: "{{ item }}"
+    create: true
+    mode: "0644"
+  loop:
+    - vfio
+    - vfio_iommu_type1
+    - vfio_pci
+    - vfio_virqfd
+  notify: Update initramfs
+
+- name: Create GPU driver blacklist
+  ansible.builtin.copy:
+    content: |
+      {% for driver in proxmox_gpu_blacklist_drivers %}
+      blacklist {{ driver }}
+      {% endfor %}
+    dest: /etc/modprobe.d/blacklist-gpu.conf
+    mode: "0644"
+  notify: Update initramfs
+
+- name: Create VFIO PCI binding config
+  ansible.builtin.copy:
+    content: "options vfio-pci ids={{ proxmox_gpu_vfio_ids }} disable_vga=1\n"
+    dest: /etc/modprobe.d/vfio.conf
+    mode: "0644"
+  notify: Update initramfs
+
+- name: Read current kernel cmdline
+  ansible.builtin.command: cat /proc/cmdline
+  register: proxmox_current_cmdline
+  changed_when: false
+  check_mode: false
+
+- name: Warn if reboot is needed for GPU passthrough
+  ansible.builtin.debug:
+    msg: >-
+      REBOOT REQUIRED: Current kernel cmdline does not include GPU passthrough
+      parameters. Reboot this node to activate IOMMU and VFIO changes.
+  when: proxmox_gpu_grub_extra not in proxmox_current_cmdline.stdout

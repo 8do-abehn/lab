@@ -5,3 +5,6 @@
   ansible.builtin.include_tasks: packages.yml
 - name: Remove subscription nag
   ansible.builtin.include_tasks: subscription-nag.yml
+- name: Configure GPU passthrough
+  ansible.builtin.include_tasks: gpu-passthrough.yml
+  when: proxmox_gpu_passthrough_enabled | default(false)
