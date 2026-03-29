@@ -56,6 +56,16 @@ all:
         jellyfin01:  # LXC 3001 on pve01, CephFS media at /mnt/library
           ansible_user: root
 
+    # Minecraft Servers (Docker in LXCs on pve01-03)
+    minecraft_servers:
+      hosts:
+        mc01:  # LXC 3004 on pve01, 32GB RAM
+          ansible_user: root
+        mc02:  # LXC 3005 on pve02, 32GB RAM
+          ansible_user: root
+        mc03:  # LXC 3006 on pve03, 32GB RAM
+          ansible_user: root
+
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
     # See ansible/archive/slurm-cluster/
 

@@ -1,0 +1,6 @@
+---
+- name: Create minecraft compose directory
+  ansible.builtin.file:
+    path: "{{ minecraft_compose_dir }}"
+    state: directory
+    mode: "0755"

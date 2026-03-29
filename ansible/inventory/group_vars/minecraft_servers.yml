@@ -1,0 +1,5 @@
+---
+# Minecraft LXC group defaults
+tailscale_auth_key: "{{ vault_tailscale_minecraft_auth_key }}"
+tailscale_tags: "tag:minecraft"
+tailscale_accept_dns: false

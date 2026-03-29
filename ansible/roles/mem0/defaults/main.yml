@@ -27,7 +27,7 @@ mem0_ollama_models:
 
 # mem0 MCP server
 mem0_mcp_enabled: true
-mem0_mcp_transport: sse
+mem0_mcp_transport: streamable-http
 mem0_mcp_port: 8081
 mem0_mcp_user_id: adam
 

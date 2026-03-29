@@ -1,0 +1,65 @@
+---
+# Minecraft server stack — managed by Ansible, do not edit manually
+
+services:
+{% for server in minecraft_servers %}
+  mc-{{ server.name }}:
+    image: {{ minecraft_server_image }}
+    container_name: mc-{{ server.name }}
+    ports:
+      - "{{ server.port }}:25565"
+    volumes:
+      - {{ server.name }}_data:/data
+    environment:
+      EULA: "{{ minecraft_eula }}"
+      TYPE: "{{ server.server_type | default(minecraft_server_type) }}"
+      VERSION: "{{ server.version | default(minecraft_version) }}"
+      MEMORY: "{{ server.memory | default(minecraft_default_memory) }}"
+      MAX_PLAYERS: "{{ server.max_players | default(minecraft_default_max_players) }}"
+      DIFFICULTY: "{{ server.difficulty | default(minecraft_default_difficulty) }}"
+      MODE: "{{ server.gamemode | default(minecraft_default_gamemode) }}"
+      VIEW_DISTANCE: "{{ server.view_distance | default(minecraft_default_view_distance) }}"
+      MOTD: "{{ server.motd | default(minecraft_default_motd) }}"
+      USE_AIKAR_FLAGS: "true"
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: "{{ server.rcon_password | default(minecraft_default_rcon_password) }}"
+{% if server.seed is defined %}
+      SEED: "{{ server.seed }}"
+{% endif %}
+{% if server.ops is defined %}
+      OPS: "{{ server.ops | join(',') }}"
+{% endif %}
+{% if server.whitelist is defined %}
+      WHITELIST: "{{ server.whitelist | join(',') }}"
+      ENFORCE_WHITELIST: "TRUE"
+{% endif %}
+{% if server.extra_env is defined %}
+{% for key, value in server.extra_env.items() %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+{% endif %}
+    restart: unless-stopped
+
+  mc-backup-{{ server.name }}:
+    image: {{ minecraft_backup_image }}
+    container_name: mc-backup-{{ server.name }}
+    environment:
+      BACKUP_INTERVAL: "{{ server.backup_interval | default(minecraft_backup_interval) }}"
+      RCON_HOST: mc-{{ server.name }}
+      RCON_PORT: "25575"
+      RCON_PASSWORD: "{{ server.rcon_password | default(minecraft_default_rcon_password) }}"
+      PRUNE_BACKUPS_DAYS: "{{ server.backup_prune_days | default(minecraft_backup_prune_days) }}"
+      PAUSE_IF_NO_PLAYERS: "true"
+    volumes:
+      - {{ server.name }}_data:/data:ro
+      - {{ server.name }}_backups:/backups
+    depends_on:
+      - mc-{{ server.name }}
+    restart: unless-stopped
+
+{% endfor %}
+volumes:
+{% for server in minecraft_servers %}
+  {{ server.name }}_data:
+  {{ server.name }}_backups:
+{% endfor %}

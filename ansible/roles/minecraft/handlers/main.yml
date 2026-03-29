@@ -1,0 +1,6 @@
+---
+- name: Restart minecraft stack
+  ansible.builtin.shell:
+    cmd: docker compose down && docker compose up -d
+    chdir: "{{ minecraft_compose_dir }}"
+  changed_when: true
