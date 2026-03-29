@@ -1,7 +1,7 @@
 ---
 - name: Pull container images
   ansible.builtin.command:
-    cmd: "docker compose pull"
+    cmd: "docker compose pull --ignore-pull-failures"
     chdir: "{{ mem0_compose_dir }}"
   register: mem0_pull_result
   changed_when: "'Pulling' in mem0_pull_result.stdout or 'Downloading' in mem0_pull_result.stderr"

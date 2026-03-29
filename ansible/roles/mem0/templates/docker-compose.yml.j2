@@ -46,9 +46,8 @@ services:
 
 {% if mem0_mcp_enabled %}
   mem0-mcp:
-    build:
-      context: .
-      dockerfile: Dockerfile.mem0-mcp
+    image: mem0-mcp:latest
+    pull_policy: never
     container_name: mem0-mcp
     ports:
       - "{{ mem0_mcp_port }}:{{ mem0_mcp_port }}"

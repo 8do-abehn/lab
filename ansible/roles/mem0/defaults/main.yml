@@ -26,7 +26,7 @@ mem0_ollama_models:
   - qwen3:8b
 
 # mem0 MCP server
-mem0_mcp_enabled: false
+mem0_mcp_enabled: true
 mem0_mcp_transport: sse
 mem0_mcp_port: 8081
 mem0_mcp_user_id: adam
