@@ -31,6 +31,12 @@
 - filter-repo removes the `origin` remote — re-add with `git remote add origin git@github.com:8do-abehn/lab.git`
 - filter-repo leaves `.git/filter-repo/already_ran` — delete it before re-running
 
+## Issue Priority Labels
+- `priority:critical` — broken in prod, fix now
+- `priority:high` — blocks other work, fix this sprint
+- `priority:medium` — fix soon, not blocking
+- `priority:low` — nice to have, backlog
+
 ## Hugo
 - Build: `cd site && hugo --minify`
 - Hugo is installed via Homebrew
