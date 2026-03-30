@@ -61,7 +61,7 @@
   failed_when: false
   when: mem0_tailscale_service | length > 0
 
-- name: Register Tailscale Service for OpenMemory
+- name: Register Tailscale Service for OpenMemory  # noqa: no-handler
   ansible.builtin.command: >
     tailscale serve
     --service={{ mem0_tailscale_service }}
