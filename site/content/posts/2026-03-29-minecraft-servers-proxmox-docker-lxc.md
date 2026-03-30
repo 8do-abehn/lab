@@ -1,7 +1,7 @@
 ---
 title: "Running 6 Minecraft Servers on Proxmox with Docker-in-LXC"
 date: 2026-03-29
-draft: true
+draft: false
 tags: ["homelab", "proxmox", "docker", "minecraft", "ansible"]
 description: "Deploying 6 Paper Minecraft servers across 3 Proxmox LXCs using Ansible, itzg/minecraft-server, and automated backups — plus everything that broke along the way."
 ---
