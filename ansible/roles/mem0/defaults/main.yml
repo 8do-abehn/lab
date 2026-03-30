@@ -1,0 +1,25 @@
+---
+# mem0 stack defaults
+
+# Docker compose project directory
+mem0_compose_dir: /opt/mem0
+
+# Container images
+mem0_ollama_image: "docker.io/ollama/ollama:latest"
+mem0_openwebui_image: "ghcr.io/open-webui/open-webui:main"
+
+# Ports (bound to 0.0.0.0 for Tailscale access)
+mem0_ollama_port: 11434
+mem0_openmemory_port: 8090
+mem0_openwebui_port: 3000
+
+# Ollama models to pull on first deploy
+mem0_ollama_models:
+  - bge-m3
+  - qwen3:8b
+
+# Tailscale service for OpenMemory
+mem0_tailscale_service: "svc:mem0"
+
+# Feature flags
+mem0_openwebui_enabled: true

@@ -43,6 +43,13 @@ all:
         dns01:  # LXC 3002 on pve01, AdGuard Home + Tailscale subnet router
           ansible_user: root
 
+    # mem0 Servers (VLAN 70, AI memory stack)
+    mem0_servers:
+      hosts:
+        mem01:  # LXC 3003 on pve02, OpenMemory + Ollama + Open WebUI
+          ansible_user: root
+          ansible_host: 100.85.177.56
+
     # Media Servers (VLAN 70, new cluster LXCs)
     media_servers:
       hosts:

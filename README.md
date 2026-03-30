@@ -11,38 +11,44 @@ Ansible automation and Hugo blog for a Proxmox-based homelab, with CI/CD via Git
 
 ```
 lab/
-├── ansible/              # Ansible playbooks and roles
-│   ├── roles/
-│   │   ├── proxmox/     # Base Proxmox configuration
-│   │   ├── tailscale/   # VPN and certificate management
-│   │   └── nut/         # UPS monitoring setup
+├── ansible/
+│   ├── inventory/
+│   │   ├── homelab.yml          # All hosts and groups
+│   │   ├── group_vars/          # Per-group variables
+│   │   └── host_vars/           # Per-host variables
+│   ├── roles/                   # 9 roles (see table below)
+│   ├── site.yml                 # Main playbook
+│   ├── vault.yml                # Encrypted secrets (AES256)
 │   └── README.md
-│
-├── site/                 # Hugo blog (lab.8devops.com)
-│   └── themes/PaperMod/  # PaperMod theme (submodule)
-│
-├── scripts/              # Backup and migration scripts
-│
+├── site/                        # Hugo blog (lab.8devops.com)
+│   └── themes/PaperMod/         # PaperMod theme (submodule)
+├── scripts/                     # Migration and audit scripts
 ├── .github/
-│   ├── ci/               # CI container image
-│   │   └── Dockerfile
-│   └── workflows/        # CI/CD pipelines
-│       ├── ansible-ci.yml      # PR lint + dry-run validation
-│       ├── ansible-deploy.yml  # Manual deployment
-│       ├── build-ci-image.yml  # Build CI container image
-│       ├── deploy-blog.yml     # Hugo site deployment
-│       └── gitleaks.yml        # Secret scanning
-│
-└── .gitignore
+│   ├── ci/Dockerfile            # CI container image
+│   └── workflows/
+│       ├── ansible-ci.yml       # PR lint + dry-run validation
+│       ├── ansible-deploy.yml   # Manual deployment
+│       ├── build-ci-image.yml   # Build CI container image
+│       ├── deploy-blog.yml      # Hugo site deployment
+│       └── gitleaks.yml         # Secret scanning
+└── .githooks/pre-commit         # Gitleaks pre-commit hook
 ```
 
 ## Ansible ([ansible/](ansible/))
 
-Automation for managing Proxmox hosts:
-- Base system configuration
-- Tailscale VPN with automatic Let's Encrypt certificates
-- Network UPS Tools (NUT) for power management
-- Repository management and package installation
+Automation for Proxmox hosts and LXC services:
+
+| Role | Purpose |
+|------|---------|
+| `proxmox` | Base Proxmox configuration, GPU passthrough |
+| `tailscale` | VPN with SSH and subnet routing |
+| `nut` | UPS monitoring (server/client via inventory groups) |
+| `netdata` | Monitoring agent with cloud connection |
+| `adguard_home` | DNS server with Tailscale Service registration |
+| `mem0` | AI memory stack (Qdrant, Ollama, Neo4j, Open WebUI) via Podman |
+| `backup_client` | Restic backups to pi-burg with Apprise notifications |
+| `backup_server` | Backup target disk management |
+| `jellyfin_backup` | Jellyfin-specific backup (rclone to B2 + restic) |
 
 See [ansible/README.md](ansible/README.md) for usage instructions.
 
@@ -78,6 +84,19 @@ Previous content (K8s configs, AD lab, OpenPLC, journals, notes) is preserved at
 ```bash
 git checkout v1-archive -- path/to/file
 ```
+
+## Issue Triage
+
+All issues get a priority label when created:
+
+| Label | Response | Examples |
+|-------|----------|---------|
+| `priority:critical` | Drop everything, fix now | Prod service down, data loss risk, security issue |
+| `priority:high` | Fix this sprint, blocks other work | Broken CI, missing infra for planned deploy |
+| `priority:medium` | Fix soon, not blocking | Config drift between nodes, non-urgent cleanup |
+| `priority:low` | Backlog, nice to have | Documentation updates, future optimizations |
+
+If an issue doesn't have a priority label, it hasn't been triaged yet.
 
 ## Security
 
