@@ -37,6 +37,15 @@
 - `priority:medium` — fix soon, not blocking
 - `priority:low` — nice to have, backlog
 
+## Docker in LXC
+- Podman does NOT work in unprivileged LXCs — use Docker instead
+- Docker needs `features: nesting=1` on the LXC
+- Remove AppArmor inside the LXC: `apt purge apparmor` + `lxc.apparmor.profile: unconfined` in container config
+- Tailscale in LXC needs `/dev/net/tun` — add `lxc.cgroup2.devices.allow: c 10:200 rwm` and `lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file`
+- MagicDNS leaks into LXC resolv.conf on reboot — workaround is systemd fix-resolv.service
+- Docker builds (buildx) fail in LXC due to AppArmor — cross-build on Mac and `scp` tarball instead
+- `NEO4J_AUTH=neo4j/password` uses `/` as separator — password must not contain `/`
+
 ## Hugo
 - Build: `cd site && hugo --minify`
 - Hugo is installed via Homebrew
