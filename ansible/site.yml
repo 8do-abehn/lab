@@ -45,3 +45,24 @@
     - vault.yml
   roles:
     - adguard_home
+
+- name: Deploy Minecraft servers
+  hosts: minecraft_servers
+  become: true
+  vars_files:
+    - vault.yml
+  pre_tasks:
+    - name: Disable systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Set static resolv.conf
+      ansible.builtin.copy:
+        content: "nameserver 10.150.60.11\n"
+        dest: /etc/resolv.conf
+        mode: "0644"
+  roles:
+    - minecraft

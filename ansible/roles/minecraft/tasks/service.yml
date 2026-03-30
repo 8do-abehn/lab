@@ -1,0 +1,26 @@
+---
+- name: Pull container images
+  ansible.builtin.command:
+    cmd: "docker compose pull --ignore-pull-failures"
+    chdir: "{{ minecraft_compose_dir }}"
+  register: minecraft_pull_result
+  changed_when: "'Pulling' in minecraft_pull_result.stdout or 'Downloading' in minecraft_pull_result.stderr"
+  check_mode: false
+
+- name: Start minecraft stack
+  ansible.builtin.command:
+    cmd: "docker compose up -d"
+    chdir: "{{ minecraft_compose_dir }}"
+  register: minecraft_up_result
+  changed_when: "'Creating' in minecraft_up_result.stdout or 'Starting' in minecraft_up_result.stdout"
+  check_mode: false
+
+- name: Wait for minecraft servers to be ready
+  ansible.builtin.wait_for:
+    port: "{{ item.port }}"
+    host: 127.0.0.1
+    timeout: 180
+  loop: "{{ minecraft_servers }}"
+  loop_control:
+    label: "{{ item.name }}:{{ item.port }}"
+  check_mode: false

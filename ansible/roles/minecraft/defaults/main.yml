@@ -1,0 +1,47 @@
+---
+# Minecraft server stack defaults
+
+minecraft_compose_dir: /opt/minecraft
+
+# Container images
+minecraft_server_image: "itzg/minecraft-server:java21"
+minecraft_backup_image: "itzg/mc-backup:latest"
+minecraft_monitor_image: "itzg/mc-monitor:latest"
+
+# Server defaults (overridable per server)
+minecraft_server_type: "PAPER"
+minecraft_version: "1.21.4"
+minecraft_eula: "TRUE"
+minecraft_default_memory: "4G"
+minecraft_default_max_players: 20
+minecraft_default_difficulty: "normal"
+minecraft_default_gamemode: "survival"
+minecraft_default_view_distance: 12
+minecraft_default_motd: "A Minecraft Server"
+
+# Backup defaults
+minecraft_backup_interval: "24h"
+minecraft_backup_prune_days: 7
+
+# RCON (enabled by default, random password per server if not set)
+minecraft_default_rcon_password: "{{ vault_minecraft_rcon_password }}"
+
+# Auto-update: weekly cron to pull latest Paper builds
+minecraft_auto_update_enabled: true
+minecraft_auto_update_weekday: "0"
+minecraft_auto_update_hour: "4"
+minecraft_auto_update_minute: "0"
+
+# Servers list — define per host in inventory
+# Each entry: name, port, and optional overrides
+# Example:
+#   minecraft_servers:
+#     - name: survival
+#       port: 25565
+#       memory: "6G"
+#       motd: "Survival Server"
+#     - name: creative
+#       port: 25566
+#       gamemode: creative
+#       motd: "Creative Server"
+minecraft_servers: []
