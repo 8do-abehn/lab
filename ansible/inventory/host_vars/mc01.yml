@@ -1,0 +1,13 @@
+---
+# Minecraft servers on mc01 (LXC 3004 on pve01, 32GB RAM)
+minecraft_servers:
+  - name: survival
+    port: 25565
+    memory: "6G"
+    motd: "Survival Server"
+
+  - name: creative
+    port: 25566
+    memory: "4G"
+    gamemode: creative
+    motd: "Creative Server"

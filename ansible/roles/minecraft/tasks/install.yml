@@ -1,0 +1,19 @@
+---
+- name: Purge AppArmor (Docker in LXC workaround)
+  ansible.builtin.apt:
+    name: apparmor
+    state: absent
+    purge: true
+  register: apparmor_purge
+
+- name: Restart Docker after AppArmor removal
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+  when: apparmor_purge.changed
+
+- name: Create minecraft compose directory
+  ansible.builtin.file:
+    path: "{{ minecraft_compose_dir }}"
+    state: directory
+    mode: "0755"
