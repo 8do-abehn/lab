@@ -43,6 +43,21 @@
   become: true
   vars_files:
     - vault.yml
+  pre_tasks:
+    - name: Disable systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Set static resolv.conf for upstream DNS
+      ansible.builtin.copy:
+        content: |
+          nameserver 1.1.1.1
+          nameserver 8.8.8.8
+        dest: /etc/resolv.conf
+        mode: "0644"
   roles:
     - adguard_home
 
