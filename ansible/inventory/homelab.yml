@@ -57,17 +57,18 @@ all:
           ansible_user: root
 
     # Minecraft Servers (Docker in LXCs on pve01-03)
-    minecraft_servers:
-      hosts:
-        mc01:  # LXC 3004 on pve01, 32GB RAM
-          ansible_user: root
-          ansible_host: 10.150.60.17
-        mc02:  # LXC 3005 on pve02, 32GB RAM
-          ansible_user: root
-          ansible_host: 10.150.60.149
-        mc03:  # LXC 3006 on pve03, 32GB RAM
-          ansible_user: root
-          ansible_host: 10.150.60.141
+    # Commented out: no Tailscale SSH yet, breaks CI. See #317
+    # minecraft_servers:
+    #   hosts:
+    #     mc01:  # LXC 3004 on pve01, 32GB RAM
+    #       ansible_user: root
+    #       ansible_host: 10.150.60.17
+    #     mc02:  # LXC 3005 on pve02, 32GB RAM
+    #       ansible_user: root
+    #       ansible_host: 10.150.60.149
+    #     mc03:  # LXC 3006 on pve03, 32GB RAM
+    #       ansible_user: root
+    #       ansible_host: 10.150.60.141
 
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
     # See ansible/archive/slurm-cluster/
