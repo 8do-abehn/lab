@@ -6,6 +6,25 @@
   roles:
     - proxmox
 
+- name: Fix DNS resolution on LXC containers (#313)
+  hosts: dns_servers:media_servers:mem0_servers:minecraft_servers
+  become: true
+  tasks:
+    - name: Disable systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Set static resolv.conf
+      ansible.builtin.copy:
+        content: |
+          nameserver 1.1.1.1
+          nameserver 8.8.8.8
+        dest: /etc/resolv.conf
+        mode: "0644"
+
 - name: Setup Tailscale on all hosts
   hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers
   become: true
@@ -43,21 +62,6 @@
   become: true
   vars_files:
     - vault.yml
-  pre_tasks:
-    - name: Disable systemd-resolved
-      ansible.builtin.systemd:
-        name: systemd-resolved
-        enabled: false
-        state: stopped
-      failed_when: false
-
-    - name: Set static resolv.conf for upstream DNS
-      ansible.builtin.copy:
-        content: |
-          nameserver 1.1.1.1
-          nameserver 8.8.8.8
-        dest: /etc/resolv.conf
-        mode: "0644"
   roles:
     - adguard_home
 
@@ -74,18 +78,5 @@
   become: true
   vars_files:
     - vault.yml
-  pre_tasks:
-    - name: Disable systemd-resolved
-      ansible.builtin.systemd:
-        name: systemd-resolved
-        enabled: false
-        state: stopped
-      failed_when: false
-
-    - name: Set static resolv.conf
-      ansible.builtin.copy:
-        content: "nameserver 10.150.60.11\n"
-        dest: /etc/resolv.conf
-        mode: "0644"
   roles:
     - minecraft
