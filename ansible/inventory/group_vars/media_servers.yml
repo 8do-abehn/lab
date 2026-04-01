@@ -1,0 +1,3 @@
+---
+# Media servers are LXCs — MagicDNS breaks DNS resolution (#313)
+tailscale_accept_dns: false

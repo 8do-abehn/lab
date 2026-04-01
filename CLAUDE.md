@@ -31,6 +31,23 @@
 - filter-repo removes the `origin` remote — re-add with `git remote add origin git@github.com:8do-abehn/lab.git`
 - filter-repo leaves `.git/filter-repo/already_ran` — delete it before re-running
 
+## Issue Priority Labels
+- `priority:critical` — broken in prod, fix now
+- `priority:high` — blocks other work, fix this sprint
+- `priority:medium` — fix soon, not blocking
+- `priority:low` — nice to have, backlog
+
+## Docker in LXC
+- LXCs must be **privileged** (`--unprivileged 0`) — overlay2 fails in unprivileged. Can't change after creation, must destroy and recreate.
+- Podman does NOT work in unprivileged LXCs — use Docker instead
+- Docker needs `features: nesting=1` on the LXC
+- Remove AppArmor inside the LXC: `apt purge apparmor` + restart Docker + `lxc.apparmor.profile: unconfined` in container config
+- Tailscale in LXC needs `/dev/net/tun` — add `lxc.cgroup2.devices.allow: c 10:200 rwm` and `lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file`
+- MagicDNS leaks into LXC resolv.conf on reboot — disable systemd-resolved, set static resolv.conf
+- Docker builds (buildx) fail in LXC due to AppArmor — cross-build on Mac and `scp` tarball instead
+- Use `cephfs-ssd` for LXC templates — shared across cluster, no per-node downloads
+- Proxmox 9 (Debian Trixie) needs Docker repo pinned to `bookworm`
+
 ## Hugo
 - Build: `cd site && hugo --minify`
 - Hugo is installed via Homebrew

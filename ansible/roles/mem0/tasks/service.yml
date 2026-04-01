@@ -1,0 +1,72 @@
+---
+- name: Pull container images
+  ansible.builtin.command:
+    cmd: "docker compose pull --ignore-pull-failures"
+    chdir: "{{ mem0_compose_dir }}"
+  register: mem0_pull_result
+  changed_when: "'Pulling' in mem0_pull_result.stdout or 'Downloading' in mem0_pull_result.stderr"
+  check_mode: false
+
+- name: Start mem0 stack
+  ansible.builtin.command:
+    cmd: "docker compose up -d"
+    chdir: "{{ mem0_compose_dir }}"
+  register: mem0_up_result
+  changed_when: "'Creating' in mem0_up_result.stdout or 'Starting' in mem0_up_result.stdout"
+  check_mode: false
+
+- name: Wait for Ollama to be ready
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_ollama_port }}/api/tags"
+    method: GET
+  register: mem0_ollama_ready
+  until: mem0_ollama_ready.status == 200
+  retries: 30
+  delay: 5
+  check_mode: false
+
+- name: Pull Ollama models
+  ansible.builtin.command:
+    cmd: "docker exec mem0-ollama ollama pull {{ item }}"
+  loop: "{{ mem0_ollama_models }}"
+  register: mem0_model_pull
+  changed_when: "'pulling' in mem0_model_pull.stdout"
+  check_mode: false
+
+- name: Verify Ollama has models loaded
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_ollama_port }}/api/tags"
+    method: GET
+    return_content: true
+  register: mem0_ollama_tags
+  failed_when: "'bge-m3' not in mem0_ollama_tags.content"
+  check_mode: false
+
+- name: Wait for OpenMemory to be healthy
+  ansible.builtin.uri:
+    url: "http://localhost:{{ mem0_openmemory_port }}/health"
+    method: GET
+  register: mem0_openmemory_health
+  until: mem0_openmemory_health.status == 200
+  retries: 20
+  delay: 5
+  check_mode: false
+
+- name: Check if Tailscale Service is already registered
+  ansible.builtin.shell: set -o pipefail; tailscale serve status --json | jq -e '.Services["{{ mem0_tailscale_service }}"]'
+  args:
+    executable: /bin/bash
+  register: mem0_tailscale_svc_status
+  changed_when: false
+  failed_when: false
+  when: mem0_tailscale_service | length > 0
+
+- name: Register Tailscale Service for OpenMemory  # noqa: no-handler
+  ansible.builtin.command: >
+    tailscale serve
+    --service={{ mem0_tailscale_service }}
+    --bg --https=443 127.0.0.1:{{ mem0_openmemory_port }}
+  when:
+    - mem0_tailscale_service | length > 0
+    - mem0_tailscale_svc_status.rc != 0
+  changed_when: true

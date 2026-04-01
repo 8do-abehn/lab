@@ -1,0 +1,4 @@
+---
+tailscale_auth_key: "{{ vault_tailscale_mem0_auth_key }}"
+tailscale_tags: "tag:mem0"
+tailscale_accept_dns: false

@@ -4,13 +4,13 @@
     name: apparmor
     state: absent
     purge: true
-  register: apparmor_purge
+  register: minecraft_apparmor_purge
 
-- name: Restart Docker after AppArmor removal
+- name: Restart Docker after AppArmor removal  # noqa: no-handler
   ansible.builtin.systemd:
     name: docker
     state: restarted
-  when: apparmor_purge.changed
+  when: minecraft_apparmor_purge is changed
 
 - name: Create minecraft compose directory
   ansible.builtin.file:

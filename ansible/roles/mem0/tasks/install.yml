@@ -1,0 +1,6 @@
+---
+- name: Create mem0 compose directory
+  ansible.builtin.file:
+    path: "{{ mem0_compose_dir }}"
+    state: directory
+    mode: "0755"
