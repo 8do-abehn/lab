@@ -1,7 +1,7 @@
 ---
 title: "Self-Hosting OpenMemory MCP on Proxmox with Tailscale"
 date: 2026-03-31
-draft: true
+draft: false
 tags: ["homelab", "proxmox", "docker", "ai", "mcp", "tailscale", "ollama"]
 description: "Deploying a self-hosted OpenMemory MCP server on a Proxmox LXC with Ollama and Tailscale, plus fixing Claude Desktop's broken write tools with supergateway."
 ---
