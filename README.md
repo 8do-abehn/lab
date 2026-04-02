@@ -49,8 +49,20 @@ Automation for Proxmox hosts and LXC services:
 | `backup_client` | Restic backups to pi-burg with Apprise notifications |
 | `backup_server` | Backup target disk management |
 | `jellyfin_backup` | Jellyfin-specific backup (rclone to B2 + restic) |
+| `minecraft` | Minecraft servers via Docker Compose (Paper + Fabric) |
 
 See [ansible/README.md](ansible/README.md) for usage instructions.
+
+## Services
+
+User-facing services running on the homelab:
+
+| Service | Host | Address | Docs |
+|---------|------|---------|------|
+| Jellyfin | jellyfin01 | `jellyfin.taile975f.ts.net` | [docs/services/jellyfin.md](docs/services/jellyfin.md) |
+| AdGuard Home | dns01 | `10.150.60.11:3000` (web UI) | [docs/services/adguard.md](docs/services/adguard.md) |
+| Minecraft (6 servers) | mc01–mc03 | [see doc](docs/services/minecraft.md#servers) | [docs/services/minecraft.md](docs/services/minecraft.md) |
+| OpenMemory | mem01 | `mem0.taile975f.ts.net` | [docs/services/mem0.md](docs/services/mem0.md) |
 
 ## Blog ([site/](site/))
 
