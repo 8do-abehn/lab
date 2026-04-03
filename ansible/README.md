@@ -40,9 +40,14 @@ ansible/
 ├── roles/
 │   ├── proxmox/          # Base Proxmox configuration
 │   ├── tailscale/        # Tailscale VPN and certificates
-│   ├── nut/              # Network UPS Tools (auto-detect server/client)
+│   ├── nut/              # Network UPS Tools (server/client via inventory)
+│   ├── netdata/          # Monitoring agent with cloud connection
+│   ├── adguard_home/     # DNS server with Tailscale Service
+│   ├── mem0/             # AI memory stack (OpenMemory, Ollama, Open WebUI)
 │   ├── backup_server/    # Pi backup server (disk mount, restic repo)
-│   └── backup_client/    # Backup client (restic backup script, cron)
+│   ├── backup_client/    # Backup client (restic backup script, cron)
+│   ├── jellyfin_backup/  # Jellyfin rclone to B2
+│   └── minecraft/        # Minecraft servers via Docker Compose
 ├── group_vars/           # Group-specific variables
 └── host_vars/            # Host-specific variables
 ```
@@ -162,6 +167,30 @@ Backup client configuration including:
 - Log rotation
 
 **Note:** Run via `backup-setup.yml` playbook, not included in `site.yml`
+
+### adguard_home
+AdGuard Home DNS server with Tailscale Service registration:
+- Installation and initial configuration
+- DNS binding on port 53
+- Tailscale Service registration (`svc:dns`)
+
+### mem0
+AI memory stack via Docker Compose:
+- OpenMemory MCP server, Ollama, Open WebUI
+- Tailscale Service registration (`svc:mem0`)
+- Ollama model provisioning
+
+### jellyfin_backup
+Jellyfin-specific backup configuration:
+- rclone sync to Backblaze B2
+- Scheduled via cron (daily midnight)
+
+### minecraft
+Minecraft servers via Docker Compose:
+- Paper and Fabric server support
+- Per-host server definitions via inventory
+- Automated backups via mc-backup sidecar
+- Weekly auto-update cron
 
 ## Inventory Groups
 

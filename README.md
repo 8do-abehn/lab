@@ -16,7 +16,7 @@ lab/
 │   │   ├── homelab.yml          # All hosts and groups
 │   │   ├── group_vars/          # Per-group variables
 │   │   └── host_vars/           # Per-host variables
-│   ├── roles/                   # 9 roles (see table below)
+│   ├── roles/                   # 10 roles (see table below)
 │   ├── site.yml                 # Main playbook
 │   ├── vault.yml                # Encrypted secrets (AES256)
 │   └── README.md
