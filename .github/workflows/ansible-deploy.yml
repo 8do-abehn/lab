@@ -74,13 +74,11 @@ jobs:
            github.event.inputs.playbook == 'site.yml')
         env:
           NETDATA_API_TOKEN: ${{ secrets.NETDATA_API_TOKEN }}
-          NETDATA_SPACE_ID: ${{ secrets.NETDATA_SPACE_ID }}
-          NETDATA_ROOM_ID: ${{ secrets.NETDATA_ROOM_ID }}
         run: |
           set -euo pipefail
 
-          SPACE="${NETDATA_SPACE_ID}"
-          ROOM="${NETDATA_ROOM_ID}"
+          SPACE="fdc5c86c-40e1-4c04-ba72-2c270dbcc2f2"
+          ROOM="b9b8607a-73ca-4de7-b5ae-86c3c74766be"
           API_URL="https://app.netdata.cloud/api/v2/spaces/${SPACE}/rooms/${ROOM}/nodes"
 
           echo "Querying Netdata Cloud for node status..."
