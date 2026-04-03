@@ -1,3 +1,13 @@
 ---
 # Minecraft servers on mc03 (LXC 3006 on pve03, 32GB RAM)
-minecraft_servers: []
+minecraft_servers:
+  - name: cobblemon
+    port: 25565
+    memory: "8G"
+    version: "1.21.1"
+    server_type: FABRIC
+    image: "itzg/minecraft-server:java21"
+    motd: "Cobblemon"
+    extra_env:
+      MODRINTH_PROJECTS: "cobblemon,fabric-api"
+      MODRINTH_DOWNLOAD_DEPENDENCIES: "required"
