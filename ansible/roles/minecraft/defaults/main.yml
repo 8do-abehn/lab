@@ -4,13 +4,13 @@
 minecraft_compose_dir: /opt/minecraft
 
 # Container images
-minecraft_server_image: "itzg/minecraft-server:java21"
+minecraft_server_image: "itzg/minecraft-server:java25"
 minecraft_backup_image: "itzg/mc-backup:latest"
 minecraft_monitor_image: "itzg/mc-monitor:latest"
 
 # Server defaults (overridable per server)
-minecraft_server_type: "PAPER"
-minecraft_version: "1.21.11"
+minecraft_server_type: "VANILLA"
+minecraft_version: "26.1.1"
 minecraft_eula: "TRUE"
 minecraft_default_memory: "4G"
 minecraft_default_max_players: 20
@@ -26,7 +26,7 @@ minecraft_backup_prune_days: 7
 # RCON (enabled by default, random password per server if not set)
 minecraft_default_rcon_password: "{{ vault_minecraft_rcon_password }}"
 
-# Auto-update: weekly cron to pull latest Paper builds
+# Auto-update: weekly cron to pull latest builds
 minecraft_auto_update_enabled: true
 minecraft_auto_update_weekday: "0"
 minecraft_auto_update_hour: "4"
