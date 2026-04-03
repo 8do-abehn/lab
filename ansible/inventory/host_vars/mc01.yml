@@ -16,6 +16,5 @@ minecraft_servers:
     port: 25567
     memory: "4G"
     motd: "One Block Skyblock"
-    seed: "-4172144997902289642"
     extra_env:
-      MODRINTH_PROJECTS: "datapack:vanilla-one-block"
+      MODRINTH_PROJECTS: "datapack:skyblock-void-worldgen,datapack:sky-void-additions"
