@@ -4,7 +4,7 @@
 services:
 {% for server in minecraft_servers %}
   mc-{{ server.name }}:
-    image: {{ minecraft_server_image }}
+    image: {{ server.image | default(minecraft_server_image) }}
     container_name: mc-{{ server.name }}
     ports:
       - "{{ server.port }}:25565"
