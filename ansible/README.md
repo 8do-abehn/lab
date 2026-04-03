@@ -204,9 +204,15 @@ Minecraft servers via Docker Compose:
 ### k3s Groups (decommissioned 2026-01)
 - `k3s_cluster`: Commented out in inventory, preserved for history
 
+### Service Groups
+- `dns_servers`: DNS servers (dns01)
+- `mem0_servers`: AI memory stack (mem01)
+- `minecraft_servers`: Minecraft servers (mc01-mc03) — currently commented out, see #317
+- `media_servers`: Media servers with backup clients (jellyfin01)
+
 ### Backup Groups
 - `backup_servers`: Backup storage servers (pi-burg)
-- `media_servers`: Media servers with backup clients (jellyfin)
+- `backup_clients`: Hosts with restic backups to pi-burg
 
 ## Tips
 
