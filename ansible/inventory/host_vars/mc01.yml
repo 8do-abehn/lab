@@ -11,3 +11,11 @@ minecraft_servers:
     memory: "4G"
     gamemode: creative
     motd: "Creative Server"
+
+  - name: oneblock
+    port: 25567
+    memory: "4G"
+    version: "26.1"
+    motd: "SkyBlock"
+    extra_env:
+      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
