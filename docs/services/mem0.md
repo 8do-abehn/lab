@@ -10,9 +10,9 @@ AI memory stack: OpenMemory MCP server, Ollama for embeddings/LLM, and Open WebU
 | LXC ID | 3003 |
 | Proxmox Node | pve02 |
 | Tailscale Service | `svc:mem0` |
-| Address | `mem0.taile975f.ts.net` |
-| Tailscale IP | 100.85.177.56 |
 | Disk | 52GB (expanded from 32GB for model storage) |
+
+IPs and Tailscale addresses are in the [inventory](../../ansible/inventory/).
 
 ## Services
 

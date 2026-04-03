@@ -9,25 +9,22 @@ DNS server with ad blocking, plus Tailscale subnet router for LAN-to-Tailscale b
 | Host | dns01 |
 | LXC ID | 3002 |
 | Proxmox Node | pve01 |
-| IP | 10.150.60.11 |
 | Tailscale Service | `svc:dns` |
-| Address | `dns.taile975f.ts.net` |
-| Web UI | `http://10.150.60.11:3000` |
+| DNS Port | 53 |
+| Web UI Port | 3000 |
+
+IPs and Tailscale addresses are in the [inventory](../../ansible/inventory/).
 
 ## How to Connect
 
-DNS queries go to `10.150.60.11:53`. EdgeRouter DHCP hands this out as primary DNS to all LAN clients.
+DNS queries go to dns01 on port 53. EdgeRouter DHCP hands it out as primary DNS to all LAN clients.
 
-Web UI at `http://10.150.60.11:3000` (no auth currently — see #289).
+Web UI on port 3000 (no auth currently — see #289).
 
 ## What It Does
 
-1. **DNS server** — Ad blocking, upstream to Cloudflare/Google DoH, conditional forwarding for `*.taile975f.ts.net` to Tailscale (`100.100.100.100`)
-2. **Subnet router** — Advertises all 4 LAN subnets to Tailscale:
-   - `10.150.10.0/24` (legacy cluster)
-   - `10.150.60.0/24` (new cluster management)
-   - `10.150.65.0/24` (Ceph storage)
-   - `10.150.70.0/24` (guest/services)
+1. **DNS server** — Ad blocking, upstream to Cloudflare/Google DoH, conditional forwarding for Tailscale domains
+2. **Subnet router** — Advertises all 4 LAN subnets to Tailscale (legacy, management, Ceph storage, guest/services)
 3. **LAN-to-Tailscale bridge** — Lets non-Tailscale devices (Rokus, TVs) reach Tailscale Services via DNS rewrites
 
 ## Ansible

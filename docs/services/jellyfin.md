@@ -10,15 +10,15 @@ Media server for movies, TV, and music.
 | LXC ID | 3001 |
 | Proxmox Node | pve01 |
 | Tailscale Service | `svc:jellyfin` |
-| Address | `jellyfin.taile975f.ts.net` |
-| Tailscale IP | 100.83.204.242 |
 | Port | 8096 |
+
+IPs and Tailscale addresses are in the [inventory](../../ansible/inventory/).
 
 ## How to Connect
 
-Access via Tailscale at `jellyfin.taile975f.ts.net`. Non-Tailscale devices (Rokus, TVs) reach it through dns01's subnet router and AdGuard DNS rewrites.
+Access via Tailscale Service. Non-Tailscale devices (Rokus, TVs) reach it through dns01's subnet router and AdGuard DNS rewrites.
 
-Legacy access via EdgeRouter DNAT rule 4999 (`10.150.10.205:8096` -> jellyfin01) is still active for old Roku configs (#337).
+Legacy access via EdgeRouter DNAT rule is still active for old Roku configs (#337).
 
 ## Backups
 
@@ -26,7 +26,7 @@ Two parallel backup jobs:
 
 | Job | Destination | Schedule | Managed By |
 |-----|-------------|----------|------------|
-| restic | pi-burg (100.85.209.80) | Daily 2:00 AM | `backup_client` role |
+| restic | pi-burg | Daily 2:00 AM | `backup_client` role |
 | rclone | Backblaze B2 | Daily midnight | `jellyfin_backup` role |
 
 Restic retention: 7 daily, 4 weekly, 6 monthly. Weekly integrity check Sundays at 6:00 AM. Notifications via Apprise (Gmail SMTP).

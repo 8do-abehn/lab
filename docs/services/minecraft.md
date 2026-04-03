@@ -4,22 +4,24 @@
 
 ## Where It Runs
 
-| Host | LXC ID | Proxmox Node | IP |
-|------|--------|--------------|----|
-| mc01 | 3004 | pve01 | 10.150.60.17 |
-| mc02 | 3005 | pve02 | 10.150.60.149 |
-| mc03 | 3006 | pve03 | 10.150.60.141 |
+| Host | LXC ID | Proxmox Node |
+|------|--------|--------------|
+| mc01 | 3004 | pve01 |
+| mc02 | 3005 | pve02 |
+| mc03 | 3006 | pve03 |
+
+IPs are in the [inventory](../../ansible/inventory/). Default Minecraft port is 25565, second server on each host uses 25566.
 
 ## Servers
 
-| Server | Host | Address | Type | Mode | Memory |
-|--------|------|---------|------|------|--------|
-| survival | mc01 | `10.150.60.17:25565` | Paper | survival | 6G |
-| creative | mc01 | `10.150.60.17:25566` | Paper | creative | 4G |
-| adventure | mc02 | `10.150.60.149:25565` | Paper | hard | 6G |
-| minigames | mc02 | `10.150.60.149:25566` | Paper | survival | 4G |
-| hardcore | mc03 | `10.150.60.141:25565` | Paper | hard (hardcore) | 6G |
-| modded | mc03 | `10.150.60.141:25566` | Fabric | survival | 8G |
+| Server | Host | Port | Type | Mode | Memory |
+|--------|------|------|------|------|--------|
+| survival | mc01 | 25565 | Paper | survival | 6G |
+| creative | mc01 | 25566 | Paper | creative | 4G |
+| adventure | mc02 | 25565 | Paper | hard | 6G |
+| minigames | mc02 | 25566 | Paper | survival | 4G |
+| hardcore | mc03 | 25565 | Paper | hard (hardcore) | 6G |
+| modded | mc03 | 25566 | Fabric | survival | 8G |
 
 All servers use `itzg/minecraft-server:java21` with Aikar's JVM flags. Version set to `LATEST`.
 
