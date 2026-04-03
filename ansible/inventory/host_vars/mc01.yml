@@ -17,4 +17,4 @@ minecraft_servers:
     memory: "4G"
     motd: "One Block Skyblock"
     extra_env:
-      MODRINTH_PROJECTS: "datapack:skyblock-void-worldgen,datapack:sky-void-additions"
+      MODRINTH_PROJECTS: "datapack:vanilla-one-block,datapack:sky-void-additions"
