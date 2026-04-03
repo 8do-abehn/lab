@@ -11,3 +11,19 @@ minecraft_servers:
     port: 25566
     memory: "4G"
     motd: "Minigames Server"
+
+  - name: sawyer-skyblock
+    port: 25567
+    memory: "4G"
+    version: "26.1"
+    motd: "Sawyer's SkyBlock"
+    extra_env:
+      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
+
+  - name: riley-skyblock
+    port: 25568
+    memory: "4G"
+    version: "26.1"
+    motd: "Riley's SkyBlock"
+    extra_env:
+      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
