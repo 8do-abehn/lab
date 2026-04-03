@@ -20,15 +20,6 @@ Access via Tailscale at `jellyfin.taile975f.ts.net`. Non-Tailscale devices (Roku
 
 Legacy access via EdgeRouter DNAT rule 4999 (`10.150.10.205:8096` -> jellyfin01) is still active for old Roku configs (#337).
 
-## Users and Devices
-
-4 users, 8 devices:
-
-- **adambehn** — MacBook Pro, iPhone (Safari)
-- **kids** — 2x Roku (Premiere, Express), Edge browser
-- **Krista** — Roku Streambar
-- **barbie** — Apple TV
-
 ## Backups
 
 Two parallel backup jobs:
