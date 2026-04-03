@@ -29,8 +29,8 @@ The step only runs for `netdata_install.yml` and `site.yml` playbooks — skippe
 ## Implementation Details
 
 - Uses `NETDATA_API_TOKEN` stored as a GitHub Actions secret
-- Space ID: `fdc5c86c-40e1-4c04-ba72-2c270dbcc2f2`
-- Room: "All nodes" (`b9b8607a-73ca-4de7-b5ae-86c3c74766be`)
+- Space ID: `<space-id>`
+- Room: "All nodes" (`<room-id>`)
 - Uses `jq` to parse the API response and `grep` to detect unreachable nodes
 - Outputs GitHub Actions error annotations (`::error::`) for visibility in the Actions UI
 

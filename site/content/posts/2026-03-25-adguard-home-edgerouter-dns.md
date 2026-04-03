@@ -22,13 +22,13 @@ LAN Clients (10.150.10.0/24)
   │
   ├─ DNS ──→ dns01 (AdGuard Home, 10.150.60.11)
   │            ├─ Upstream: Cloudflare DoH, Google DoH
-  │            ├─ Conditional: *.taile975f.ts.net → 100.100.100.100
+  │            ├─ Conditional: *.<tailnet>.ts.net → 100.100.100.100
   │            └─ Reverse DNS: PTR queries → EdgeRouter (10.150.10.1)
   │
   ├─ DHCP ──→ EdgeRouter X-SFP (dnsmasq)
   │            ├─ Primary DNS: 10.150.60.11 (AdGuard)
   │            ├─ Secondary DNS: 10.150.10.1 (router fallback)
-  │            └─ Search domain: taile975f.ts.net
+  │            └─ Search domain: <tailnet>.ts.net
   │
   └─ 100.x.x.x traffic ──→ static route → dns01 → MASQUERADE → tailscale0
 ```
@@ -53,7 +53,7 @@ echo -e "nameserver 1.1.1.1\nnameserver 8.8.8.8" > /etc/resolv.conf
 
 ## Routing Non-Tailscale Devices to Tailscale Services
 
-The streaming devices on the default VLAN don't run Tailscale, but they need to reach Jellyfin at its Tailscale IP (100.93.207.33). This took three pieces:
+The streaming devices on the default VLAN don't run Tailscale, but they need to reach Jellyfin at its Tailscale IP (<tailscale-ip>). This took three pieces:
 
 **Static route on the router** pointing the Tailscale CGNAT range at dns01:
 
