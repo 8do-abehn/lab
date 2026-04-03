@@ -146,7 +146,7 @@ Network UPS Tools configuration with:
 Netdata monitoring setup including:
 - Installation and configuration
 - Claiming to Netdata Cloud with vault-stored tokens
-- Monitoring for both Proxmox and k3s infrastructure
+- Monitoring for Proxmox and LXC infrastructure
 
 **Design decision:** Uses `state: latest` instead of `state: present` because Ubuntu's
 distro packages are built with `--disable-cloud`. The official netdata repo packages
