@@ -40,9 +40,14 @@ ansible/
 ├── roles/
 │   ├── proxmox/          # Base Proxmox configuration
 │   ├── tailscale/        # Tailscale VPN and certificates
-│   ├── nut/              # Network UPS Tools (auto-detect server/client)
+│   ├── nut/              # Network UPS Tools (server/client via inventory)
+│   ├── netdata/          # Monitoring agent with cloud connection
+│   ├── adguard_home/     # DNS server with Tailscale Service
+│   ├── mem0/             # AI memory stack (OpenMemory, Ollama, Open WebUI)
 │   ├── backup_server/    # Pi backup server (disk mount, restic repo)
-│   └── backup_client/    # Backup client (restic backup script, cron)
+│   ├── backup_client/    # Backup client (restic backup script, cron)
+│   ├── jellyfin_backup/  # Jellyfin rclone to B2
+│   └── minecraft/        # Minecraft servers via Docker Compose
 ├── group_vars/           # Group-specific variables
 └── host_vars/            # Host-specific variables
 ```
@@ -141,7 +146,7 @@ Network UPS Tools configuration with:
 Netdata monitoring setup including:
 - Installation and configuration
 - Claiming to Netdata Cloud with vault-stored tokens
-- Monitoring for both Proxmox and k3s infrastructure
+- Monitoring for Proxmox and LXC infrastructure
 
 **Design decision:** Uses `state: latest` instead of `state: present` because Ubuntu's
 distro packages are built with `--disable-cloud`. The official netdata repo packages
@@ -163,6 +168,30 @@ Backup client configuration including:
 
 **Note:** Run via `backup-setup.yml` playbook, not included in `site.yml`
 
+### adguard_home
+AdGuard Home DNS server with Tailscale Service registration:
+- Installation and initial configuration
+- DNS binding on port 53
+- Tailscale Service registration (`svc:dns`)
+
+### mem0
+AI memory stack via Docker Compose:
+- OpenMemory MCP server, Ollama, Open WebUI
+- Tailscale Service registration (`svc:mem0`)
+- Ollama model provisioning
+
+### jellyfin_backup
+Jellyfin-specific backup configuration:
+- rclone sync to Backblaze B2
+- Scheduled via cron (daily midnight)
+
+### minecraft
+Minecraft servers via Docker Compose:
+- Paper and Fabric server support
+- Per-host server definitions via inventory
+- Automated backups via mc-backup sidecar
+- Weekly auto-update cron
+
 ## Inventory Groups
 
 ### Proxmox Groups
@@ -175,9 +204,15 @@ Backup client configuration including:
 ### k3s Groups (decommissioned 2026-01)
 - `k3s_cluster`: Commented out in inventory, preserved for history
 
+### Service Groups
+- `dns_servers`: DNS servers (dns01)
+- `mem0_servers`: AI memory stack (mem01)
+- `minecraft_servers`: Minecraft servers (mc01-mc03) — currently commented out, see #317
+- `media_servers`: Media servers with backup clients (jellyfin01)
+
 ### Backup Groups
 - `backup_servers`: Backup storage servers (pi-burg)
-- `media_servers`: Media servers with backup clients (jellyfin)
+- `backup_clients`: Hosts with restic backups to pi-burg
 
 ## Tips
 

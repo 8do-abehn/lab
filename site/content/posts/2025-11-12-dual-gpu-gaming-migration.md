@@ -33,8 +33,8 @@ Successfully migrated boys' gaming VMs from pve007 to new pve008 host with dual 
 - All configs now symlinked from `~/8do/dotfiles`
 
 ### 4. Cluster Expansion
-- Added pve006 to cluster: `pvecm add pve001.taile975f.ts.net`
-- Added pve008 to cluster: `pvecm add pve001.taile975f.ts.net`
+- Added pve006 to cluster: `pvecm add pve001.<tailnet>.ts.net`
+- Added pve008 to cluster: `pvecm add pve001.<tailnet>.ts.net`
 - **Key learning**: Use Tailscale FQDN to avoid cert verification issues
 - Cluster now has 8 active nodes (pve001-008)
 
@@ -169,7 +169,7 @@ Both VMs now have:
 
 ### 3. Cluster Join Certificate Issues
 - Direct IP failed: "hostname verification failed"
-- Solution: Use Tailscale FQDN (pve001.taile975f.ts.net)
+- Solution: Use Tailscale FQDN (pve001.<tailnet>.ts.net)
 - Certificates match Tailscale domain
 
 ### 4. VM Migration with Passthrough Devices

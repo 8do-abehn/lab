@@ -16,7 +16,7 @@ lab/
 │   │   ├── homelab.yml          # All hosts and groups
 │   │   ├── group_vars/          # Per-group variables
 │   │   └── host_vars/           # Per-host variables
-│   ├── roles/                   # 9 roles (see table below)
+│   ├── roles/                   # 10 roles (see table below)
 │   ├── site.yml                 # Main playbook
 │   ├── vault.yml                # Encrypted secrets (AES256)
 │   └── README.md
@@ -49,8 +49,20 @@ Automation for Proxmox hosts and LXC services:
 | `backup_client` | Restic backups to pi-burg with Apprise notifications |
 | `backup_server` | Backup target disk management |
 | `jellyfin_backup` | Jellyfin-specific backup (rclone to B2 + restic) |
+| `minecraft` | Minecraft servers via Docker Compose (Paper + Fabric) |
 
 See [ansible/README.md](ansible/README.md) for usage instructions.
+
+## Services
+
+User-facing services running on the homelab:
+
+| Service | Host | Docs |
+|---------|------|------|
+| Jellyfin | jellyfin01 | [docs/services/jellyfin.md](docs/services/jellyfin.md) |
+| AdGuard Home | dns01 | [docs/services/adguard.md](docs/services/adguard.md) |
+| Minecraft (6 servers) | mc01–mc03 | [docs/services/minecraft.md](docs/services/minecraft.md) |
+| OpenMemory | mem01 | [docs/services/mem0.md](docs/services/mem0.md) |
 
 ## Blog ([site/](site/))
 
