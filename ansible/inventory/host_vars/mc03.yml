@@ -1,15 +1,3 @@
 ---
 # Minecraft servers on mc03 (LXC 3006 on pve03, 32GB RAM)
-minecraft_servers:
-  - name: hardcore
-    port: 25565
-    memory: "6G"
-    difficulty: hard
-    motd: "Hardcore Server"
-    extra_env:
-      HARDCORE: "true"
-
-  - name: modded
-    port: 25566
-    memory: "8G"
-    motd: "Modded Server"
+minecraft_servers: []

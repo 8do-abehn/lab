@@ -1,17 +1,6 @@
 ---
 # Minecraft servers on mc02 (LXC 3005 on pve02, 32GB RAM)
 minecraft_servers:
-  - name: adventure
-    port: 25565
-    memory: "6G"
-    difficulty: hard
-    motd: "Adventure Server"
-
-  - name: minigames
-    port: 25566
-    memory: "4G"
-    motd: "Minigames Server"
-
   - name: sawyer-skyblock
     port: 25567
     memory: "4G"
