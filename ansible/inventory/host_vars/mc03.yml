@@ -13,4 +13,3 @@ minecraft_servers:
     port: 25566
     memory: "8G"
     motd: "Modded Server"
-    server_type: FABRIC
