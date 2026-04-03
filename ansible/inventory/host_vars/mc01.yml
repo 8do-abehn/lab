@@ -15,6 +15,6 @@ minecraft_servers:
   - name: oneblock
     port: 25567
     memory: "4G"
-    motd: "One Block Skyblock"
+    motd: "SkyBlock"
     extra_env:
-      MODRINTH_PROJECTS: "datapack:vanilla-one-block,datapack:sky-void-additions"
+      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
