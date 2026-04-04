@@ -1,9 +1,9 @@
 ---
 title: "Moving a Raspberry Pi Offsite: Everything That Went Wrong"
 date: 2026-04-04
-draft: true
+draft: false
 tags: ["homelab", "raspberry-pi", "backup", "tailscale", "restic", "debugging"]
-description: "A cautionary tale about moving a backup server to a remote location, featuring router USB ports, client isolation, reflashes at midnight, and a CephFS surprise."
+description: "A cautionary tale about moving a backup server to a remote location, featuring router USB ports, client isolation, emergency reflashes, and a CephFS surprise."
 ---
 
 ## The Plan
@@ -19,7 +19,7 @@ Total actual time: ~6 hours.
 - Raspberry Pi 3 running Raspberry Pi OS Lite
 - 8TB USB drive with an existing restic repository
 - Tailscale for tailnet connectivity (no static IPs, no port forwarding)
-- An 800km drive to mom's house
+- A long drive to mom's house
 
 ## What Was Supposed to Happen
 
@@ -44,7 +44,7 @@ At mom's, I plugged the Pi into her Calix EXOS router via ethernet. Green link l
 
 Nothing in the router's DHCP client list. No Raspberry Pi OUI (`b8:27:eb`). `nmap -sn` on her `192.168.1.0/24` showed the same 4 devices before and after plugging in the Pi.
 
-I moved ports. I tried another cable. I checked for MAC filtering. I even logged into the EXOS admin panel and scrolled through every setting. The Pi was plugged in, powered on, link lights on — and completely invisible to the network.
+I moved ports. I logged into the EXOS admin panel and scrolled through the connected devices and DHCP client list. The Pi was plugged in, powered on, link lights on — and completely invisible to the network.
 
 ### Chapter 3: The Headless Nightmare
 
@@ -79,11 +79,9 @@ Then I unplugged the ethernet, moved the Pi to its permanent spot by the router,
 
 ### Chapter 5: The Real Bug
 
-I was powering the Pi from the Calix router's USB port. Convenient — one power strip instead of two. Except router USB ports typically deliver **500mA max**. A Raspberry Pi 3 needs at least **2A**.
+I was powering the Pi from the Calix router's USB port. Convenient — one power strip instead of two. Except router USB ports typically deliver **500mA max**. A Raspberry Pi 3 needs at least **2A**. The Pi had been undervolted the entire time, which explains every flaky symptom I'd been chasing.
 
-The Pi had been brown-out rebooting the entire time. At home it had a proper 2.5A wall wart. In the cabinet where it had been working while I was on Mac Internet Sharing, it was powered by... actually, looking back, I'm not sure what I had it plugged into. Probably a laptop USB-C port, which delivers enough. The router USB port was the nerf.
-
-Swapped in a 1A wall wart (not great, but closer). The Pi came up, Tailscale connected, and it's been rock solid since.
+Swapped in a 5A travel power supply I had with me. The Pi came up, Tailscale connected, and it's been rock solid since. Need to grab a simpler dedicated 3A wall wart to leave there next time — that travel brick is too good to lose.
 
 **Lesson:** Router USB ports are decorative. Never power a Pi from them.
 
@@ -97,17 +95,17 @@ Codified it properly: the `backup_client` role now generates an SSH key and regi
 
 Backup script ran. Restic started hashing files. I expected it to be fast since all the existing data was in the repo.
 
-Instead, it started reading every movie in the library from scratch. 1.1TB of media being re-hashed.
+Instead, it started reading every movie in the library from scratch. over a terabyte of media being re-hashed.
 
-**Lesson:** Restic's "unchanged file" detection uses inode + ctime + size. The media library lives on **CephFS**, and something about the path — remount, cache invalidation, metadata churn — had caused the inodes to look different. Restic had no choice but to re-chunk everything. Dedup meant almost nothing was actually uploaded, but the read-through of 1.1TB took hours.
+**Lesson:** Restic's "unchanged file" detection uses inode + ctime + size. The media library lives on **CephFS**, and something about the path — remount, cache invalidation, metadata churn — had caused the inodes to look different. Restic had no choice but to re-chunk everything. Dedup meant almost nothing was actually uploaded, but the read-through of over a terabyte took hours.
 
 First backup after any FS change on CephFS is slow. That's the cost.
 
 ### Chapter 7: The Accidental Unplug
 
-Four hours into the re-hash, 26% done, my mom walked past the cabinet and bumped the power. Restic died with `context canceled`.
+About 30 minutes into the re-hash, 26% done, someone bumped the power and it came out. Restic died with `context canceled`.
 
-Restic is resumable — the local cache on the client kept most of the file metadata, so the restart picked up without re-doing the completed files. Still another couple hours though.
+Restic is resumable, sort of. Checking the next run with lsof, it started back at the A's and worked forward again rather than jumping to the 26% mark. The local cache speeds up metadata checks but doesn't let you resume mid-snapshot — you re-walk the filesystem from the start.
 
 ## The Accidental Win: A Credential Leak
 
@@ -130,10 +128,10 @@ Wouldn't have found this without the saga. So there's that.
 2. **Bring a USB keyboard in the go-bag.** Even a cheap one. Headless recovery without console access is miserable.
 3. **Never power a Pi from a router USB port.** Ever.
 4. **Codify everything in Ansible from day one.** Manual SSH key setup is a time bomb that goes off the moment you reflash anything.
-5. **Check restic cache state after any filesystem changes.** A one-time slow backup is fine if you know it's coming; a surprise 4-hour re-hash at 2am is not.
+5. **Check restic cache state after any filesystem changes.** A one-time slow backup is fine if you know it's coming; a surprise 4-hour re-hash mid-debugging is not.
 
 ## The Payoff
 
-`pi-burg` is now on mom's wifi, reachable via Tailscale at a stable hostname, running daily restic backups of the media library and Jellyfin config. First offsite backup completed. If my house burns down, the backup survives.
+`pi-burg` is now on mom's wifi, reachable via Tailscale at a stable hostname, running daily restic backups of the media library and Jellyfin config. First offsite backup is grinding through its re-hash. If my house burns down, the backup survives.
 
 Worth it. Mostly.
