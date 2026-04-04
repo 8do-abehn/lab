@@ -1,5 +1,8 @@
 ---
 # Backup client role - installs restic, deploys backup script, configures cron
 
+- name: Include SSH key generation tasks
+  ansible.builtin.include_tasks: ssh.yml
+
 - name: Include restic setup tasks
   ansible.builtin.include_tasks: restic.yml

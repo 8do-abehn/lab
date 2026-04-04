@@ -15,6 +15,7 @@ export RESTIC_PASSWORD
 APPRISE_URLS="{{ backup_apprise_urls }}"
 
 notify() {
+    { set +x; } 2>/dev/null  # Avoid leaking APPRISE_URLS in xtrace output
     local title="$1"
     local body="$2"
     if [ -n "$APPRISE_URLS" ] && command -v apprise &>/dev/null; then

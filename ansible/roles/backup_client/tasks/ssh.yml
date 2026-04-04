@@ -1,0 +1,43 @@
+---
+# Generate SSH key for backup client and register its pubkey as a host fact
+
+- name: Ensure /root/.ssh exists
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Generate SSH key for backup client
+  community.crypto.openssh_keypair:
+    path: /root/.ssh/id_backup_client
+    type: ed25519
+    comment: "backup-client@{{ inventory_hostname }}"
+    owner: root
+    group: root
+    mode: "0600"
+  register: backup_client_key
+
+- name: Read backup client public key
+  ansible.builtin.slurp:
+    src: /root/.ssh/id_backup_client.pub
+  register: backup_client_pubkey_slurp
+
+- name: Register backup client pubkey as fact
+  ansible.builtin.set_fact:
+    backup_client_pubkey: "{{ backup_client_pubkey_slurp.content | b64decode | trim }}"
+
+- name: Configure SSH to use backup client key for backup server
+  ansible.builtin.blockinfile:
+    path: /root/.ssh/config
+    create: true
+    owner: root
+    group: root
+    mode: "0600"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK backup_client"
+    block: |
+      Host {{ backup_server_host }}
+          User {{ backup_server_user | default('backup') }}
+          IdentityFile /root/.ssh/id_backup_client
+          StrictHostKeyChecking accept-new

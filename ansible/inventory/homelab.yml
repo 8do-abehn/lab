@@ -76,7 +76,7 @@ all:
     backup_clients:
       hosts:
         jellyfin01:
-          backup_server_host: 100.85.209.80  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
           backup_paths:
             - /mnt/library
             - /var/lib/jellyfin
