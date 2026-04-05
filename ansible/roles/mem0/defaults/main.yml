@@ -23,3 +23,9 @@ mem0_tailscale_service: "svc:mem0"
 
 # Feature flags
 mem0_openwebui_enabled: true
+
+# Auto-update: weekly cron to pull latest images and prune old ones
+mem0_auto_update_enabled: true
+mem0_auto_update_weekday: "0"
+mem0_auto_update_hour: "4"
+mem0_auto_update_minute: "30"

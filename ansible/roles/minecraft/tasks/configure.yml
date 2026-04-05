@@ -13,5 +13,5 @@
     weekday: "{{ minecraft_auto_update_weekday }}"
     hour: "{{ minecraft_auto_update_hour }}"
     minute: "{{ minecraft_auto_update_minute }}"
-    job: "cd {{ minecraft_compose_dir }} && docker compose pull --quiet && docker compose up -d --remove-orphans >> /var/log/minecraft-update.log 2>&1"
+    job: "cd {{ minecraft_compose_dir }} && docker compose pull --quiet && docker compose up -d --remove-orphans && docker image prune -f >> /var/log/minecraft-update.log 2>&1"
   when: minecraft_auto_update_enabled
