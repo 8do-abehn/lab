@@ -17,6 +17,17 @@
     group: "{{ backup_user }}"
     mode: "0700"
 
+- name: Collect pubkeys from backup clients
+  ansible.builtin.set_fact:
+    all_backup_authorized_keys: >-
+      {{
+        backup_authorized_keys +
+        (groups['backup_clients'] | default([])
+        | map('extract', hostvars, 'backup_client_pubkey')
+        | select('defined')
+        | list)
+      }}
+
 - name: Deploy authorized keys for backup user
   ansible.builtin.template:
     src: authorized_keys.j2
@@ -24,4 +35,6 @@
     owner: "{{ backup_user }}"
     group: "{{ backup_user }}"
     mode: "0600"
-  when: backup_authorized_keys | length > 0
+  vars:
+    backup_authorized_keys: "{{ all_backup_authorized_keys }}"
+  when: all_backup_authorized_keys | length > 0

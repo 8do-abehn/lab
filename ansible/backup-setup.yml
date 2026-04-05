@@ -1,6 +1,15 @@
 ---
 # Backup infrastructure setup
-# Configures Pi as backup server and Jellyfin as backup client
+# Configures Pi as backup server and clients with restic backups
+# NOTE: Clients run first to generate SSH keys that backup_server picks up
+
+- name: Configure backup clients (generate SSH keys)
+  hosts: backup_clients
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - backup_client
 
 - name: Configure backup server (Pi)
   hosts: backup_servers
@@ -10,11 +19,3 @@
   roles:
     - tailscale
     - backup_server
-
-- name: Configure backup client
-  hosts: backup_clients
-  become: true
-  vars_files:
-    - vault.yml
-  roles:
-    - backup_client

@@ -61,13 +61,10 @@ all:
       hosts:
         mc01:  # LXC 3004 on pve01, 32GB RAM
           ansible_user: root
-          ansible_host: 10.150.60.17
         mc02:  # LXC 3005 on pve02, 32GB RAM
           ansible_user: root
-          ansible_host: 10.150.60.149
         mc03:  # LXC 3006 on pve03, 32GB RAM
           ansible_user: root
-          ansible_host: 10.150.60.141
 
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
     # See ansible/archive/slurm-cluster/
@@ -76,7 +73,7 @@ all:
     backup_clients:
       hosts:
         jellyfin01:
-          backup_server_host: 100.85.209.80  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
           backup_paths:
             - /mnt/library
             - /var/lib/jellyfin
@@ -94,7 +91,7 @@ all:
     backup_servers:
       hosts:
         pi-burg:
-          ansible_user: adambehn
+          ansible_user: root
           backup_disk_uuid: ffbe8e24-8713-4c30-8500-1474d7adc397
           backup_mount_point: /mnt/backup
 
