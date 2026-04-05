@@ -3,7 +3,7 @@ title: "Moving a Raspberry Pi Offsite: Everything That Went Wrong"
 date: 2026-04-04
 draft: false
 tags: ["homelab", "raspberry-pi", "backup", "tailscale", "restic", "debugging"]
-description: "A cautionary tale about moving a backup server to a remote location, featuring router USB ports, client isolation, emergency reflashes, and a CephFS surprise."
+description: "A cautionary tale about moving a backup server to a remote location, featuring router USB ports, client isolation, emergency reflashes, and a restic surprise."
 ---
 
 ## The Plan
@@ -85,7 +85,7 @@ Swapped in a 5A travel power supply I had with me. The Pi came up, Tailscale con
 
 **Lesson:** Router USB ports are decorative. Never power a Pi from them.
 
-### Chapter 6: The CephFS Surprise
+### Chapter 6: The Backup That Re-Read Everything
 
 With the Pi online, I ran the backup script from my media server. It failed with `Host key verification failed`, because the reflashed Pi had a new SSH host key. Cleared the old key, retried.
 
@@ -97,9 +97,9 @@ Backup script ran. Restic started hashing files. I expected it to be fast since 
 
 Instead, it started reading every file in the library from scratch, over a terabyte of data being re-hashed.
 
-**Lesson:** Restic's "unchanged file" detection uses inode + ctime + size. The media library lives on **CephFS**, and something about the path (remount, cache invalidation, metadata churn) had caused the inodes to look different. Restic had no choice but to re-chunk everything. Dedup meant almost nothing was actually uploaded, but the read-through of over a terabyte took hours.
+I don't have a confident root cause. The local restic cache on the client was intact and the repo ID unchanged, so dedup still worked (almost nothing was actually uploaded). But restic's "skip unchanged files" shortcut wasn't kicking in. Something about reconnecting to the reflashed backup server may have invalidated the parent-snapshot lookup, or the Ansible role's recursive chown on the repo directory touched metadata in a way that confused things. Timing points at the reflash.
 
-First backup after any FS change on CephFS is slow. That's the cost.
+The good news: it only had to do it once. The second backup run finished in under three minutes because the cache was populated and the files hadn't actually changed.
 
 ### Chapter 7: The Accidental Unplug
 
@@ -128,7 +128,7 @@ Wouldn't have found this without the saga. So there's that.
 2. **Bring a USB keyboard in the go-bag.** Even a cheap one. Headless recovery without console access is miserable.
 3. **Never power a Pi from a router USB port.** Ever.
 4. **Codify everything in Ansible from day one.** Manual SSH key setup is a time bomb that goes off the moment you reflash anything.
-5. **Check restic cache state after any filesystem changes.** A one-time slow backup is fine if you know it's coming; a surprise 4-hour re-hash mid-debugging is not.
+5. **Expect the first backup after server changes to be slow.** Whatever the exact cause, a fresh re-read of a large library eats hours. Plan for it instead of starting it mid-debugging.
 
 ## The Payoff
 

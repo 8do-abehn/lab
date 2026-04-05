@@ -91,7 +91,7 @@ all:
     backup_servers:
       hosts:
         pi-burg:
-          ansible_user: adambehn
+          ansible_user: root
           backup_disk_uuid: ffbe8e24-8713-4c30-8500-1474d7adc397
           backup_mount_point: /mnt/backup
 
