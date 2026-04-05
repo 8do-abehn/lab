@@ -70,3 +70,17 @@
     - mem0_tailscale_service | length > 0
     - mem0_tailscale_svc_status.rc != 0
   changed_when: true
+
+- name: Deploy auto-update cron
+  ansible.builtin.cron:
+    name: "mem0-auto-update"
+    weekday: "{{ mem0_auto_update_weekday }}"
+    hour: "{{ mem0_auto_update_hour }}"
+    minute: "{{ mem0_auto_update_minute }}"
+    job: >-
+      cd {{ mem0_compose_dir }} &&
+      docker compose pull --quiet &&
+      docker compose up -d &&
+      docker image prune -f
+      >> /var/log/mem0-update.log 2>&1
+  when: mem0_auto_update_enabled
