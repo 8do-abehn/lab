@@ -21,7 +21,7 @@ all:
             pve001:
             pve002:
             pve003:
-            pve005:
+            # pve005:  # Decommissioned, retired from legacy cluster (#335)
             pve006:
             # pve007:  # Needs BIOS VT-x/VT-d enabled
             # pve008:  # Decommissioned, rebuilt as pve02
