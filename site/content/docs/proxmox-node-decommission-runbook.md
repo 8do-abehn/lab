@@ -14,6 +14,7 @@ Step-by-step guide for safely removing a Proxmox node from the cluster, includin
 - SSH access to at least one other cluster node
 - Cluster is healthy (check with `pvecm status`)
 - If using Ceph: At least 2 other nodes with OSDs remaining
+- For cross-cluster LXC migration: Tailscale ACL allows SSH between cluster tags (e.g., `tag:proxmox` → `tag:proxmox`). Without this, direct `scp` between clusters fails with `tailnet policy does not permit you to SSH to this node`.
 
 ## Pre-Decommission Checklist
 
@@ -93,6 +94,57 @@ done
 qm list
 pct list
 ```
+
+#### D. Cross-Cluster LXC Migration
+
+When migrating LXCs between separate Proxmox clusters (different corosync, different Ceph), `pct migrate` is not available. Use vzdump + scp + pct restore instead.
+
+**Prereqs:**
+- Tailscale ACL allows SSH between cluster tags (see Prerequisites)
+- Target cluster has a storage pool with enough free space (e.g., `rbd-ssd`)
+- Pick a new VMID that doesn't collide on the target cluster
+
+**Steps:**
+
+1. Remove the container from HA. `vzdump --mode stop` fails on HA-managed services with `Cannot execute a backup with stop mode on a HA managed and enabled Service`.
+   ```bash
+   # From any node in the source cluster
+   ha-manager remove ct:<CTID>
+   ```
+
+2. Backup the container to local storage:
+   ```bash
+   # On the source node
+   vzdump <CTID> --mode stop --compress zstd --storage local
+   ```
+
+3. Transfer the dump to the target node (requires cross-cluster SSH ACL):
+   ```bash
+   # From the source node
+   scp /var/lib/vz/dump/vzdump-lxc-<CTID>-*.tar.zst <target-node>:/var/lib/vz/dump/
+   ```
+
+4. Restore on the target node with a new VMID:
+   ```bash
+   # On the target node
+   pct restore <NEW-CTID> /var/lib/vz/dump/vzdump-lxc-<CTID>-*.tar.zst --storage <target-storage>
+   ```
+
+5. Start and verify:
+   ```bash
+   pct start <NEW-CTID>
+   pct exec <NEW-CTID> -- ip -4 addr show eth0
+   pct exec <NEW-CTID> -- tailscale status
+   # Verify the application service is running
+   ```
+
+6. Stop (do not destroy) the original container as a rollback:
+   ```bash
+   # On the source node
+   pct stop <CTID>
+   ```
+
+7. After a verification period, destroy the original and clean up the dump files on both nodes.
 
 ### Phase 2: Remove from Ceph Cluster (if applicable)
 
@@ -368,6 +420,10 @@ rm -rf /etc/pve/nodes/<node-name>
 
 ## Changelog
 
+- 2026-04-09: Added cross-cluster LXC migration procedure
+  - Documented vzdump + scp + `pct restore` flow for migrating between separate Proxmox clusters
+  - Added HA removal prerequisite (`vzdump --mode stop` fails on HA-managed services)
+  - Added Tailscale ACL prerequisite for direct cross-cluster scp
 - 2024-12-03: Initial runbook created
   - Added Tailscale hostname conflict prevention
   - Added Ansible inventory cleanup steps
