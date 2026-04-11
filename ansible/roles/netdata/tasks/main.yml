@@ -67,6 +67,7 @@
       dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'netdata*' 2>/dev/null \
         | awk '/^ii/ {print $2}' \
         | grep -v '^netdata-repo$' || true
+    executable: /bin/bash
   register: netdata_installed_pkgs
   changed_when: false
   check_mode: false
