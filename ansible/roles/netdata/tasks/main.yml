@@ -56,11 +56,29 @@
     update_cache: true
     cache_valid_time: 3600
 
+# Query currently-installed netdata packages so we can upgrade them all
+# in lockstep. Plugin packages have strict `Depends: netdata (= X.Y.Z)`
+# pins, so upgrading only `netdata` leaves plugins wedged in iU state
+# when the repo publishes split-version updates.
+- name: Query installed netdata packages
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'netdata*' 2>/dev/null \
+        | awk '/^ii/ {print $2}' \
+        | grep -v '^netdata-repo$' || true
+  register: netdata_installed_pkgs
+  changed_when: false
+  check_mode: false
+
 # Distro packages are built with --disable-cloud, so state: latest
-# ensures official repo package (with cloud support) replaces them
+# ensures official repo package (with cloud support) replaces them.
+# On fresh installs the query returns nothing and apt pulls plugins
+# in via `netdata`'s dependencies; on upgrades all currently-installed
+# netdata packages are passed together so apt resolves them atomically.
 - name: Install netdata # noqa: package-latest
   ansible.builtin.apt:
-    name: netdata
+    name: "{{ (['netdata'] + netdata_installed_pkgs.stdout_lines) | unique | list }}"
     state: latest
 
 - name: Check if already claimed
