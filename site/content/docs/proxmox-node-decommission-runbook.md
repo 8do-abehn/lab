@@ -14,6 +14,7 @@ Step-by-step guide for safely removing a Proxmox node from the cluster, includin
 - SSH access to at least one other cluster node
 - Cluster is healthy (check with `pvecm status`)
 - If using Ceph: At least 2 other nodes with OSDs remaining
+- For cross-cluster LXC migration: Tailscale ACL allows SSH between cluster tags (e.g., `tag:proxmox` → `tag:proxmox`). Without this, direct `scp` between clusters fails with `tailnet policy does not permit you to SSH to this node`.
 
 ## Pre-Decommission Checklist
 
@@ -93,6 +94,84 @@ done
 qm list
 pct list
 ```
+
+#### D. Cross-Cluster LXC Migration
+
+When migrating LXCs between separate Proxmox clusters (different corosync, different Ceph), `pct migrate` is not available. Use vzdump + scp + pct restore instead.
+
+**Prereqs:**
+- Tailscale ACL allows SSH between cluster tags (see Prerequisites)
+- Target cluster has a storage pool with enough free space (e.g., `rbd-ssd`)
+- Pick a new VMID that doesn't collide on the target cluster
+- **Check for stale DHCP static mappings tied to the LXC's MAC.** If the source cluster's DHCP server (e.g., EdgeRouter) has a `static-mapping` reserving an IP on the source VLAN pool for the LXC's MAC, DHCP on the target VLAN will silently fail — dnsmasq matches the MAC to the old static entry and sends the OFFER out the wrong interface. The LXC will keep sending `DHCPDISCOVER` with no response and no log entries to explain why.
+   ```bash
+   # Find stale mappings on EdgeRouter
+   show configuration commands | match static-mapping
+   # Delete before migrating (or regenerate the LXC MAC with: pct set <ctid> --net0 name=eth0,bridge=vmbr0,ip=dhcp,type=veth)
+   ```
+- **Plan for IP-baked-in services.** If adopted devices have the old LXC IP hardcoded (unifi UAPs, printers, monitoring probes), you'll need a DNAT + proxy-ARP rule on the router so the old IP keeps working after the LXC moves to a new VLAN (see step 8 below).
+
+**Steps:**
+
+1. Remove the container from HA. `vzdump --mode stop` fails on HA-managed services with `Cannot execute a backup with stop mode on a HA managed and enabled Service`.
+   ```bash
+   # From any node in the source cluster
+   ha-manager remove ct:<CTID>
+   ```
+
+2. Backup the container to local storage:
+   ```bash
+   # On the source node
+   vzdump <CTID> --mode stop --compress zstd --storage local
+   ```
+
+3. Transfer the dump to the target node (requires cross-cluster SSH ACL):
+   ```bash
+   # From the source node
+   scp /var/lib/vz/dump/vzdump-lxc-<CTID>-*.tar.zst <target-node>:/var/lib/vz/dump/
+   ```
+
+4. Restore on the target node with a new VMID:
+   ```bash
+   # On the target node
+   pct restore <NEW-CTID> /var/lib/vz/dump/vzdump-lxc-<CTID>-*.tar.zst --storage <target-storage>
+   ```
+
+5. Start and verify:
+   ```bash
+   pct start <NEW-CTID>
+   pct exec <NEW-CTID> -- ip -4 addr show eth0
+   pct exec <NEW-CTID> -- tailscale status
+   # Verify the application service is running
+   ```
+
+6. **Immediately** stop (do not destroy) the original container as a rollback:
+   ```bash
+   # On the source node
+   pct stop <CTID>
+   ```
+   Note: `vzdump --mode stop` auto-restarts the container when the backup finishes. For LXCs running Tailscale, having both the old and new instance online with the same node key causes an identity race — one gets logged out. Stop the original as soon as the backup completes, before running the restore on the target.
+
+7. Post-migration network updates. For services with IP-baked-in clients (unifi, jellyfin, any custom integrations):
+   - **DNAT rule on the router** redirecting `<old-ip>:<port>` → `<new-ip>:<port>` for each relevant port. On EdgeRouter:
+     ```
+     set service nat rule <N> description '<service> legacy IP redirect'
+     set service nat rule <N> type destination
+     set service nat rule <N> protocol tcp
+     set service nat rule <N> inbound-interface switch0+
+     set service nat rule <N> destination address <old-ip>
+     set service nat rule <N> destination port <port>
+     set service nat rule <N> inside-address address <new-ip>
+     set service nat rule <N> inside-address port <port>
+     ```
+   - **Proxy-ARP / secondary IP.** DNAT alone isn't enough if clients live on the **same VLAN** as the old IP — they reach it via L2 ARP and never traverse the router where DNAT would kick in. Give the router a secondary `/32` address matching the old IP so the router answers ARP and DNAT fires:
+     ```
+     set interfaces switch switch0 address <old-ip>/32
+     ```
+   - **Update DHCP option 43 / service discovery** pointers (e.g., `unifi-controller`, `bootfile-server`, custom options) that referenced the old IP.
+   - **Clean up stale DHCP static mappings** for the old LXC on the old VLAN (the ones that caused the prereq DHCP failure).
+
+8. After a verification period (typically 24-48h of live traffic), destroy the original LXC and clean up the dump files on both nodes.
 
 ### Phase 2: Remove from Ceph Cluster (if applicable)
 
@@ -368,6 +447,15 @@ rm -rf /etc/pve/nodes/<node-name>
 
 ## Changelog
 
+- 2026-04-11: Expanded cross-cluster LXC migration procedure with network gotchas
+  - Added prereq: check for stale DHCP static mappings on source VLAN pool (causes silent DHCPDISCOVER failure on target VLAN)
+  - Added prereq: plan for IP-baked-in clients (adopted unifi devices, etc.) before migrating
+  - Added step 7 (post-migration network updates): DNAT rules, proxy-ARP secondary IP trick, DHCP option 43 / service discovery updates
+  - Emphasized stopping the original container immediately after vzdump (Tailscale identity race if both instances stay online)
+- 2026-04-09: Added cross-cluster LXC migration procedure
+  - Documented vzdump + scp + `pct restore` flow for migrating between separate Proxmox clusters
+  - Added HA removal prerequisite (`vzdump --mode stop` fails on HA-managed services)
+  - Added Tailscale ACL prerequisite for direct cross-cluster scp
 - 2024-12-03: Initial runbook created
   - Added Tailscale hostname conflict prevention
   - Added Ansible inventory cleanup steps
