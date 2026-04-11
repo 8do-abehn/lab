@@ -1,7 +1,6 @@
-version: '3'
 services:
   mc-oneblock:
-    image: itzg/minecraft-server
+    image: itzg/minecraft-server:java21
     container_name: minecraft-oneblock-awb
     ports:
       - "25573:25565"
@@ -13,7 +12,7 @@ services:
       MODE: "survival"
       FORCE_GAMEMODE: "TRUE"
       ENABLE_RCON: "TRUE"
-      ENABLE_COMMAND_BLOCK: "true"
+      ENABLE_COMMAND_BLOCK: "TRUE"
     volumes:
       - ./oneblock-data:/data
     restart: unless-stopped
