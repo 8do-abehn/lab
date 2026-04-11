@@ -1,0 +1,17 @@
+# Compiled binary — rebuild via setup.sh
+ipodpatcher
+
+# Downloaded blobs — re-fetch via setup.sh
+bootloader-ipodnano2g.ipodx
+rockbox-ipodnano2g-*.zip
+mbr-nano2g*.bin
+
+# Apple firmware backups (encrypted blob from the device, large)
+apple-original-firmware.ipodx
+apple-original-firmware.bin
+
+# Transcoded music staging (large, regenerable from jellyfin)
+staging/
+
+# macOS junk
+.DS_Store
