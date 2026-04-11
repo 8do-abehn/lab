@@ -1,0 +1,19 @@
+version: '3'
+services:
+  mc-oneblock:
+    image: itzg/minecraft-server
+    container_name: minecraft-oneblock-rtb
+    ports:
+      - "25572:25565"
+    environment:
+      EULA: "TRUE"
+      VERSION: "1.21.11"
+      TYPE: "VANILLA"
+      LEVEL: "oneblock"
+      MODE: "survival"
+      FORCE_GAMEMODE: "TRUE"
+      ENABLE_RCON: "TRUE"
+      ENABLE_COMMAND_BLOCK: "true"
+    volumes:
+      - ./oneblock-data:/data
+    restart: unless-stopped
