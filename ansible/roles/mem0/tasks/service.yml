@@ -81,6 +81,6 @@
       cd {{ mem0_compose_dir }} &&
       docker compose pull --quiet &&
       docker compose up -d &&
-      docker image prune -f
+      docker image prune -a -f
       >> /var/log/mem0-update.log 2>&1
   when: mem0_auto_update_enabled
