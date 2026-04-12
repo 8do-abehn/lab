@@ -1,0 +1,18 @@
+services:
+  mc-oneblock:
+    image: itzg/minecraft-server:java21
+    container_name: minecraft-oneblock-awb
+    ports:
+      - "25573:25565"
+    environment:
+      EULA: "TRUE"
+      VERSION: "1.21.11"
+      TYPE: "VANILLA"
+      LEVEL: "oneblock"
+      MODE: "survival"
+      FORCE_GAMEMODE: "TRUE"
+      ENABLE_RCON: "TRUE"
+      ENABLE_COMMAND_BLOCK: "TRUE"
+    volumes:
+      - ./oneblock-data:/data
+    restart: unless-stopped
