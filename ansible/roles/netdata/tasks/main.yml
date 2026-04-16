@@ -137,4 +137,6 @@
   until: "'Claimed: Yes' in netdata_aclk_status.stdout and 'Online: Yes' in netdata_aclk_status.stdout"
   retries: 12
   delay: 10
-  when: netdata_claim_token | length > 0
+  when:
+    - netdata_claim_token | length > 0
+    - not ansible_check_mode
