@@ -236,5 +236,5 @@
   no_log: true
   when:
     - cloudflare_access_emails | default([]) | length > 0
-    - access_policy_check.json.result | length == 0
     - not ansible_check_mode
+    - (access_policy_check.json.result | default([])) | length == 0
