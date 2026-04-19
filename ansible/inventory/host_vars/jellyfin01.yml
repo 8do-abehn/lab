@@ -1,0 +1,6 @@
+---
+cloudflare_tunnel_name: jellyfin
+cloudflare_tunnel_hostname: media.8devops.com
+cloudflare_tunnel_service: "http://localhost:8096"
+cloudflare_access_emails:
+  - "{{ vault_cloudflare_access_email }}"

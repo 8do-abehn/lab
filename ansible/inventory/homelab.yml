@@ -69,6 +69,11 @@ all:
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
     # See ansible/archive/slurm-cluster/
 
+    # Cloudflare Tunnel (hosts with cloudflared tunnels)
+    cloudflare_tunnel:
+      hosts:
+        jellyfin01:
+
     # Backup Clients (hosts that back up to pi-burg)
     backup_clients:
       hosts:

@@ -1,0 +1,240 @@
+---
+- name: Install cloudflared prerequisites
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Cloudflare GPG key
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-main.gpg
+    dest: /usr/share/keyrings/cloudflare-main.gpg
+    mode: "0644"
+
+- name: Add Cloudflare repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg]
+      https://pkg.cloudflare.com/cloudflared
+      {{ ansible_facts['distribution_release'] }} main
+    state: present
+    update_cache: true
+
+- name: Install cloudflared
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+
+- name: Check if tunnel already exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/cfd_tunnel?name={{ cloudflare_tunnel_name }}&is_deleted=false"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: tunnel_check
+  no_log: true
+  check_mode: false
+
+# tunnel_secret is only used during initial creation and never stored.
+# Generating a fresh random value each run is fine because this task
+# is conditional and only runs when the tunnel doesn't exist yet.
+- name: Create tunnel
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/cfd_tunnel"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ cloudflare_tunnel_name }}"
+      tunnel_secret: "{{ lookup('ansible.builtin.password', '/dev/null length=32 chars=ascii_letters,digits') | b64encode }}"
+      config_src: cloudflare
+    return_content: true
+    status_code: [200, 201]
+  register: tunnel_create
+  no_log: true
+  when:
+    - tunnel_check.json.result | length == 0
+    - not ansible_check_mode
+
+- name: Set tunnel ID
+  ansible.builtin.set_fact:
+    cloudflare_tunnel_id: >-
+      {{ (tunnel_check.json.result | length > 0)
+         | ternary(tunnel_check.json.result[0].id, tunnel_create.json.result.id) }}
+  when: not ansible_check_mode
+
+- name: Configure tunnel ingress
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/cfd_tunnel/{{ cloudflare_tunnel_id }}/configurations"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      config:
+        ingress:
+          - hostname: "{{ cloudflare_tunnel_hostname }}"
+            service: "{{ cloudflare_tunnel_service }}"
+          - service: http_status:404
+    return_content: true
+    status_code: 200
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Check if DNS record exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_tunnel_hostname }}&type=CNAME"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: dns_check
+  no_log: true
+  check_mode: false
+
+- name: Create DNS CNAME record
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: CNAME
+      name: "{{ cloudflare_tunnel_hostname }}"
+      content: "{{ cloudflare_tunnel_id }}.cfargotunnel.com"
+      proxied: true
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  when:
+    - dns_check.json.result | length == 0
+    - not ansible_check_mode
+
+- name: Get tunnel token
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/cfd_tunnel/{{ cloudflare_tunnel_id }}/token"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: tunnel_token
+  no_log: true
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Check if tunnel service is installed
+  ansible.builtin.command: systemctl is-enabled cloudflared
+  register: cloudflared_service_check
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Install cloudflared tunnel service
+  ansible.builtin.command: cloudflared service install {{ tunnel_token.json.result }}
+  when:
+    - cloudflared_service_check.rc != 0
+    - not ansible_check_mode
+  changed_when: true
+  no_log: true
+  notify: Restart cloudflared
+
+- name: Ensure cloudflared service is enabled and running
+  ansible.builtin.systemd:
+    name: cloudflared
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Check if Access application exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps?name={{ cloudflare_tunnel_name | capitalize }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: access_app_check
+  no_log: true
+  check_mode: false
+  when: cloudflare_access_emails | default([]) | length > 0
+
+- name: Create Access application
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ cloudflare_tunnel_name | capitalize }}"
+      domain: "{{ cloudflare_tunnel_hostname }}"
+      type: self_hosted
+      session_duration: "{{ cloudflare_access_session_duration }}"
+    return_content: true
+    status_code: [200, 201]
+  register: access_app_create
+  no_log: true
+  when:
+    - cloudflare_access_emails | default([]) | length > 0
+    - access_app_check.json.result | length == 0
+    - not ansible_check_mode
+
+- name: Set Access application ID
+  ansible.builtin.set_fact:
+    cloudflare_access_app_id: >-
+      {{ (access_app_check.json.result | length > 0)
+         | ternary(access_app_check.json.result[0].id, access_app_create.json.result.id) }}
+  when:
+    - cloudflare_access_emails | default([]) | length > 0
+    - not ansible_check_mode
+
+- name: Check if Access policy exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ cloudflare_access_app_id }}/policies"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: access_policy_check
+  no_log: true
+  check_mode: false
+  when:
+    - cloudflare_access_emails | default([]) | length > 0
+    - not ansible_check_mode
+
+- name: Create Access allow policy
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ cloudflare_access_app_id }}/policies"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "Allow by email"
+      decision: allow
+      include:
+        - email:
+            email: "{{ item }}"
+    return_content: true
+    status_code: [200, 201]
+  loop: "{{ cloudflare_access_emails }}"
+  no_log: true
+  when:
+    - cloudflare_access_emails | default([]) | length > 0
+    - access_policy_check.json.result | length == 0
+    - not ansible_check_mode

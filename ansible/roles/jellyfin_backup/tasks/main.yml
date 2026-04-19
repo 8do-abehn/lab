@@ -33,13 +33,6 @@
     owner: root
     group: root
 
-- name: Remove legacy cron job (not managed by ansible)
-  ansible.builtin.lineinfile:
-    path: /var/spool/cron/crontabs/root
-    regexp: "^0 0 \\* \\* \\* /usr/local/bin/mnt_library_backup\\.sh$"
-    state: absent
-  failed_when: false
-
 - name: Setup backup cron job
   ansible.builtin.cron:
     name: "Jellyfin library backup to B2"
