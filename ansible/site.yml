@@ -80,3 +80,11 @@
     - vault.yml
   roles:
     - minecraft
+
+- name: Setup Cloudflare Tunnels
+  hosts: cloudflare_tunnel
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - cloudflare_tunnel
