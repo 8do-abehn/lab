@@ -1,4 +1,10 @@
 ---
+- name: Remove Proxmox installer nomodeset override
+  ansible.builtin.file:
+    path: /etc/default/grub.d/installer.cfg
+    state: absent
+  notify: Update grub
+
 - name: Configure GRUB kernel parameters for GPU passthrough
   ansible.builtin.lineinfile:
     path: /etc/default/grub
