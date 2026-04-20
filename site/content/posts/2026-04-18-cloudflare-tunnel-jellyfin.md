@@ -1,6 +1,6 @@
 ---
 title: "Exposing Jellyfin Through Cloudflare Tunnel with Zero Trust Access"
-date: 2026-04-19
+date: 2026-04-18
 draft: false
 tags: ["cloudflare", "jellyfin", "media-server", "security", "ansible"]
 description: "Securely exposing a self-hosted Jellyfin server at media.8devops.com using Cloudflare Tunnel and Zero Trust email OTP, fully automated with Ansible."
