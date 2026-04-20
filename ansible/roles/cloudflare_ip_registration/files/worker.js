@@ -12,23 +12,21 @@ export default {
 
     if (request.method === "POST") {
       try {
-        const existingIp = await env.IP_KV.get(`ip:${email}`);
-
-        // Store new IP in KV with TTL
         await env.IP_KV.put(`ip:${email}`, ip, { expirationTtl: TTL_SECONDS });
-
-        // Rebuild the policy include array from all KV entries
         await rebuildPolicy(env);
-
         return htmlResponse(200, ip, email, "registered", TTL_DAYS);
       } catch (err) {
         return htmlResponse(500, ip, email, "error: " + err.message, 0);
       }
     }
 
-    const registeredIp = await env.IP_KV.get(`ip:${email}`);
-    const status = registeredIp === ip ? "active" : registeredIp ? "different" : "not registered";
-    return htmlResponse(200, ip, email, status, TTL_DAYS, registeredIp);
+    try {
+      const registeredIp = await env.IP_KV.get(`ip:${email}`);
+      const status = registeredIp === ip ? "active" : registeredIp ? "different" : "not registered";
+      return htmlResponse(200, ip, email, status, TTL_DAYS, registeredIp);
+    } catch (err) {
+      return htmlResponse(500, ip, email, "error: " + err.message, 0);
+    }
   },
 
   async scheduled(event, env) {

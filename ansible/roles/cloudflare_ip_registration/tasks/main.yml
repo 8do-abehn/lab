@@ -179,6 +179,22 @@
   no_log: true
   when: not ansible_check_mode
 
+# Configure cron trigger for scheduled cleanup (daily at 3am UTC)
+- name: Configure Worker cron trigger
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}/schedules"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      - cron: "0 3 * * *"
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  when: not ansible_check_mode
+
 # DNS for register.8devops.com (proxied AAAA record for Workers)
 - name: Check if registration DNS record exists
   ansible.builtin.uri:
