@@ -4,3 +4,7 @@ cloudflare_tunnel_hostname: media.8devops.com
 cloudflare_tunnel_service: "http://localhost:8096"
 cloudflare_access_emails:
   - "{{ vault_cloudflare_access_email }}"
+
+# IP Registration Worker
+cloudflare_ip_reg_hostname: register.8devops.com
+cloudflare_ip_reg_emails: "{{ vault_cloudflare_family_emails }}"

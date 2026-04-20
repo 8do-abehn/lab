@@ -74,6 +74,11 @@ all:
       hosts:
         jellyfin01:
 
+    # Cloudflare IP Registration (hosts with IP registration Worker)
+    cloudflare_ip_registration:
+      hosts:
+        jellyfin01:
+
     # Backup Clients (hosts that back up to pi-burg)
     backup_clients:
       hosts:

@@ -88,3 +88,11 @@
     - vault.yml
   roles:
     - cloudflare_tunnel
+
+- name: Setup Cloudflare IP Registration
+  hosts: cloudflare_ip_registration
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - cloudflare_ip_registration

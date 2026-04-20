@@ -1,0 +1,320 @@
+---
+# Create KV namespace for IP tracking
+- name: List KV namespaces
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/storage/kv/namespaces"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: kv_list_check
+  no_log: true
+  check_mode: false
+
+- name: Find existing KV namespace
+  ansible.builtin.set_fact:
+    existing_kv: "{{ kv_list_check.json.result | selectattr('title', 'equalto', cloudflare_ip_reg_kv_namespace) | list }}"
+
+- name: Create KV namespace
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/storage/kv/namespaces"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      title: "{{ cloudflare_ip_reg_kv_namespace }}"
+    return_content: true
+    status_code: [200, 201]
+  register: kv_create
+  no_log: true
+  when:
+    - existing_kv | length == 0
+    - not ansible_check_mode
+
+- name: Set KV namespace ID
+  ansible.builtin.set_fact:
+    cloudflare_kv_id: >-
+      {{ (existing_kv | length > 0)
+         | ternary(existing_kv[0].id, kv_create.json.result.id) }}
+  when: not ansible_check_mode
+
+# Get media Access app ID (created by cloudflare_tunnel role)
+- name: Get Access application for media
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps?name={{ cloudflare_tunnel_name | capitalize }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: media_app_check
+  no_log: true
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Set media Access app ID
+  ansible.builtin.set_fact:
+    media_access_app_id: "{{ media_app_check.json.result[0].id }}"
+  when:
+    - not ansible_check_mode
+    - media_app_check.json.result | length > 0
+
+# Create the "Family IPs" policy on media app (Worker will manage the include array)
+- name: Check existing policies on media app
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ media_access_app_id }}/policies"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: media_policies_check
+  no_log: true
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Check if Family IPs policy exists
+  ansible.builtin.set_fact:
+    family_ip_policy: "{{ media_policies_check.json.result | selectattr('name', 'equalto', 'Family IPs') | list }}"
+  when: not ansible_check_mode
+
+# Seed with a placeholder IP so the policy is valid (Worker replaces this)
+- name: Create Family IPs policy on media app
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ media_access_app_id }}/policies"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "Family IPs"
+      decision: allow
+      include:
+        - ip:
+            ip: "198.51.100.1/32"
+      precedence: 2
+    return_content: true
+    status_code: [200, 201]
+  register: family_ip_policy_create
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - family_ip_policy | length == 0
+
+- name: Set Family IPs policy ID
+  ansible.builtin.set_fact:
+    family_ip_policy_id: >-
+      {{ (family_ip_policy | length > 0)
+         | ternary(family_ip_policy[0].id, family_ip_policy_create.json.result.id) }}
+  when: not ansible_check_mode
+
+# Deploy Worker with KV binding only (secrets set separately)
+- name: Create Worker metadata file
+  ansible.builtin.copy:
+    content: |
+      {
+        "main_module": "worker.js",
+        "compatibility_date": "2024-01-01",
+        "bindings": [
+          {"type": "kv_namespace", "name": "IP_KV", "namespace_id": "{{ cloudflare_kv_id }}"}
+        ]
+      }
+    dest: /tmp/worker-metadata.json
+    mode: "0600"
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Copy Worker script to host
+  ansible.builtin.copy:
+    src: worker.js
+    dest: /tmp/worker.js
+    mode: "0644"
+  when: not ansible_check_mode
+
+- name: Deploy Worker via API
+  ansible.builtin.command:
+    cmd: >
+      curl -s -X PUT
+      -H "Authorization: Bearer {{ cloudflare_api_token }}"
+      -F "metadata=@/tmp/worker-metadata.json;type=application/json"
+      -F "worker.js=@/tmp/worker.js;type=application/javascript+module"
+      "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}"
+  register: worker_deploy_result
+  changed_when: true
+  no_log: true
+  when: not ansible_check_mode
+
+- name: Clean up Worker temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/worker-metadata.json
+    - /tmp/worker.js
+  when: not ansible_check_mode
+
+# Set Worker secrets via secrets API
+- name: Set Worker secret {{ item.name }}
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}/secrets"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      text: "{{ item.value }}"
+      type: secret_text
+    return_content: true
+    status_code: [200, 201]
+  loop:
+    - { name: CF_API_TOKEN, value: "{{ cloudflare_api_token }}" }
+    - { name: ACCOUNT_ID, value: "{{ cloudflare_account_id }}" }
+    - { name: MEDIA_APP_ID, value: "{{ media_access_app_id }}" }
+    - { name: FAMILY_POLICY_ID, value: "{{ family_ip_policy_id }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  when: not ansible_check_mode
+
+# DNS for register.8devops.com (proxied AAAA record for Workers)
+- name: Check if registration DNS record exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ cloudflare_ip_reg_hostname }}&type=AAAA"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: reg_dns_check
+  no_log: true
+  check_mode: false
+
+- name: Create registration DNS record
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: AAAA
+      name: "{{ cloudflare_ip_reg_hostname }}"
+      content: "100::"
+      proxied: true
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  when:
+    - reg_dns_check.json.result | length == 0
+    - not ansible_check_mode
+
+# Worker route
+- name: Check if Worker route exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/workers/routes"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: worker_routes_check
+  no_log: true
+  check_mode: false
+
+- name: Find existing route
+  ansible.builtin.set_fact:
+    existing_route: "{{ worker_routes_check.json.result | selectattr('pattern', 'equalto', cloudflare_ip_reg_hostname + '/*') | list }}"
+
+- name: Create Worker route
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/workers/routes"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      pattern: "{{ cloudflare_ip_reg_hostname }}/*"
+      script: "{{ cloudflare_ip_reg_worker_name }}"
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  when:
+    - existing_route | length == 0
+    - not ansible_check_mode
+
+# Access application for register.8devops.com
+- name: Check if registration Access app exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps?name=IP%20Registration"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: reg_app_check
+  no_log: true
+  check_mode: false
+
+- name: Create registration Access application
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "IP Registration"
+      domain: "{{ cloudflare_ip_reg_hostname }}"
+      type: self_hosted
+      session_duration: "{{ cloudflare_ip_reg_session_duration }}"
+    return_content: true
+    status_code: [200, 201]
+  register: reg_app_create
+  no_log: true
+  when:
+    - reg_app_check.json.result | length == 0
+    - not ansible_check_mode
+
+- name: Set registration Access app ID
+  ansible.builtin.set_fact:
+    reg_access_app_id: >-
+      {{ (reg_app_check.json.result | length > 0)
+         | ternary(reg_app_check.json.result[0].id, reg_app_create.json.result.id) }}
+  when: not ansible_check_mode
+
+- name: Check if registration Access policy exists
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ reg_access_app_id }}/policies"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+  register: reg_policy_check
+  no_log: true
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Create registration Access allow policy
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ reg_access_app_id }}/policies"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "Allow family emails"
+      decision: allow
+      include:
+        - email:
+            email: "{{ item }}"
+    return_content: true
+    status_code: [200, 201]
+  loop: "{{ cloudflare_ip_reg_emails }}"
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - (reg_policy_check.json.result | default([])) | length == 0
