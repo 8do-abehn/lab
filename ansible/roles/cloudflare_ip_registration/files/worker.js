@@ -158,7 +158,7 @@ function htmlResponse(status, ip, email, state, ttlDays, registeredIp) {
     <div class="email">${email}</div>
     <div class="status ${state === "registered" ? "success" : ""}">${message}</div>
     ${showButton ? '<form method="POST"><button type="submit">Register My IP</button></form>' : ''}
-    ${state === "registered" ? '<div class="redirect"><a href="https://media.8devops.com">Go to Jellyfin</a></div>' : ''}
+    ${state === "registered" ? '<div class="redirect">Redirecting to <a href="https://media.8devops.com">Jellyfin</a>...</div><script>setTimeout(function(){window.location.href="https://media.8devops.com"},2000)</script>' : ''}
   </div>
 </body>
 </html>`;
