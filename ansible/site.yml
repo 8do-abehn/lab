@@ -57,6 +57,14 @@
   roles:
     - jellyfin_backup
 
+- name: Configure restic backup clients
+  hosts: backup_clients
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - backup_client
+
 - name: Setup DNS servers
   hosts: dns_servers
   become: true
