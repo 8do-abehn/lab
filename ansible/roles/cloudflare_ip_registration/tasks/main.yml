@@ -179,6 +179,9 @@
   when: not ansible_check_mode
 
 # Set Worker secrets via secrets API
+# changed_when: false because the PUT is idempotent (same values overwritten)
+# and the secrets API is write-only (can't read back to compare).
+# If you changed secrets manually outside Ansible, you don't deserve to find this note.
 - name: Set Worker secrets
   ansible.builtin.uri:
     url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}/secrets"
@@ -201,6 +204,7 @@
   loop_control:
     label: "{{ item.name }}"
   no_log: true
+  changed_when: false
   when: not ansible_check_mode
 
 # Configure cron trigger for scheduled cleanup (daily at 3am UTC)
