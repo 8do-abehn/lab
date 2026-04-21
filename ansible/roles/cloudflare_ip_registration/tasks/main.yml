@@ -110,22 +110,27 @@
   when: not ansible_check_mode
 
 # Deploy Worker with KV binding only (secrets set separately)
-- name: Get deployed Worker script
-  ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ cloudflare_api_token }}"
-    return_content: true
-    status_code: [200, 404]
-  register: deployed_worker
-  no_log: true
-  check_mode: false
+# Track deployed script hash locally since the Workers API returns multipart
+# responses that can't be compared directly against the local file.
+- name: Ensure worker hash tracking directory exists
+  ansible.builtin.file:
+    path: /etc/cloudflare
+    state: directory
+    mode: "0700"
 
 - name: Compute local Worker script hash
   ansible.builtin.set_fact:
     local_worker_hash: "{{ lookup('file', 'worker.js') | hash('sha256') }}"
-    deployed_worker_hash: "{{ deployed_worker.content | default('') | hash('sha256') }}"
+
+- name: Read previously deployed hash
+  ansible.builtin.slurp:
+    src: /etc/cloudflare/worker-js.sha256
+  register: deployed_hash_file
+  failed_when: false
+
+- name: Set deployed hash fact
+  ansible.builtin.set_fact:
+    deployed_worker_hash: "{{ (deployed_hash_file.content | default('') | b64decode | trim) if deployed_hash_file is not failed else '' }}"
 
 - name: Create Worker metadata file
   ansible.builtin.copy:
@@ -164,6 +169,16 @@
   register: worker_deploy_result
   changed_when: true
   no_log: true
+  when:
+    - not ansible_check_mode
+    - local_worker_hash != deployed_worker_hash
+
+- name: Save deployed Worker hash
+  ansible.builtin.copy:
+    content: "{{ local_worker_hash }}"
+    dest: /etc/cloudflare/worker-js.sha256
+    mode: "0600"
+  changed_when: false
   when:
     - not ansible_check_mode
     - local_worker_hash != deployed_worker_hash
