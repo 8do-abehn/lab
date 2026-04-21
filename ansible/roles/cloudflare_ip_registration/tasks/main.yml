@@ -110,6 +110,23 @@
   when: not ansible_check_mode
 
 # Deploy Worker with KV binding only (secrets set separately)
+- name: Get deployed Worker script
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+    return_content: true
+    status_code: [200, 404]
+  register: deployed_worker
+  no_log: true
+  check_mode: false
+
+- name: Compute local Worker script hash
+  ansible.builtin.set_fact:
+    local_worker_hash: "{{ lookup('file', 'worker.js') | hash('sha256') }}"
+    deployed_worker_hash: "{{ deployed_worker.content | default('') | hash('sha256') }}"
+
 - name: Create Worker metadata file
   ansible.builtin.copy:
     content: |
@@ -123,14 +140,18 @@
     dest: /tmp/worker-metadata.json
     mode: "0600"
   no_log: true
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - local_worker_hash != deployed_worker_hash
 
 - name: Copy Worker script to host
   ansible.builtin.copy:
     src: worker.js
     dest: /tmp/worker.js
     mode: "0644"
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - local_worker_hash != deployed_worker_hash
 
 - name: Deploy Worker via API
   ansible.builtin.command:
@@ -143,7 +164,9 @@
   register: worker_deploy_result
   changed_when: true
   no_log: true
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - local_worker_hash != deployed_worker_hash
 
 - name: Clean up Worker temp files
   ansible.builtin.file:
@@ -152,9 +175,13 @@
   loop:
     - /tmp/worker-metadata.json
     - /tmp/worker.js
+  changed_when: false
   when: not ansible_check_mode
 
 # Set Worker secrets via secrets API
+# changed_when: false because the PUT is idempotent (same values overwritten)
+# and the secrets API is write-only (can't read back to compare).
+# If you changed secrets manually outside Ansible, you don't deserve to find this note.
 - name: Set Worker secrets
   ansible.builtin.uri:
     url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}/secrets"
@@ -177,6 +204,7 @@
   loop_control:
     label: "{{ item.name }}"
   no_log: true
+  changed_when: false
   when: not ansible_check_mode
 
 # Configure cron trigger for scheduled cleanup (daily at 3am UTC)
