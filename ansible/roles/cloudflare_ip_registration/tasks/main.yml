@@ -110,23 +110,9 @@
   when: not ansible_check_mode
 
 # Deploy Worker with KV binding only (secrets set separately)
-- name: Get deployed Worker script
-  ansible.builtin.uri:
-    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ cloudflare_api_token }}"
-    return_content: true
-    status_code: [200, 404]
-  register: deployed_worker
-  no_log: true
-  check_mode: false
-
-- name: Compute local Worker script hash
-  ansible.builtin.set_fact:
-    local_worker_hash: "{{ lookup('file', 'worker.js') | hash('sha256') }}"
-    deployed_worker_hash: "{{ deployed_worker.content | default('') | hash('sha256') }}"
-
+# changed_when: false on deploy because the PUT is idempotent (same script
+# uploaded twice is a no-op on Cloudflare's side). The Workers API returns
+# multipart responses so content comparison isn't practical.
 - name: Create Worker metadata file
   ansible.builtin.copy:
     content: |
@@ -139,19 +125,17 @@
       }
     dest: /tmp/worker-metadata.json
     mode: "0600"
+  changed_when: false
   no_log: true
-  when:
-    - not ansible_check_mode
-    - local_worker_hash != deployed_worker_hash
+  when: not ansible_check_mode
 
 - name: Copy Worker script to host
   ansible.builtin.copy:
     src: worker.js
     dest: /tmp/worker.js
     mode: "0644"
-  when:
-    - not ansible_check_mode
-    - local_worker_hash != deployed_worker_hash
+  changed_when: false
+  when: not ansible_check_mode
 
 - name: Deploy Worker via API
   ansible.builtin.command:
@@ -162,11 +146,9 @@
       -F "worker.js=@/tmp/worker.js;type=application/javascript+module"
       "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}"
   register: worker_deploy_result
-  changed_when: true
+  changed_when: false
   no_log: true
-  when:
-    - not ansible_check_mode
-    - local_worker_hash != deployed_worker_hash
+  when: not ansible_check_mode
 
 - name: Clean up Worker temp files
   ansible.builtin.file:
