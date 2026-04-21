@@ -47,9 +47,15 @@ async function refreshActiveIps(env) {
     }
   );
 
-  if (!res.ok) return;
+  if (!res.ok) {
+    console.log(`refreshActiveIps: API returned ${res.status}`);
+    return;
+  }
   const data = await res.json();
-  if (!data.success || !data.result) return;
+  if (!data.success || !data.result || data.result.length === 0) {
+    console.log("refreshActiveIps: no audit log entries returned");
+    return;
+  }
 
   // Collect unique IPs that accessed Jellyfin
   const activeIps = new Set();
