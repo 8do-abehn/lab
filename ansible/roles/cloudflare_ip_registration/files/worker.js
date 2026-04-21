@@ -30,10 +30,50 @@ export default {
   },
 
   async scheduled(event, env) {
-    // Cron: rebuild policy from surviving KV entries (expired ones auto-deleted)
+    // Refresh TTLs for IPs that actively accessed Jellyfin in the last 24h
+    await refreshActiveIps(env);
+    // Rebuild policy from surviving KV entries (expired ones auto-deleted)
     await rebuildPolicy(env);
   }
 };
+
+async function refreshActiveIps(env) {
+  // Query Access audit logs for media.8devops.com requests in the last 24h
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const res = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.ACCOUNT_ID}/access/logs/access_requests?direction=desc&limit=1000&since=${since}&app_uid=${env.MEDIA_APP_ID}`,
+    {
+      headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` }
+    }
+  );
+
+  if (!res.ok) {
+    console.log(`refreshActiveIps: API returned ${res.status}`);
+    return;
+  }
+  const data = await res.json();
+  if (!data.success || !data.result || data.result.length === 0) {
+    console.log("refreshActiveIps: no audit log entries returned");
+    return;
+  }
+
+  // Collect unique IPs that accessed Jellyfin
+  const activeIps = new Set();
+  for (const entry of data.result) {
+    if (entry.ip_address) {
+      activeIps.add(entry.ip_address);
+    }
+  }
+
+  // Refresh TTL for any registered IP that was active
+  const keys = await env.IP_KV.list({ prefix: "ip:" });
+  for (const key of keys.keys) {
+    const registeredIp = await env.IP_KV.get(key.name);
+    if (registeredIp && activeIps.has(registeredIp)) {
+      await env.IP_KV.put(key.name, registeredIp, { expirationTtl: TTL_SECONDS });
+    }
+  }
+}
 
 async function rebuildPolicy(env) {
   // Read all surviving KV entries

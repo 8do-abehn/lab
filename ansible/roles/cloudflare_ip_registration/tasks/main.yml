@@ -155,7 +155,7 @@
   when: not ansible_check_mode
 
 # Set Worker secrets via secrets API
-- name: Set Worker secret {{ item.name }}
+- name: Set Worker secrets
   ansible.builtin.uri:
     url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/workers/scripts/{{ cloudflare_ip_reg_worker_name }}/secrets"
     method: PUT
