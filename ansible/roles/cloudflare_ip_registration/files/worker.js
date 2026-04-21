@@ -83,7 +83,13 @@ async function rebuildPolicy(env) {
   for (const key of keys.keys) {
     const ip = await env.IP_KV.get(key.name);
     if (ip) {
-      includeRules.push({ ip: { ip: ip + "/32" } });
+      if (ip.includes(":")) {
+        // IPv6: use /64 prefix to cover privacy extension address rotation
+        const prefix = ip.split(":").slice(0, 4).join(":") + "::/64";
+        includeRules.push({ ip: { ip: prefix } });
+      } else {
+        includeRules.push({ ip: { ip: ip + "/32" } });
+      }
     }
   }
 
