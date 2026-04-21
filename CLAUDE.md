@@ -48,6 +48,22 @@
 - Use `cephfs-ssd` for LXC templates - shared across cluster, no per-node downloads
 - Proxmox 9 (Debian Trixie) needs Docker repo pinned to `bookworm`
 
+## GPU Passthrough
+- VFIO binds GPU for VM passthrough; `amdgpu` driver needed for LXC VAAPI transcoding — mutually exclusive per card
+- `nomodeset` in GRUB blocks `amdgpu` probe (error -22) — remove it if LXCs need GPU access
+- Proxmox installer leaves `/etc/default/grub.d/installer.cfg` with `nomodeset` — must remove, not just update `/etc/default/grub`
+- LXC GPU device passthrough uses `pct set --dev0 /dev/dri/card0,gid=44 --dev1 /dev/dri/renderD128,gid=993` — verify GIDs match host with `stat -c '%g' /dev/dri/*`
+- CephFS bind mounts (`mp0:`) block LXC HA migration — Proxmox refuses to migrate containers with bind mounts
+- Tailscale serve config is NOT persistent across LXC restarts — must re-run `tailscale serve` after container restart
+
+## Cloudflare
+- Zero Trust requires dashboard onboarding (team name) before Access API works — 403 until completed
+- Workers ES module format (`export default`) needs multipart upload — Ansible `uri` module can't do it, use `curl` via `command`
+- Access bypass policies don't support `ip_list` selector — use `allow` decision with `ip` selector instead
+- Cloudflare Workers KV free tier: 100k reads/day, 1k writes/day — throttle writes (e.g., 1/day per IP)
+- Access policy precedences must be unique — check existing policies before creating
+- `ansible.builtin.uri` runs in check mode by default (unlike `command`) — guard mutating API calls with `not ansible_check_mode`
+
 ## Hugo
 - Build: `cd site && hugo --minify`
 - Hugo is installed via Homebrew

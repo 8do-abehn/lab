@@ -41,7 +41,7 @@ async function refreshActiveIps(env) {
   // Query Access audit logs for media.8devops.com requests in the last 24h
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${env.ACCOUNT_ID}/access/logs/access_requests?direction=desc&limit=1000&since=${since}`,
+    `https://api.cloudflare.com/client/v4/accounts/${env.ACCOUNT_ID}/access/logs/access_requests?direction=desc&limit=1000&since=${since}&app_uid=${env.MEDIA_APP_ID}`,
     {
       headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` }
     }
