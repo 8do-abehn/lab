@@ -40,6 +40,42 @@
     mode: "0755"
   no_log: true
 
+- name: Copy cron service unit without remote-fs dependency
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cron.service
+    content: |
+      [Unit]
+      Description=Regular background program processing daemon
+      Documentation=man:cron(8)
+      After=nss-user-lookup.target
+
+      [Service]
+      EnvironmentFile=-/etc/default/cron
+      ExecStart=/usr/sbin/cron -f -P $EXTRA_OPTS
+      IgnoreSIGPIPE=false
+      KillMode=process
+      Restart=on-failure
+      SyslogFacility=cron
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd and restart cron
+
+- name: Remove stale cron override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/cron.service.d
+    state: absent
+  notify: Reload systemd and restart cron
+
+- name: Ensure cron is running
+  ansible.builtin.systemd:
+    name: cron
+    state: started
+    enabled: true
+
 - name: Setup backup cron job
   ansible.builtin.cron:
     name: "Restic backup to Pi"

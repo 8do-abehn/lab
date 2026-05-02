@@ -48,6 +48,7 @@ fi
 
 # Run backup
 log_message "Backing up: {{ backup_paths | join(', ') }}"
+BACKUP_STDERR=$(mktemp)
 BACKUP_OUTPUT=$(restic backup \
 {% for path in backup_paths %}
     "{{ path }}" \
@@ -55,7 +56,7 @@ BACKUP_OUTPUT=$(restic backup \
 {% for exclude in backup_excludes %}
     --exclude "{{ exclude }}" \
 {% endfor %}
-    --json 2>&1) && BACKUP_RC=0 || BACKUP_RC=$?
+    --json 2>"$BACKUP_STDERR") && BACKUP_RC=0 || BACKUP_RC=$?
 echo "$BACKUP_OUTPUT" >> "$LOGFILE"
 
 if [ $BACKUP_RC -eq 0 ]; then
@@ -70,12 +71,17 @@ if [ $BACKUP_RC -eq 0 ]; then
         DATA_ADDED=$(numfmt --to=iec --suffix=B "${BYTES_ADDED:-0}" 2>/dev/null || echo "${BYTES_ADDED:-0} bytes")
     fi
 else
+    BACKUP_ERROR=$(tail -5 "$BACKUP_STDERR")
     log_message "Backup failed with exit code $BACKUP_RC"
+    log_message "Error: $BACKUP_ERROR"
 {% if backup_notify_enabled | default(false) %}
-    notify "Backup FAILED on $(hostname)" "restic backup exited with code $BACKUP_RC at $(date)"
+    notify "Backup FAILED on $(hostname)" "restic backup exited with code $BACKUP_RC at $(date)
+Error: $BACKUP_ERROR"
 {% endif %}
+    rm -f "$BACKUP_STDERR"
     exit $BACKUP_RC
 fi
+rm -f "$BACKUP_STDERR"
 
 # Run retention policy
 log_message "Applying retention policy"
