@@ -27,6 +27,13 @@ dns:
   cache_ttl_max: 0
   cache_optimistic: true
   upstream_mode: fastest_addr
+filtering:
+  rewrites:
+{% for r in adguard_home_rewrites %}
+    - domain: {{ r.domain }}
+      answer: {{ r.answer }}
+      enabled: true
+{% endfor %}
 filters:
   - enabled: true
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt

@@ -9,6 +9,15 @@ tailscale_advertise_routes:
   - "10.150.70.0/24"
 
 adguard_home_tailscale_service: "svc:dns"
-adguard_home_conditional_forwards:
-  - domain: "taile975f.ts.net"
-    upstream: "100.100.100.100"
+
+# Conditional forwarders intentionally empty: forwarding *.ts.net to MagicDNS
+# defeats AdGuard's authority for LAN-resident hosts and forces traffic through
+# the Tailscale subnet router at MTU 1280. See feedback_tailscale_magicdns_lan.md.
+adguard_home_conditional_forwards: []
+
+# LAN-resident hosts that should resolve to LAN IPs even via Tailscale FQDN.
+adguard_home_rewrites:
+  - domain: jellyfin01
+    answer: 10.150.70.12
+  - domain: jellyfin01.taile975f.ts.net
+    answer: 10.150.70.12
