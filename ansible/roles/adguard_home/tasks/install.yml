@@ -29,4 +29,3 @@
   ansible.builtin.command: /opt/AdGuardHome/AdGuardHome -s install
   args:
     creates: /etc/systemd/system/AdGuardHome.service
-  changed_when: true
