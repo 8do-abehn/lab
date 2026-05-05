@@ -13,3 +13,24 @@
     mode: "0600"
   when: not adguard_home_config.stat.exists
   notify: Restart AdGuard Home
+
+- name: Ensure PyYAML available for rewrite reconciliation
+  ansible.builtin.package:
+    name: python3-yaml
+    state: present
+
+- name: Install rewrite reconciliation helper
+  ansible.builtin.copy:
+    src: manage_rewrites.py
+    dest: /opt/AdGuardHome/manage_rewrites.py
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Reconcile AdGuard Home DNS rewrites
+  ansible.builtin.command: /opt/AdGuardHome/manage_rewrites.py
+  args:
+    stdin: "{{ adguard_home_rewrites | to_json }}"
+  register: rewrite_result
+  changed_when: rewrite_result.stdout == "CHANGED"
+  notify: Restart AdGuard Home

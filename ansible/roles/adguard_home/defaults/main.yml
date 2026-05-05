@@ -19,5 +19,8 @@ adguard_home_web_port: 3000
 # Conditional forwarding (list of {domain, upstream})
 adguard_home_conditional_forwards: []
 
+# DNS rewrites (list of {domain, answer}); reconciled on every run
+adguard_home_rewrites: []
+
 # Tailscale Service (empty string = disabled)
 adguard_home_tailscale_service: ""
