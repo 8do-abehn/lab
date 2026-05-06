@@ -21,3 +21,46 @@ adguard_home_rewrites:
     answer: 10.150.70.12
   - domain: jellyfin01.taile975f.ts.net
     answer: 10.150.70.12
+
+# Service IDs blocked at DNS level (AdGuard's "Blocked services" presets).
+# Reconciled idempotently — order doesn't matter, duplicates ignored.
+adguard_home_blocked_services:
+  - 4chan
+  - 9gag
+  - aliexpress
+  - betano
+  - betfair
+  - betway
+  - blaze
+  - box
+  - clubhouse
+  - discord
+  - dropbox
+  - flickr
+  - imgur
+  - instagram
+  - kakaotalk
+  - kik
+  - line
+  - linkedin
+  - mail_ru
+  - mastodon
+  - max
+  - minecraft
+  - olvid
+  - onlyfans
+  - plenty_of_fish
+  - reddit
+  - shein
+  - signal
+  - skype
+  - snapchat
+  - telegram
+  - temu
+  - tinder
+  - viber
+  - wechat
+  - whatsapp
+  - wizz
+  - xiaohongshu
+  - youtube

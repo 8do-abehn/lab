@@ -14,18 +14,21 @@
   when: not adguard_home_config.stat.exists
   notify: Restart AdGuard Home
 
-- name: Ensure PyYAML available for rewrite reconciliation
+- name: Ensure PyYAML available for filtering reconciliation
   ansible.builtin.package:
     name: python3-yaml
     state: present
 
-- name: Install rewrite reconciliation helper
+- name: Install filtering reconciliation helpers
   ansible.builtin.copy:
-    src: manage_rewrites.py
-    dest: /opt/AdGuardHome/manage_rewrites.py
+    src: "{{ item }}"
+    dest: "/opt/AdGuardHome/{{ item }}"
     owner: root
     group: root
     mode: "0755"
+  loop:
+    - manage_rewrites.py
+    - manage_blocked_services.py
 
 - name: Reconcile AdGuard Home DNS rewrites
   ansible.builtin.command: /opt/AdGuardHome/manage_rewrites.py
@@ -33,4 +36,12 @@
     stdin: "{{ adguard_home_rewrites | to_json }}"
   register: rewrite_result
   changed_when: rewrite_result.stdout == "CHANGED"
+  notify: Restart AdGuard Home
+
+- name: Reconcile AdGuard Home blocked services
+  ansible.builtin.command: /opt/AdGuardHome/manage_blocked_services.py
+  args:
+    stdin: "{{ adguard_home_blocked_services | to_json }}"
+  register: blocked_services_result
+  changed_when: blocked_services_result.stdout == "CHANGED"
   notify: Restart AdGuard Home

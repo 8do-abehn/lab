@@ -42,6 +42,9 @@ all:
       hosts:
         dns01:  # LXC 3002 on pve01, AdGuard Home + Tailscale subnet router
           ansible_user: root
+        dns02:  # LXC 3012 on pve03, AdGuard Home secondary (HA pair with dns01)
+          ansible_user: root
+          ansible_host: 10.150.60.12
 
     # mem0 Servers (VLAN 70, AI memory stack)
     mem0_servers:
