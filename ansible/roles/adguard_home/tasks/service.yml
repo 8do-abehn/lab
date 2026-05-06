@@ -10,6 +10,9 @@
   register: adguard_home_ports
   changed_when: false
   check_mode: false
+  until: "':53 ' in adguard_home_ports.stdout"
+  retries: 10
+  delay: 2
   failed_when: "':53 ' not in adguard_home_ports.stdout"
 
 - name: Check if Tailscale Service is already registered

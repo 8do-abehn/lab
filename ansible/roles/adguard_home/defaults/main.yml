@@ -1,5 +1,5 @@
 ---
-adguard_home_version: "0.107.55"
+adguard_home_version: "0.107.74"
 adguard_home_arch: "linux_amd64"
 
 # DNS settings
@@ -21,6 +21,9 @@ adguard_home_conditional_forwards: []
 
 # DNS rewrites (list of {domain, answer}); reconciled on every run
 adguard_home_rewrites: []
+
+# Blocked services (list of AdGuard service IDs, e.g. "youtube"); reconciled on every run
+adguard_home_blocked_services: []
 
 # Tailscale Service (empty string = disabled)
 adguard_home_tailscale_service: ""

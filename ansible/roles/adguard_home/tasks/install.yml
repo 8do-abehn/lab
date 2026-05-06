@@ -6,24 +6,38 @@
     state: stopped
   failed_when: false
 
-- name: Check if AdGuard Home is already installed
-  ansible.builtin.stat:
-    path: /opt/AdGuardHome/AdGuardHome
-  register: adguard_home_binary
+- name: Check installed AdGuard Home version
+  ansible.builtin.command: /opt/AdGuardHome/AdGuardHome --version
+  register: adguard_home_installed_version
+  changed_when: false
+  failed_when: false
+
+- name: Set fact for whether install/upgrade is needed
+  ansible.builtin.set_fact:
+    adguard_home_needs_install: "{{ adguard_home_installed_version.rc != 0 or adguard_home_version not in adguard_home_installed_version.stdout }}"
 
 - name: Download AdGuard Home
   ansible.builtin.get_url:
     url: "https://github.com/AdguardTeam/AdGuardHome/releases/download/v{{ adguard_home_version }}/AdGuardHome_{{ adguard_home_arch }}.tar.gz"
-    dest: /tmp/AdGuardHome.tar.gz
+    dest: "/tmp/AdGuardHome-{{ adguard_home_version }}.tar.gz"
     mode: "0644"
-  when: not adguard_home_binary.stat.exists
+  when: adguard_home_needs_install
+
+- name: Stop AdGuard Home before upgrade in place
+  ansible.builtin.systemd:
+    name: AdGuardHome
+    state: stopped
+  when:
+    - adguard_home_needs_install
+    - adguard_home_installed_version.rc == 0
 
 - name: Extract AdGuard Home
   ansible.builtin.unarchive:
-    src: /tmp/AdGuardHome.tar.gz
+    src: "/tmp/AdGuardHome-{{ adguard_home_version }}.tar.gz"
     dest: /opt
     remote_src: true
-  when: not adguard_home_binary.stat.exists
+  when: adguard_home_needs_install
+  notify: Restart AdGuard Home
 
 - name: Install AdGuard Home systemd service
   ansible.builtin.command: /opt/AdGuardHome/AdGuardHome -s install
