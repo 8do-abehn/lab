@@ -8,3 +8,5 @@
 - name: Configure GPU passthrough
   ansible.builtin.include_tasks: gpu-passthrough.yml
   when: proxmox_gpu_passthrough_enabled | default(false)
+- name: Configure LVM thin pool autoextend
+  ansible.builtin.include_tasks: lvm.yml
