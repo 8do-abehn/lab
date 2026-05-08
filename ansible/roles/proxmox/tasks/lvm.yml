@@ -1,0 +1,18 @@
+---
+- name: Configure LVM thin pool autoextend threshold
+  ansible.builtin.lineinfile:
+    path: /etc/lvm/lvm.conf
+    regexp: '^[\s#]*thin_pool_autoextend_threshold\s*='
+    line: "	thin_pool_autoextend_threshold = {{ proxmox_lvm_thin_autoextend_threshold }}"
+    insertafter: '^activation\s*{'
+    state: present
+    backup: true
+
+- name: Configure LVM thin pool autoextend percent
+  ansible.builtin.lineinfile:
+    path: /etc/lvm/lvm.conf
+    regexp: '^[\s#]*thin_pool_autoextend_percent\s*='
+    line: "	thin_pool_autoextend_percent = {{ proxmox_lvm_thin_autoextend_percent }}"
+    insertafter: '^activation\s*{'
+    state: present
+    backup: true

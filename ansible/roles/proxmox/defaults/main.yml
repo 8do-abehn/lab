@@ -24,3 +24,7 @@ proxmox_gpu_passthrough_enabled: false
 proxmox_gpu_vfio_ids: ""
 proxmox_gpu_blacklist_drivers: []
 proxmox_gpu_grub_extra: ""
+
+# LVM thin pool autoextend (#378)
+proxmox_lvm_thin_autoextend_threshold: 80
+proxmox_lvm_thin_autoextend_percent: 20
