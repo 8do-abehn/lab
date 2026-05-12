@@ -7,6 +7,16 @@ tailscale_enable_ssh: true
 tailscale_advertise_routes: []
 tailscale_accept_dns: true
 
+# Tailscale Service serve persistence (#396)
+# Each entry renders a systemd oneshot unit that re-applies `tailscale serve`
+# after tailscaled, so the config survives LXC restarts.
+# Example:
+#   tailscale_serve_services:
+#     - name: jellyfin            # becomes svc:jellyfin
+#       upstream: 127.0.0.1:8096  # required
+#       https: 443                # optional, defaults to 443
+tailscale_serve_services: []
+
 # Certificate settings
 tailscale_setup_proxmox_certs: false
 tailscale_cert_path: /etc/pve/local/pveproxy-ssl.pem

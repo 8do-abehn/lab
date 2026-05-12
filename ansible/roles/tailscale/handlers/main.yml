@@ -2,3 +2,12 @@
 - name: Display Proxmox access message
   ansible.builtin.debug:
     msg: "Proxmox Web UI now accessible via https://{{ tailscale_hostname.stdout }}:8006"
+
+- name: Reload systemd and restart tailscale serve units
+  ansible.builtin.systemd:
+    name: "tailscale-serve-{{ item.name }}.service"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ tailscale_serve_services }}"
+  loop_control:
+    label: "svc:{{ item.name }}"
