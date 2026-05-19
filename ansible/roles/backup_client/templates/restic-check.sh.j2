@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Cron's default PATH omits /usr/local/bin, where pipx symlinks apprise.
+# Without this, `command -v apprise` silently fails and notifications never fire.
+export PATH="/usr/local/bin:$PATH"
+
 # Restic repository integrity check - managed by Ansible
 # Runs weekly to verify backup data on Pi backup server
 
@@ -12,13 +16,13 @@ export RESTIC_REPOSITORY
 export RESTIC_PASSWORD
 
 {% if backup_notify_enabled | default(false) %}
-APPRISE_URLS="{{ backup_apprise_urls }}"
-
+# Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
+# is world-readable, so the credential must not live here.
 notify() {
     local title="$1"
     local body="$2"
-    if [ -n "$APPRISE_URLS" ] && command -v apprise &>/dev/null; then
-        apprise -t "$title" --body "$body" "$APPRISE_URLS" 2>/dev/null || true
+    if [ -r /etc/apprise.yml ] && command -v apprise &>/dev/null; then
+        apprise -t "$title" --body "$body" --config /etc/apprise.yml 2>/dev/null || true
     fi
 }
 {% endif %}

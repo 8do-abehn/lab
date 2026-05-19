@@ -31,6 +31,16 @@
     - backup_notify_enabled | bool
     - apprise_check.rc != 0
 
+- name: Deploy apprise config (credential lives here, not in the backup script)
+  ansible.builtin.template:
+    src: apprise.yml.j2
+    dest: /etc/apprise.yml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: backup_notify_enabled | bool
+
 - name: Deploy backup script
   ansible.builtin.template:
     src: backup.sh.j2
