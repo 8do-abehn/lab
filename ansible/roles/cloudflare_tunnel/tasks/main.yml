@@ -202,6 +202,27 @@
     - cloudflare_access_emails | default([]) | length > 0
     - not ansible_check_mode
 
+- name: Update Access application session duration
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ cloudflare_access_app_id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ cloudflare_tunnel_name | capitalize }}"
+      domain: "{{ cloudflare_tunnel_hostname }}"
+      type: self_hosted
+      session_duration: "{{ cloudflare_access_session_duration }}"
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  when:
+    - cloudflare_access_emails | default([]) | length > 0
+    - access_app_check.json.result | length > 0
+    - not ansible_check_mode
+
 - name: Check if Access policy exists
   ansible.builtin.uri:
     url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ cloudflare_access_app_id }}/policies"

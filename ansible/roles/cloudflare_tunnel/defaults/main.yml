@@ -3,4 +3,4 @@ cloudflare_tunnel_name: ""
 cloudflare_tunnel_hostname: ""
 cloudflare_tunnel_service: ""
 cloudflare_access_emails: []
-cloudflare_access_session_duration: "24h"
+cloudflare_access_session_duration: "72h"
