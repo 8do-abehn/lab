@@ -19,12 +19,19 @@
     dest: /usr/share/keyrings/cloudflare-main.gpg
     mode: "0644"
 
+- name: Remove legacy Cloudflare apt list file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/pkg_cloudflare_com_cloudflared.list
+    state: absent
+
 - name: Add Cloudflare repository
-  ansible.builtin.apt_repository:
-    repo: >-
-      deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg]
-      https://pkg.cloudflare.com/cloudflared
-      {{ ansible_facts['distribution_release'] }} main
+  ansible.builtin.deb822_repository:
+    name: cloudflared
+    types: deb
+    uris: https://pkg.cloudflare.com/cloudflared
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: main
+    signed_by: /usr/share/keyrings/cloudflare-main.gpg
     state: present
     update_cache: true
 
