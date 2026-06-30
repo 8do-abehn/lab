@@ -1,0 +1,4 @@
+# Apprise config — managed by Ansible. Mode 0600 root:root.
+# Kept out of the backup script so the credential is not world-readable.
+urls:
+  - {{ backup_apprise_urls }}

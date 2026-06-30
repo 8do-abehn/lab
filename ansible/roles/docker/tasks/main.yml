@@ -5,6 +5,7 @@
       - ca-certificates
       - curl
       - gnupg
+      - python3-debian
     state: present
     update_cache: true
 
@@ -29,13 +30,25 @@
     dest: /etc/apt/keyrings/docker.asc
     mode: "0644"
 
+- name: Remove legacy Docker apt list file
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/download_docker_com_linux_{{ docker_distro }}.list"
+    state: absent
+
 - name: Add Docker repository
-  ansible.builtin.apt_repository:
-    repo: >-
-      deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
-      https://download.docker.com/linux/{{ docker_distro }}
-      {{ docker_codename }} stable
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: "https://download.docker.com/linux/{{ docker_distro }}"
+    suites: "{{ docker_codename }}"
+    components: stable
+    architectures: "{{ docker_arch }}"
+    signed_by: /etc/apt/keyrings/docker.asc
     state: present
+  when: not ansible_check_mode
+
+- name: Update apt cache
+  ansible.builtin.apt:
     update_cache: true
 
 - name: Install Docker CE and Compose plugin

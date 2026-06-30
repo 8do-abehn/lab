@@ -4,6 +4,7 @@
     name:
       - curl
       - gnupg
+      - python3-debian
     state: present
     update_cache: true
 
@@ -19,13 +20,24 @@
     dest: /usr/share/keyrings/cloudflare-main.gpg
     mode: "0644"
 
+- name: Remove legacy Cloudflare apt list file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/pkg_cloudflare_com_cloudflared.list
+    state: absent
+
 - name: Add Cloudflare repository
-  ansible.builtin.apt_repository:
-    repo: >-
-      deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg]
-      https://pkg.cloudflare.com/cloudflared
-      {{ ansible_facts['distribution_release'] }} main
+  ansible.builtin.deb822_repository:
+    name: cloudflared
+    types: deb
+    uris: https://pkg.cloudflare.com/cloudflared
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: main
+    signed_by: /usr/share/keyrings/cloudflare-main.gpg
     state: present
+  when: not ansible_check_mode
+
+- name: Update apt cache
+  ansible.builtin.apt:
     update_cache: true
 
 - name: Install cloudflared
@@ -200,6 +212,28 @@
          | ternary(access_app_check.json.result[0].id, access_app_create.json.result.id) }}
   when:
     - cloudflare_access_emails | default([]) | length > 0
+    - not ansible_check_mode
+
+- name: Update Access application session duration
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ cloudflare_access_app_id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ cloudflare_tunnel_name | capitalize }}"
+      domain: "{{ cloudflare_tunnel_hostname }}"
+      type: self_hosted
+      session_duration: "{{ cloudflare_access_session_duration }}"
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  changed_when: false
+  when:
+    - cloudflare_access_emails | default([]) | length > 0
+    - access_app_check.json.result | length > 0
     - not ansible_check_mode
 
 - name: Check if Access policy exists

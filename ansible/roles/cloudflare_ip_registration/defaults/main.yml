@@ -3,4 +3,4 @@ cloudflare_ip_reg_hostname: ""
 cloudflare_ip_reg_worker_name: "ip-registration"
 cloudflare_ip_reg_kv_namespace: "ip-registration-kv"
 cloudflare_ip_reg_emails: []
-cloudflare_ip_reg_session_duration: "24h"
+cloudflare_ip_reg_session_duration: "72h"

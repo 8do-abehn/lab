@@ -311,6 +311,26 @@
          | ternary(reg_app_check.json.result[0].id, reg_app_create.json.result.id) }}
   when: not ansible_check_mode
 
+- name: Update registration Access application session duration
+  ansible.builtin.uri:
+    url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ reg_access_app_id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cloudflare_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "IP Registration"
+      domain: "{{ cloudflare_ip_reg_hostname }}"
+      type: self_hosted
+      session_duration: "{{ cloudflare_ip_reg_session_duration }}"
+    return_content: true
+    status_code: [200, 201]
+  no_log: true
+  when:
+    - reg_app_check.json.result | length > 0
+    - not ansible_check_mode
+
 - name: Check if registration Access policy exists
   ansible.builtin.uri:
     url: "https://api.cloudflare.com/client/v4/accounts/{{ cloudflare_account_id }}/access/apps/{{ reg_access_app_id }}/policies"

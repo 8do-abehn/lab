@@ -1,0 +1,23 @@
+---
+- name: Render systemd unit for each Tailscale serve mapping
+  ansible.builtin.template:
+    src: tailscale-serve.service.j2
+    dest: "/etc/systemd/system/tailscale-serve-{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ tailscale_serve_services }}"
+  loop_control:
+    label: "svc:{{ item.name }}"
+  notify: Reload systemd and restart tailscale serve units
+
+- name: Enable and start Tailscale serve units
+  ansible.builtin.systemd:
+    name: "tailscale-serve-{{ item.name }}.service"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ tailscale_serve_services }}"
+  loop_control:
+    label: "svc:{{ item.name }}"
+  when: not ansible_check_mode

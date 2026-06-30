@@ -44,7 +44,7 @@ all:
           ansible_user: root
         dns02:  # LXC 3012 on pve03, AdGuard Home secondary (HA pair with dns01)
           ansible_user: root
-          ansible_host: 10.150.60.12
+          ansible_host: 100.125.245.12
 
     # mem0 Servers (VLAN 70, AI memory stack)
     mem0_servers:
@@ -59,15 +59,15 @@ all:
         jellyfin01:  # LXC 3001 on pve01, CephFS media at /mnt/library
           ansible_user: root
 
-    # Minecraft Servers (Docker in LXCs on pve01-03)
+    # Minecraft Servers (Docker in LXCs on pve01-03) -- powered off, commented out
     minecraft_servers:
       hosts:
-        mc01:  # LXC 3004 on pve01, 32GB RAM
-          ansible_user: root
-        mc02:  # LXC 3005 on pve02, 32GB RAM
-          ansible_user: root
-        mc03:  # LXC 3006 on pve03, 32GB RAM
-          ansible_user: root
+        # mc01:  # LXC 3004 on pve01, 32GB RAM
+        #   ansible_user: root
+        # mc02:  # LXC 3005 on pve02, 32GB RAM
+        #   ansible_user: root
+        # mc03:  # LXC 3006 on pve03, 32GB RAM
+        #   ansible_user: root
 
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
     # See ansible/archive/slurm-cluster/

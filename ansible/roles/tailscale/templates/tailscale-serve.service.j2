@@ -1,0 +1,17 @@
+[Unit]
+Description=Tailscale serve for svc:{{ item.name }}
+After=tailscaled.service network-online.target
+Wants=tailscaled.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/tailscale serve --service=svc:{{ item.name }} --bg --https={{ item.https | default(443) }} {{ item.upstream }}
+ExecStop=/usr/bin/tailscale serve --service=svc:{{ item.name }} off
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=20
+StartLimitIntervalSec=300
+
+[Install]
+WantedBy=multi-user.target

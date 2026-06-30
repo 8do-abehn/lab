@@ -9,6 +9,7 @@ tailscale_advertise_routes:
   - "10.150.70.0/24"
 
 adguard_home_tailscale_service: "svc:dns"
+adguard_home_password: "{{ vault_adguard_password }}"
 
 # Conditional forwarders intentionally empty: forwarding *.ts.net to MagicDNS
 # defeats AdGuard's authority for LAN-resident hosts and forces traffic through

@@ -8,3 +8,9 @@ cloudflare_access_emails:
 # IP Registration Worker
 cloudflare_ip_reg_hostname: register.8devops.com
 cloudflare_ip_reg_emails: "{{ vault_cloudflare_family_emails }}"
+
+# Persist Tailscale serve config across LXC restarts (#396)
+tailscale_serve_services:
+  - name: jellyfin
+    upstream: 127.0.0.1:8096
+    https: 443
