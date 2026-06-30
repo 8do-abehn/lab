@@ -27,3 +27,7 @@ adguard_home_blocked_services: []
 
 # Tailscale Service (empty string = disabled)
 adguard_home_tailscale_service: ""
+
+# Web UI credentials (set via vault; empty = skip user reconciliation)
+adguard_home_username: admin
+adguard_home_password: ""
