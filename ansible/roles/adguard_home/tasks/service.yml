@@ -5,6 +5,32 @@
     enabled: true
     state: started
 
+# AdGuard Home writes duration defaults using 'd' suffix (e.g. 30d, 90d) which
+# its own YAML parser cannot read back. Fix them after first start.
+- name: Check for day-suffix durations AdGuard cannot parse
+  ansible.builtin.command: grep -cE ':[[:space:]]+[0-9]+d$' /opt/AdGuardHome/AdGuardHome.yaml
+  register: adguard_duration_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Convert day-suffix durations to hours in AdGuard config
+  ansible.builtin.command:
+    argv:
+      - sed
+      - -i
+      - "s/: 1d$/: 24h/;s/: 7d$/: 168h/;s/: 14d$/: 336h/;s/: 30d$/: 720h/;s/: 90d$/: 2160h/;s/: 365d$/: 8760h/"
+      - /opt/AdGuardHome/AdGuardHome.yaml
+  when:
+    - adguard_duration_check.rc == 0
+    - adguard_duration_check.stdout | int > 0
+    - not ansible_check_mode
+  changed_when: true
+  notify: Restart AdGuard Home
+
+- name: Flush handlers to restart AdGuard before verifying DNS
+  ansible.builtin.meta: flush_handlers
+
 - name: Verify DNS port is listening
   ansible.builtin.command: ss -tlnp
   register: adguard_home_ports
