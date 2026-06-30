@@ -49,6 +49,23 @@ if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     exit 1
 fi
 
+# Remove stale locks older than 24h to recover from hung/killed backup runs
+LOCK_OUTPUT=$(restic list locks --json 2>/dev/null || true)
+if [ -n "$LOCK_OUTPUT" ]; then
+    LOCK_AGE=$(echo "$LOCK_OUTPUT" | grep -o '"time":"[^"]*"' | head -1 | grep -o '[0-9T:Z.-]*' || true)
+    if [ -n "$LOCK_AGE" ]; then
+        LOCK_EPOCH=$(date -d "$LOCK_AGE" +%s 2>/dev/null || true)
+        NOW_EPOCH=$(date +%s)
+        if [ -n "$LOCK_EPOCH" ] && [ $(( NOW_EPOCH - LOCK_EPOCH )) -gt 86400 ]; then
+            log_message "WARNING: Stale lock found (age > 24h), removing before backup"
+            restic unlock >> "$LOGFILE" 2>&1
+{% if backup_notify_enabled | default(false) %}
+            notify "Backup lock cleared on $(hostname)" "Stale restic lock removed at $(date). Lock was created at ${LOCK_AGE}."
+{% endif %}
+        fi
+    fi
+fi
+
 # Run backup
 log_message "Backing up: {{ backup_paths | join(', ') }}"
 BACKUP_STDERR=$(mktemp)
