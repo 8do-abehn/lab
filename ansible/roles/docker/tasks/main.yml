@@ -45,6 +45,7 @@
     architectures: "{{ docker_arch }}"
     signed_by: /etc/apt/keyrings/docker.asc
     state: present
+  when: not ansible_check_mode
 
 - name: Update apt cache
   ansible.builtin.apt:

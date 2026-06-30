@@ -34,6 +34,7 @@
     components: main
     signed_by: /usr/share/keyrings/cloudflare-main.gpg
     state: present
+  when: not ansible_check_mode
 
 - name: Update apt cache
   ansible.builtin.apt:
