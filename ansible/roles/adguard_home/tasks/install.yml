@@ -37,7 +37,9 @@
     src: "/tmp/AdGuardHome-{{ adguard_home_version }}.tar.gz"
     dest: /opt
     remote_src: true
-  when: adguard_home_needs_install
+  when:
+    - adguard_home_needs_install
+    - not ansible_check_mode
   notify: Restart AdGuard Home
 
 - name: Install AdGuard Home systemd service
