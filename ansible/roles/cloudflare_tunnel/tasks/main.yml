@@ -4,6 +4,7 @@
     name:
       - curl
       - gnupg
+      - python3-debian
     state: present
     update_cache: true
 
@@ -33,6 +34,9 @@
     components: main
     signed_by: /usr/share/keyrings/cloudflare-main.gpg
     state: present
+
+- name: Update apt cache
+  ansible.builtin.apt:
     update_cache: true
 
 - name: Install cloudflared
@@ -225,6 +229,7 @@
     return_content: true
     status_code: [200, 201]
   no_log: true
+  changed_when: false
   when:
     - cloudflare_access_emails | default([]) | length > 0
     - access_app_check.json.result | length > 0
