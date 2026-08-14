@@ -1,0 +1,40 @@
+{{/* services-dashboard shortcode: renders data/services.yml into HTML lists */}}
+{{ $d := site.Data.services }}
+<div class="services-dashboard">
+  <h2>Proxmox Hosts</h2>
+  <ul>
+  {{ range $d.nodes }}
+    <li>
+      <strong>{{ .host }}</strong> — <a href="{{ .proxmox_url }}">Proxmox UI</a>
+      {{ if .netdata_url }} — <a href="{{ .netdata_url }}">Netdata</a>{{ end }}
+      {{ if .tailscale }} — Tailscale: enabled{{ end }}
+      {{ if .containers }}
+        <ul>
+        {{ range .containers }}
+          <li>{{ .name }} (LXC {{ .vmid }}) — {{ .status }} {{ if .console }} — <a href="{{ .console }}">Console</a>{{ end }}</li>
+        {{ end }}
+        </ul>
+      {{ end }}
+    </li>
+  {{ end }}
+  </ul>
+
+  <h2>Endpoints</h2>
+  <ul>
+  {{ range $d.endpoints }}
+    <li>
+      {{ .name }} — <a href="{{ .url }}">{{ .url }}</a>
+      {{ if .target }} (targets: {{ .target }}){{ end }}
+    </li>
+  {{ end }}
+  </ul>
+
+  {{ if $d.notes }}
+  <h3>Notes</h3>
+  <ul>
+    {{ range $d.notes }}
+      <li>{{ . }}</li>
+    {{ end }}
+  </ul>
+  {{ end }}
+</div>
