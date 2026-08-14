@@ -8,7 +8,20 @@ if not p.exists():
     print('site/data/services.yml not found', file=sys.stderr)
     sys.exit(1)
 
-data = yaml.safe_load(p.read_text())
+try:
+    data = yaml.safe_load(p.read_text())
+except yaml.YAMLError as exc:
+    print(f'Failed to parse YAML: {exc}', file=sys.stderr)
+    sys.exit(2)
+
+if data is None:
+    print('site/data/services.yml is empty', file=sys.stderr)
+    sys.exit(2)
+
+if not isinstance(data, dict):
+    print('site/data/services.yml root must be a mapping/object', file=sys.stderr)
+    sys.exit(2)
+
 errors = []
 
 def check_url(name, url, ctx):
