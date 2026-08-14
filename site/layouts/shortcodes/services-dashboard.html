@@ -5,13 +5,27 @@
   <ul>
   {{ range $d.nodes }}
     <li>
-      <strong>{{ .host }}</strong> — <a href="{{ .proxmox_url }}">Proxmox UI</a>
-      {{ if .netdata_url }} — <a href="{{ .netdata_url }}">Netdata</a>{{ end }}
+      <strong>{{ .host }}</strong> — 
+      {{ if and .proxmox_url (or (strings.HasPrefix .proxmox_url "https://") (strings.HasPrefix .proxmox_url "http://")) }}
+        <a href="{{ .proxmox_url }}" target="_blank" rel="noopener noreferrer">Proxmox UI</a>
+      {{ else }}
+        Proxmox UI
+      {{ end }}
+      {{ if and .netdata_url (or (strings.HasPrefix .netdata_url "https://") (strings.HasPrefix .netdata_url "http://")) }} — <a href="{{ .netdata_url }}" target="_blank" rel="noopener noreferrer">Netdata</a>{{ end }}
       {{ if .tailscale }} — Tailscale: enabled{{ end }}
       {{ if .containers }}
         <ul>
         {{ range .containers }}
-          <li>{{ .name }} (LXC {{ .vmid }}) — {{ .status }} {{ if .console }} — <a href="{{ .console }}">Console</a>{{ end }}</li>
+          <li>
+            {{ .name }} (LXC {{ .vmid }}) — {{ .status }}
+            {{ if .console }}
+              {{ if or (strings.HasPrefix .console "https://") (strings.HasPrefix .console "http://" ) }}
+                — <a href="{{ .console }}" target="_blank" rel="noopener noreferrer">Console</a>
+              {{ else }}
+                — Console
+              {{ end }}
+            {{ end }}
+          </li>
         {{ end }}
         </ul>
       {{ end }}
@@ -23,7 +37,12 @@
   <ul>
   {{ range $d.endpoints }}
     <li>
-      {{ .name }} — <a href="{{ .url }}">{{ .url }}</a>
+      {{ .name }} — 
+      {{ if and .url (or (strings.HasPrefix .url "https://") (strings.HasPrefix .url "http://")) }}
+        <a href="{{ .url }}" target="_blank" rel="noopener noreferrer">{{ .url }}</a>
+      {{ else }}
+        {{ .url }}
+      {{ end }}
       {{ if .target }} (targets: {{ .target }}){{ end }}
     </li>
   {{ end }}

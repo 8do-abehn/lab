@@ -67,4 +67,5 @@ endpoints:
 
 notes:
   - "This data file is generated from a quick repo + live probe. Update via Ansible or by editing this file."
+  - "Netdata entries may use http and are intended for internal access only; do not expose these URLs publicly without TLS/proxying."
   - "For remote access use Cloudflare Tunnel or Tailscale addresses (see Cloudflare/Tailscale configs in ansible/)."
