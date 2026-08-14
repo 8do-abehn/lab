@@ -1,0 +1,59 @@
+{{/* services-dashboard shortcode: renders data/services.yml into HTML lists */}}
+{{ $d := site.Data.services }}
+<div class="services-dashboard">
+  <h2>Proxmox Hosts</h2>
+  <ul>
+  {{ range $d.nodes }}
+    <li>
+      <strong>{{ .host }}</strong> — 
+      {{ if and .proxmox_url (or (strings.HasPrefix .proxmox_url "https://") (strings.HasPrefix .proxmox_url "http://")) }}
+        <a href="{{ .proxmox_url }}" target="_blank" rel="noopener noreferrer">Proxmox UI</a>
+      {{ else }}
+        Proxmox UI
+      {{ end }}
+      {{ if and .netdata_url (or (strings.HasPrefix .netdata_url "https://") (strings.HasPrefix .netdata_url "http://")) }} — <a href="{{ .netdata_url }}" target="_blank" rel="noopener noreferrer">Netdata</a>{{ end }}
+      {{ if .tailscale }} — Tailscale: enabled{{ end }}
+      {{ if .containers }}
+        <ul>
+        {{ range .containers }}
+          <li>
+            {{ .name }} (LXC {{ .vmid }}) — {{ .status }}
+            {{ if .console }}
+              {{ if or (strings.HasPrefix .console "https://") (strings.HasPrefix .console "http://" ) }}
+                — <a href="{{ .console }}" target="_blank" rel="noopener noreferrer">Console</a>
+              {{ else }}
+                — Console
+              {{ end }}
+            {{ end }}
+          </li>
+        {{ end }}
+        </ul>
+      {{ end }}
+    </li>
+  {{ end }}
+  </ul>
+
+  <h2>Endpoints</h2>
+  <ul>
+  {{ range $d.endpoints }}
+    <li>
+      {{ .name }} — 
+      {{ if and .url (or (strings.HasPrefix .url "https://") (strings.HasPrefix .url "http://")) }}
+        <a href="{{ .url }}" target="_blank" rel="noopener noreferrer">{{ .url }}</a>
+      {{ else }}
+        {{ .url }}
+      {{ end }}
+      {{ if .target }} (targets: {{ .target }}){{ end }}
+    </li>
+  {{ end }}
+  </ul>
+
+  {{ if $d.notes }}
+  <h3>Notes</h3>
+  <ul>
+    {{ range $d.notes }}
+      <li>{{ . }}</li>
+    {{ end }}
+  </ul>
+  {{ end }}
+</div>

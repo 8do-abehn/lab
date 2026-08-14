@@ -1,0 +1,71 @@
+nodes:
+  - host: pve01
+    proxmox_url: "https://pve01:8006"
+    netdata_url: "http://pve01:19999"
+    tailscale: true
+    containers:
+      - vmid: 100
+        name: metube
+        status: running
+      - vmid: 3001
+        name: jellyfin01
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3001"
+      - vmid: 3002
+        name: dns01
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3002"
+      - vmid: 3007
+        name: changedetection
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3007"
+      - vmid: 3008
+        name: readeck
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3008"
+      - vmid: 3009
+        name: alpine-it-tools
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3009"
+      - vmid: 3010
+        name: docker
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3010"
+      - vmid: 3011
+        name: unifi
+        status: running
+        console: "https://pve01:8006/?console=lxc&vmid=3011"
+  - host: pve02
+    proxmox_url: "https://pve02:8006"
+    netdata_url: "http://pve02:19999"
+    tailscale: true
+    containers:
+      - vmid: 3006
+        name: mc03
+        status: stopped
+  - host: pve03
+    proxmox_url: "https://pve03:8006"
+    netdata_url: "http://pve03:19999"
+    tailscale: true
+    containers:
+      - vmid: 3004
+        name: mc01
+        status: stopped
+      - vmid: 3012
+        name: dns02
+        status: running
+        console: "https://pve03:8006/?console=lxc&vmid=3012"
+
+endpoints:
+  - name: Jellyfin (Cloudflare Tunnel)
+    url: "https://media.8devops.com"
+    target: "jellyfin01"
+  - name: Proxmox Cluster UI
+    url: "https://pve01:8006/"
+  - name: Netdata (cluster-level)
+    note: "Per-node Netdata URLs are listed under each host"
+
+notes:
+  - "This data file is generated from a quick repo + live probe. Update via Ansible or by editing this file."
+  - "Netdata entries may use http and are intended for internal access only; do not expose these URLs publicly without TLS/proxying."
+  - "For remote access use Cloudflare Tunnel or Tailscale addresses (see Cloudflare/Tailscale configs in ansible/)."
