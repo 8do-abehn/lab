@@ -41,6 +41,19 @@
   roles:
     - nut
 
+# Both Proxmox clusters plus the offsite backup target. smartd runs on all of
+# them out of the box but its stock mail hook needs an MTA that is not there,
+# so without this role their SMART alerts go nowhere at all.
+- name: Configure SMART disk monitoring alerts (Apprise)
+  hosts: proxmox:backup_servers
+  become: true
+  vars_files:
+    - vault.yml
+  tags:
+    - smart
+  roles:
+    - smart_monitoring
+
 - name: Install Netdata monitoring
   hosts: proxmox:k3s_cluster:dns_servers:media_servers:mem0_servers:minecraft_servers
   become: true
