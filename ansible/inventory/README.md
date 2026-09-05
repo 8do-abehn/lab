@@ -52,6 +52,14 @@ The `homelab.yml` inventory includes:
 | pve02 | Ryzen 9 5900X (12C/24T) | 64GB | 1x RTX 3080 Ti | Aquantia 10G + Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 112GB |
 | pve03 | Ryzen 9 5900X (12C/24T) | 128GB | 2x RTX 3080 | Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 120GB |
 
+### NUT / UPS Groups
+
+- **nut_server:** empty - host the UPS plugs into directly
+- **nut_netclients:** empty - hosts monitoring the UPS over the network
+
+Both are intentionally empty since the legacy cluster was retired 2026-09-05.
+Populate them once the UPS is re-cabled to the new cluster, and set
+`ups_server_ip` in `group_vars/nut_netclients.yml`.
 
 ### Backup Infrastructure
 - **backup_servers:** `pi-burg` - Raspberry Pi with 8TB USB backup storage

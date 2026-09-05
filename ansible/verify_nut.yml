@@ -4,6 +4,12 @@
   become: true
   gather_facts: false
 
+  # This play does not load the nut role, so it needs its own copies of these.
+  # ups_server_ip is empty until the UPS is re-cabled to the new cluster.
+  vars:
+    ups_name: myups
+    ups_server_ip: ""
+
   tasks:
     - name: Check if NUT is installed
       ansible.builtin.command: which upsc
@@ -23,6 +29,7 @@
       register: ups_status
       failed_when: false
       changed_when: false
+      when: ups_server_ip | length > 0
 
     - name: Check nut-monitor service
       ansible.builtin.systemd:

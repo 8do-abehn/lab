@@ -141,9 +141,9 @@ Network UPS Tools configuration with:
 - Server configuration (host in the `nut_server` group)
 - Client configuration (hosts in the `nut_netclients` group)
 
-> Both groups are empty since the legacy cluster was retired 2026-09-05.
-> The UPS has not been re-cabled to the new cluster yet, so the NUT play is a no-op.
-- New cluster (pve01-03) not yet connected to UPS
+> Both groups are empty since the legacy cluster was retired 2026-09-05. The UPS
+> has not been re-cabled to the new cluster yet, so the NUT play is a no-op.
+> Re-cabling needs a USB-to-serial adapter and an APC 940-0024C cable.
 
 ### netdata
 Netdata monitoring setup including:

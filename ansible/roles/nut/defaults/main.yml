@@ -18,7 +18,3 @@ ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
 # Set ups_server_ip in group_vars once the UPS is re-cabled to the new cluster.
 ups_server_ip: ""
 ups_user: monuser
-
-# Subnet the UPS server is reachable on, used when auto-detecting its IP.
-# Was 10.150.10. on the legacy cluster; new cluster management VLAN is 10.150.60.
-ups_server_subnet_prefix: "10.150.60."
