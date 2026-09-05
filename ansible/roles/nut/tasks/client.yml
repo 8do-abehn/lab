@@ -6,15 +6,18 @@
   loop: "{{ ansible_play_hosts }}"
   run_once: false
 
-- name: Extract 10.150.10.x IP from UPS server
+- name: Extract UPS server IP from its management subnet
   ansible.builtin.set_fact:
-    dynamic_ups_server_ip: "{{ hostvars[dynamic_ups_server_hostname].ansible_all_ipv4_addresses | select('match', '^10\\.150\\.10\\.') | first }}"
+    dynamic_ups_server_ip: >-
+      {{ hostvars[dynamic_ups_server_hostname].ansible_all_ipv4_addresses
+         | select('match', '^' ~ ups_server_subnet_prefix | regex_escape)
+         | first }}
   when: dynamic_ups_server_hostname is defined
 
 - name: Use dynamic IP or configured fallback
   ansible.builtin.set_fact:
     ups_server_ip: "{{ dynamic_ups_server_ip | default(ups_server_ip) }}"
-    ups_server_source: "{{ 'dynamically detected (10.150.10.x IP)' if dynamic_ups_server_ip is defined else 'fallback default' }}"
+    ups_server_source: "{{ 'dynamically detected (' ~ ups_server_subnet_prefix ~ 'x)' if dynamic_ups_server_ip is defined else 'fallback default' }}"
 
 - name: Display UPS server being used
   ansible.builtin.debug:

@@ -14,6 +14,11 @@ ups_admin_pass: "{{ vault_ups_admin_pass }}"
 ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
 
 # Client configuration
-# Default NUT server (pve004)
-ups_server_ip: 10.150.10.44 # pve004
+# No default server: the legacy UPS host (pve004) was retired 2026-09-05.
+# Set ups_server_ip in group_vars once the UPS is re-cabled to the new cluster.
+ups_server_ip: ""
 ups_user: monuser
+
+# Subnet the UPS server is reachable on, used when auto-detecting its IP.
+# Was 10.150.10. on the legacy cluster; new cluster management VLAN is 10.150.60.
+ups_server_subnet_prefix: "10.150.60."

@@ -138,8 +138,11 @@ Tailscale VPN setup including:
 Network UPS Tools configuration with:
 - Auto-detection of server vs. client role based on inventory groups
 - UPS monitoring and shutdown coordination
-- Server configuration (pve004 on legacy cluster)
-- Client configuration (pve001-003, pve005-006 on legacy cluster)
+- Server configuration (host in the `nut_server` group)
+- Client configuration (hosts in the `nut_netclients` group)
+
+> Both groups are empty since the legacy cluster was retired 2026-09-05.
+> The UPS has not been re-cabled to the new cluster yet, so the NUT play is a no-op.
 - New cluster (pve01-03) not yet connected to UPS
 
 ### netdata
@@ -197,9 +200,8 @@ Minecraft servers via Docker Compose:
 ### Proxmox Groups
 - `proxmox`: Parent group containing all Proxmox hosts (both clusters)
 - `proxmox_pve0x`: New cluster (pve01-03, Proxmox 9, Ceph, 10.150.60.0/24)
-- `proxmox_pve00x`: Legacy cluster (pve001-006, 10.150.10.0/24, UPS connected)
-  - `nut_server`: Host with UPS directly connected (pve004)
-  - `nut_netclients`: Hosts that monitor UPS over network (pve001-003, pve005-006)
+- `nut_server`: Host with the UPS directly connected (currently empty)
+- `nut_netclients`: Hosts monitoring the UPS over the network (currently empty)
 
 ### k3s Groups (decommissioned 2026-01)
 - `k3s_cluster`: Commented out in inventory, preserved for history
