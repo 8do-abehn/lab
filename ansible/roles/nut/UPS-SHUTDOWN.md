@@ -19,6 +19,23 @@ NOCOMMWARNTIME 300
 FINALDELAY 5
 ```
 
+## Measured UPS Values (pve01, 2026-09-08)
+
+Read directly off the UPS over the 940-0024C cable:
+
+| Register | Value | Notes |
+|----------|-------|-------|
+| Model | SMART-UPS 2200 | firmware 80.11.D |
+| Load | 31.2% | roughly 690 VA of 2200 VA |
+| Runtime remaining | 7 min | at the above load, battery at 100% |
+| Battery | 55.05 V (48 V nominal) | float voltage, last replaced 01/24/25 |
+| Low-battery warning | 2 min | the `q` register, this is what triggers LB |
+| Shutdown threshold | 0% | UPS-side threshold is disabled |
+| Internal temp | 34.2 C | |
+
+The "low battery" trigger referenced below is therefore **2 minutes of remaining
+runtime**, not a battery percentage.
+
 ## Shutdown Timeline
 
 ### Detection Phase
@@ -27,7 +44,7 @@ FINALDELAY 5
 
 ### Shutdown Trigger
 - Shutdown initiates when UPS reports **"low battery" (LB)** status
-- This depends on **UPS-side configuration** (typically 2-5 min runtime remaining or battery % threshold)
+- This depends on **UPS-side configuration**, measured at **2 min** remaining runtime (see table above)
 - **Note:** This is configured on the UPS itself, not in NUT
 
 ### Execution Phase

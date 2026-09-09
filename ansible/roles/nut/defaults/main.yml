@@ -4,6 +4,7 @@
 # UPS device configuration (server mode)
 ups_name: myups
 ups_driver: apcsmart
+# Overridden per host in inventory/group_vars/nut_server.yml (USB-to-serial adapter)
 ups_port: /dev/ttyS0
 ups_desc: "APC SMART-UPS 2200"
 
@@ -14,7 +15,7 @@ ups_admin_pass: "{{ vault_ups_admin_pass }}"
 ups_monitor_pass: "{{ vault_ups_monitor_pass }}"
 
 # Client configuration
-# No default server: the legacy UPS host (pve004) was retired 2026-09-05.
-# Set ups_server_ip in group_vars once the UPS is re-cabled to the new cluster.
+# No default server: set ups_server_ip in group_vars (see inventory/group_vars/nut.yml)
+# so a missing value fails loudly in client.yml instead of writing an empty MONITOR line.
 ups_server_ip: ""
 ups_user: monuser

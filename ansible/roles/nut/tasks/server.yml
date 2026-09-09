@@ -62,14 +62,29 @@
   notify: Restart NUT services
   no_log: true
 
+# Must happen before the driver starts, otherwise it cannot open the serial port.
 - name: Add nut user to dialout group
   ansible.builtin.user:
     name: nut
     groups: dialout
     append: true
 
+# client.yml disables this unit, so a host promoted from client to server needs it
+# explicitly re-enabled. Without the driver, upsd runs but only serves stale data.
+- name: Ensure the UPS driver is started and enabled
+  ansible.builtin.systemd:
+    name: "nut-driver@{{ ups_name }}"
+    state: started
+    enabled: true
+
 - name: Ensure nut-server is started and enabled
   ansible.builtin.systemd:
     name: nut-server
+    state: started
+    enabled: true
+
+- name: Ensure nut-monitor is started and enabled
+  ansible.builtin.systemd:
+    name: nut-monitor
     state: started
     enabled: true

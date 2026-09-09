@@ -35,6 +35,7 @@ ansible/
 │   ├── homelab.yml       # Homelab infrastructure inventory
 │   └── README.md         # Inventory documentation
 ├── site.yml              # Main playbook (runs all roles)
+├── nut_setup.yml         # NUT UPS configuration playbook (NUT play from site.yml)
 ├── verify_nut.yml        # NUT UPS verification playbook
 ├── vault.yml             # Encrypted secrets (Tailscale keys, etc.)
 ├── roles/
@@ -102,6 +103,12 @@ ansible-playbook -i inventory/homelab.yml --ask-vault-pass site.yml --limit pve0
 ```
 Runs check mode on a specific host with diff and verbose output.
 
+### Configure NUT only
+```bash
+ansible-playbook -i inventory/homelab.yml --ask-vault-pass nut_setup.yml --check --diff
+```
+Runs just the NUT role against pve01-03, without the rest of `site.yml`.
+
 ### Verify NUT setup (no vault required)
 ```bash
 ansible-playbook -i inventory/homelab.yml verify_nut.yml
@@ -141,9 +148,13 @@ Network UPS Tools configuration with:
 - Server configuration (host in the `nut_server` group)
 - Client configuration (hosts in the `nut_netclients` group)
 
-> Both groups are empty since the legacy cluster was retired 2026-09-05. The UPS
-> has not been re-cabled to the new cluster yet, so the NUT play is a no-op.
-> Re-cabling needs a USB-to-serial adapter and an APC 940-0024C cable.
+> The APC SMART-UPS 2200 was re-cabled to the new cluster on 2026-09-08. It plugs
+> into pve01 through an FTDI USB-to-serial adapter and an APC 940-0024C cable, since
+> pve01-03 have no onboard serial port. Shared settings (UPS name, the address clients
+> monitor) live in `inventory/group_vars/nut.yml`; the serial device path is in
+> `inventory/group_vars/nut_server.yml`.
+
+Run `nut_setup.yml` to apply just this role, then `verify_nut.yml` to confirm it.
 
 ### netdata
 Netdata monitoring setup including:
@@ -200,8 +211,9 @@ Minecraft servers via Docker Compose:
 ### Proxmox Groups
 - `proxmox`: Parent group containing all Proxmox hosts (both clusters)
 - `proxmox_pve0x`: New cluster (pve01-03, Proxmox 9, Ceph, 10.150.60.0/24)
-- `nut_server`: Host with the UPS directly connected (currently empty)
-- `nut_netclients`: Hosts monitoring the UPS over the network (currently empty)
+- `nut`: Parent group for UPS monitoring, holds the shared NUT vars
+- `nut_server`: Host with the UPS directly connected (pve01)
+- `nut_netclients`: Hosts monitoring the UPS over the network (pve02, pve03)
 
 ### k3s Groups (decommissioned 2026-01)
 - `k3s_cluster`: Commented out in inventory, preserved for history

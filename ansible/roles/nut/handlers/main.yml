@@ -5,6 +5,8 @@
     state: restarted
     enabled: true
   loop:
+    # Driver first: upsd has nothing to serve until the driver is talking to the UPS.
+    - "nut-driver@{{ ups_name }}"
     - nut-server
     - nut-monitor
   when: nut_mode == 'server'

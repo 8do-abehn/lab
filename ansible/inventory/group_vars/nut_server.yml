@@ -1,0 +1,5 @@
+---
+# pve01 has no onboard UART, so the APC 940-0024C cable runs through an FTDI
+# FT232R USB-to-serial adapter. Use the by-id path: /dev/ttyUSB0 can renumber
+# if another USB serial device is ever plugged in.
+ups_port: /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BG04RWHZ-if00-port0
