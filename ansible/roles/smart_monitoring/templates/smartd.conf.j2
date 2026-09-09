@@ -1,0 +1,25 @@
+# Managed by Ansible (roles/smart_monitoring) - do not edit by hand.
+#
+# Directives inherited by every device found in the scan below.
+#
+#   -U 198+ / -C 197+
+#     The '+' is the important part. Without it smartd alerts on every check
+#     cycle while the sector count is merely NON-ZERO, so one long-dead sector
+#     that the drive never resets nags forever. With '+' it alerts only when
+#     the count INCREASES, which is the part that actually means something.
+#     smartd.conf(5) calls this case out directly: "Some disks do not reset
+#     this attribute when a bad sector is reallocated."
+#
+#   -W 0,{{ smart_temp_info }},{{ smart_temp_crit }}
+#     Temperature: info at {{ smart_temp_info }}C, critical at {{ smart_temp_crit }}C. The first field is 0 on
+#     purpose - tracking N-degree swings is chatty and we are trying to remove
+#     noise here, not add a new source of it.
+DEFAULT -d removable -n standby -m root -M exec /usr/share/smartmontools/smartd-runner -U 198+ -C 197+ -W 0,{{ smart_temp_info }},{{ smart_temp_crit }}
+
+# Short self-test daily at {{ '%02d' | format(smart_shorttest_hour) }}:00, long (full surface read) weekly at
+# {{ '%02d' | format(smart_longtest_hour) }}:00. Long tests are staggered per node (day {{ smart_selftest_dow }} here) so all three
+# hosts are not scrubbing their Ceph OSDs in the same hour.
+#
+# Nothing scheduled these before, so the only surface verification these disks
+# ever got was whatever was run by hand.
+DEVICESCAN -s (S/../.././{{ '%02d' | format(smart_shorttest_hour) }}|L/../../{{ smart_selftest_dow }}/{{ '%02d' | format(smart_longtest_hour) }})

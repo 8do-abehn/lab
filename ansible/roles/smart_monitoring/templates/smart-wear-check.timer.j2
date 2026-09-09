@@ -1,0 +1,12 @@
+# Managed by Ansible (roles/smart_monitoring)
+[Unit]
+Description=Weekly SSD wear-level check
+
+[Timer]
+OnCalendar={{ smart_wear_check_schedule }}
+# Spread the fleet out so three nodes do not all report in the same second.
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

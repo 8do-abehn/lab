@@ -1,0 +1,19 @@
+# Managed by Ansible (roles/smart_monitoring)
+[Unit]
+Description=SSD wear-level check (alerts via Apprise)
+Documentation=man:smartctl(8)
+After=smartmontools.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/smart-wear-check
+Nice=10
+IOSchedulingClass=idle
+# ProtectHome hides /root, so point HOME at the unit's private /tmp in case any
+# library underneath apprise assumes it can write there.
+Environment=HOME=/tmp
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/var/lib/smartmontools

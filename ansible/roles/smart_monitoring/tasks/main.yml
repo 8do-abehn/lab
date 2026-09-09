@@ -1,0 +1,126 @@
+---
+# SMART disk monitoring alerts - smartmontools was already installed/running
+# on these hosts; this just wires its stock (but non-functional, no local MTA)
+# mail hook up to Apprise instead.
+
+- name: Ensure smartmontools is installed and running
+  ansible.builtin.apt:
+    name: smartmontools
+    state: present
+  when: smart_notify_enabled | bool
+
+- name: Ensure smartd is enabled and running
+  ansible.builtin.systemd:
+    name: smartmontools
+    state: started
+    enabled: true
+  when: smart_notify_enabled | bool
+
+- name: Install pipx
+  ansible.builtin.apt:
+    name: pipx
+    state: present
+  when: smart_notify_enabled | bool
+
+- name: Check if apprise is installed
+  ansible.builtin.command: apprise --version
+  register: apprise_check
+  failed_when: false
+  changed_when: false
+  when: smart_notify_enabled | bool
+
+- name: Install apprise for SMART notifications
+  ansible.builtin.command: pipx install apprise
+  changed_when: true
+  environment:
+    PIPX_HOME: /opt/pipx
+    PIPX_BIN_DIR: /usr/local/bin
+  when:
+    - smart_notify_enabled | bool
+    - apprise_check.rc != 0
+
+- name: Deploy apprise config (credential lives here, not in the hook script)
+  ansible.builtin.template:
+    src: apprise.yml.j2
+    dest: /etc/apprise.yml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: smart_notify_enabled | bool
+
+- name: Deploy smartd Apprise notification hook
+  ansible.builtin.template:
+    src: smartd-apprise-notify.sh.j2
+    dest: /etc/smartmontools/run.d/20apprise
+    owner: root
+    group: root
+    mode: "0755"
+  when: smart_notify_enabled | bool
+
+# The stock config alerts while attribute 198 is merely non-zero, so a single
+# old sector that the drive never resets re-alerts every day forever. This
+# switches to increase-only reporting and adds the self-test schedule that was
+# missing entirely.
+- name: Deploy smartd config (increase-only sector alerts + self-test schedule)
+  ansible.builtin.template:
+    src: smartd.conf.j2
+    dest: /etc/smartd.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: "smartd -c %s -q showtests"
+  register: smartd_config
+  when:
+    - smart_notify_enabled | bool
+    - smart_manage_config | bool
+
+- name: Restart smartd to pick up config changes
+  ansible.builtin.systemd:
+    name: smartmontools
+    state: restarted
+  when:
+    - smart_notify_enabled | bool
+    - smart_manage_config | bool
+    - smartd_config.changed
+
+- name: Deploy SSD wear check script
+  ansible.builtin.template:
+    src: smart-wear-check.py.j2
+    dest: /usr/local/sbin/smart-wear-check
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - smart_notify_enabled | bool
+    - smart_wear_check_enabled | bool
+
+- name: Deploy SSD wear check systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: /etc/systemd/system/{{ item }}
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - smart-wear-check.service
+    - smart-wear-check.timer
+  register: smart_wear_units
+  when:
+    - smart_notify_enabled | bool
+    - smart_wear_check_enabled | bool
+
+# Skipped under --check: the template task above does not actually write the
+# unit files in check mode, so systemd has nothing to enable and the module
+# fails with "Could not find the requested service".
+- name: Enable SSD wear check timer
+  ansible.builtin.systemd:
+    name: smart-wear-check.timer
+    state: started
+    enabled: true
+    daemon_reload: "{{ smart_wear_units.changed }}"
+  when:
+    - smart_notify_enabled | bool
+    - smart_wear_check_enabled | bool
+    - not ansible_check_mode

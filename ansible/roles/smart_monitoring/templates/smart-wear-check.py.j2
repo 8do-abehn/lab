@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""SSD wear-level check - managed by Ansible (roles/smart_monitoring).
+
+smartd cannot alert on wear. The endurance attributes (202/177/233, and the
+NVMe percentage_used) all carry a failure threshold of 0, so smartd's -f only
+fires once a drive is already spent, which is far too late to order a
+replacement. This fills that gap.
+
+It reports *remaining* life as a percentage on a single scale regardless of
+how the vendor encodes it, and where smartd's own attribute log has enough
+history it projects a burn rate, because the rate is the part that tells you
+whether to act this month or next year.
+"""
+
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+
+WARN_BELOW = {{ smart_wear_warn_pct }}          # alert once remaining life drops under this
+RE_ALERT_STEP = {{ smart_wear_realert_step }}   # only re-alert after another N points are lost
+STATE_FILE = "/var/lib/smartmontools/wear-check.state"
+ATTRLOG_DIR = "/var/lib/smartmontools"
+APPRISE_CONFIG = "/etc/apprise.yml"
+
+# Normalized-value attributes that count DOWN from 100 as the drive wears.
+# Using the normalized value sidesteps the fact that vendors disagree wildly
+# about what the raw value means (Crucial 202 raw is percent *used*, Samsung
+# 177 raw is an erase count, Intel 233 raw is vendor soup).
+WEAR_ATTRS = (202, 177, 233, 231, 173)
+
+
+def run_json(args):
+    """smartctl exits non-zero for benign reasons (bit 2 = some SMART error
+    logged), so parse stdout regardless and only give up if there is no JSON."""
+    proc = subprocess.run(
+        ["smartctl", "--json"] + args,
+        capture_output=True, text=True, check=False,
+    )
+    try:
+        return json.loads(proc.stdout)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def scan_devices():
+    # --scan-open, not --scan. Plain --scan reports these SATA disks as type
+    # "scsi", and querying them that way returns a SCSI view with no ATA
+    # attribute table at all, so every SSD silently looks like it has no wear
+    # metric. --scan-open actually opens each device and reports the type that
+    # works ("sat"), which is what smartd itself ends up using.
+    data = run_json(["--scan-open"])
+    if not data:
+        return []
+    return [(d["name"], d.get("type", "auto")) for d in data.get("devices", [])]
+
+
+def remaining_life(dev, dev_type):
+    """Return (percent_remaining, source_label) or (None, reason)."""
+    data = run_json(["-A", "-i", "-d", dev_type, dev])
+    if not data:
+        return None, "smartctl returned no data"
+
+    # NVMe reports percentage *used* directly and unambiguously.
+    nvme_log = data.get("nvme_smart_health_information_log")
+    if nvme_log and "percentage_used" in nvme_log:
+        return 100 - int(nvme_log["percentage_used"]), "nvme percentage_used"
+
+    if data.get("rotation_rate", 0):
+        return None, "rotational, no wear metric"
+
+    table = (data.get("ata_smart_attributes") or {}).get("table") or []
+    by_id = {a["id"]: a for a in table}
+    for attr_id in WEAR_ATTRS:
+        attr = by_id.get(attr_id)
+        if attr and attr.get("value") is not None:
+            return int(attr["value"]), "attribute {} ({})".format(attr_id, attr.get("name", "?"))
+
+    return None, "no wear attribute reported"
+
+
+def burn_rate(model, serial, attr_ids=WEAR_ATTRS):
+    """Points of life lost per 30 days, from smartd's own attribute log.
+
+    Returns (points_per_month, days_of_history) or None when there is not
+    enough history to say anything honest.
+    """
+    stem = "attrlog.{}-{}.ata.csv".format(model.replace(" ", "_"), serial)
+    path = os.path.join(ATTRLOG_DIR, stem)
+    if not os.path.exists(path):
+        return None
+
+    def sample(line):
+        fields = [f for f in line.strip().split("\t") if f.strip()]
+        if not fields:
+            return None
+        stamp = fields[0].split(";")[0].strip()
+        for field in fields:
+            parts = field.split(";")
+            if len(parts) >= 3 and parts[0].strip().isdigit():
+                if int(parts[0]) in attr_ids:
+                    return stamp, int(parts[1])
+        return None
+
+    try:
+        with open(path) as fh:
+            lines = fh.readlines()
+    except OSError:
+        return None
+    if len(lines) < 2:
+        return None
+
+    first, last = sample(lines[0]), sample(lines[-1])
+    if not first or not last:
+        return None
+
+    try:
+        t0 = datetime.strptime(first[0], "%Y-%m-%d %H:%M:%S")
+        t1 = datetime.strptime(last[0], "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+    days = (t1 - t0).days
+    if days < 30:
+        return None
+    lost = first[1] - last[1]
+    return (lost * 30.0 / days), days
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state):
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(state, fh, indent=2, sort_keys=True)
+    os.replace(tmp, STATE_FILE)
+
+
+def notify(subject, body):
+    if not os.path.exists(APPRISE_CONFIG):
+        return
+    env = dict(os.environ, PATH="/usr/local/bin:" + os.environ.get("PATH", ""))
+    subprocess.run(
+        ["apprise", "-t", subject, "--body", body, "--config", APPRISE_CONFIG],
+        check=False, capture_output=True, env=env,
+    )
+
+
+def main():
+    host = os.uname().nodename
+    state = load_state()
+    findings = []
+    report = []
+
+    for dev, dev_type in scan_devices():
+        info = run_json(["-i", "-d", dev_type, dev]) or {}
+        model = info.get("model_name", "unknown")
+        serial = info.get("serial_number", "unknown")
+        pct, source = remaining_life(dev, dev_type)
+
+        if pct is None:
+            report.append("{}  {}  SKIP ({})".format(dev, model, source))
+            continue
+
+        line = "{}  {}  {}% life remaining  [{}]".format(dev, model, pct, source)
+        rate = burn_rate(model, serial)
+        if rate:
+            per_month, days = rate
+            line += "  losing {:.1f} pts/month over {}d".format(per_month, days)
+            if per_month > 0:
+                line += ", ~{:.0f} months left".format(pct / per_month)
+        report.append(line)
+
+        if pct >= WARN_BELOW:
+            state.pop(dev, None)
+            continue
+
+        # Only alert on first crossing, then after each further RE_ALERT_STEP
+        # points. Re-sending the same number every day is the exact failure
+        # mode this role exists to stop doing.
+        last = state.get(dev, {}).get("alerted_at")
+        if last is None or (last - pct) >= RE_ALERT_STEP:
+            findings.append(line)
+            state[dev] = {"alerted_at": pct, "when": datetime.now().isoformat(timespec="seconds")}
+
+    save_state(state)
+
+    if findings:
+        body = "\n".join(findings) + "\n\nAll devices:\n" + "\n".join(report)
+        notify("SSD wear warning on {}".format(host), body)
+
+    if "--report" in sys.argv:
+        print("\n".join(report))
+
+
+if __name__ == "__main__":
+    main()

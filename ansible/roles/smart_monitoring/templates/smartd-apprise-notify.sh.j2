@@ -1,0 +1,19 @@
+#!/bin/sh -e
+# SMART event notifier - managed by Ansible. Runs via smartd's -M exec hook
+# (smartd-runner -> run-parts /etc/smartmontools/run.d/*).
+#
+# The stock 10mail hook silently no-ops here: it requires /usr/bin/mail with a
+# working local MTA, neither of which is set up, so SMART alerts were going
+# nowhere. This sends the same event through Apprise instead.
+
+# Cron/run-parts environments often omit /usr/local/bin, where pipx symlinks apprise.
+export PATH="/usr/local/bin:$PATH"
+
+[ -r /etc/apprise.yml ] || exit 0
+command -v apprise >/dev/null 2>&1 || exit 0
+
+BODY="${SMARTD_FULLMESSAGE:-$SMARTD_MESSAGE}
+Device: ${SMARTD_DEVICESTRING:-$SMARTD_DEVICE}
+Host: $(hostname)"
+
+apprise -t "${SMARTD_SUBJECT:-SMART event on $(hostname)}" --body "$BODY" --config /etc/apprise.yml 2>/dev/null || true

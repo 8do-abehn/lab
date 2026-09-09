@@ -1,0 +1,44 @@
+---
+# SMART disk monitoring alerts (Apprise) - defaults
+
+smart_notify_enabled: true
+
+# Reuses the same Apprise target already configured for jellyfin backup-job
+# alerts (mailtos:// per vault.yml) - one set of alert channels, not two.
+smart_apprise_urls: "{{ vault_backup_apprise_urls }}"
+
+# Manage /etc/smartd.conf. Set false to leave the distro default in place.
+smart_manage_config: true
+
+# Temperature alert thresholds in Celsius. Drives here idle at 37-44C and the
+# hottest has historically touched 55C, so 58 is the first level that means
+# something is actually wrong rather than "it is August".
+smart_temp_info: 58
+smart_temp_crit: 65
+
+# Self-test schedule. Short test daily, long test weekly on smart_selftest_dow
+# (1=Monday .. 7=Sunday), spread across the week so the long surface reads on
+# the Ceph OSDs never land on two nodes of the same cluster in the same hour.
+# A long test on the 2TB spinners takes hours, so this matters.
+smart_shorttest_hour: 2
+smart_longtest_hour: 3
+smart_selftest_dow: "{{ smart_selftest_dow_map.get(inventory_hostname, 6) }}"
+smart_selftest_dow_map:
+  pve01: 5     # new cluster, Ceph OSDs - Fri
+  pve02: 6     # new cluster, Ceph OSDs - Sat
+  pve03: 7     # new cluster, Ceph OSDs - Sun
+  pve001: 1    # legacy cluster - Mon
+  pve002: 2    # legacy cluster - Tue
+  pve003: 3    # legacy cluster - Wed
+  pve004: 4    # legacy cluster - Thu
+  pve006: 5    # legacy cluster - Fri
+  pi-burg: 6   # offsite backup target - Sat
+
+# SSD wear check. smartd cannot alert on endurance (those attributes have a
+# failure threshold of 0, so it only fires once the drive is spent), so a
+# weekly timer handles it. 50% remaining gives months of lead time to order a
+# replacement rather than discovering the problem on a dead boot disk.
+smart_wear_check_enabled: true
+smart_wear_warn_pct: 50
+smart_wear_realert_step: 10
+smart_wear_check_schedule: "Mon *-*-* 08:00:00"
