@@ -49,6 +49,33 @@ if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     exit 1
 fi
 
+{% if backup_required_mounts | default([]) | length > 0 %}
+# Verify network filesystems are actually mounted before backing up.
+# A failed mount leaves an empty directory behind, and restic will snapshot
+# that quite happily and report success. jellyfin01 lost 3 days of useful
+# snapshots this way when its CephFS mount failed at boot.
+{% for mount in backup_required_mounts %}
+if ! mountpoint -q "{{ mount }}"; then
+    log_message "ERROR: {{ mount }} is not a mountpoint - aborting before restic runs"
+{% if backup_notify_enabled | default(false) %}
+    notify "Backup ABORTED on $(hostname)" "{{ mount }} is not mounted at $(date). Refusing to snapshot an empty directory. Fix the mount, then re-run {{ backup_script_path }}."
+{% endif %}
+    exit 1
+fi
+
+# Mounted but empty means the filesystem is there and the data is not.
+if [ -z "$(ls -A "{{ mount }}" 2>/dev/null)" ]; then
+    log_message "ERROR: {{ mount }} is mounted but empty - aborting before restic runs"
+{% if backup_notify_enabled | default(false) %}
+    notify "Backup ABORTED on $(hostname)" "{{ mount }} is mounted but empty at $(date). Refusing to snapshot it. Check the filesystem before re-running {{ backup_script_path }}."
+{% endif %}
+    exit 1
+fi
+
+log_message "Verified mount: {{ mount }}"
+{% endfor %}
+
+{% endif %}
 # Remove stale locks older than 24h to recover from hung/killed backup runs
 LOCK_OUTPUT=$(restic list locks --json 2>/dev/null || true)
 if [ -n "$LOCK_OUTPUT" ]; then
