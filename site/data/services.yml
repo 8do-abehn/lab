@@ -11,38 +11,41 @@ nodes:
         name: jellyfin01
         status: running
         console: "https://pve01:8006/?console=lxc&vmid=3001"
-      - vmid: 3002
-        name: dns01
+      - vmid: 3003
+        name: mem01
         status: running
-        console: "https://pve01:8006/?console=lxc&vmid=3002"
-      - vmid: 3007
-        name: changedetection
-        status: running
-        console: "https://pve01:8006/?console=lxc&vmid=3007"
-      - vmid: 3008
-        name: readeck
-        status: running
-        console: "https://pve01:8006/?console=lxc&vmid=3008"
-      - vmid: 3009
-        name: alpine-it-tools
-        status: running
-        console: "https://pve01:8006/?console=lxc&vmid=3009"
+        console: "https://pve01:8006/?console=lxc&vmid=3003"
+      - vmid: 3005
+        name: mc02
+        status: stopped
       - vmid: 3010
         name: docker
         status: running
         console: "https://pve01:8006/?console=lxc&vmid=3010"
-      - vmid: 3011
-        name: unifi
+      - vmid: 3102
+        name: dropbox
         status: running
-        console: "https://pve01:8006/?console=lxc&vmid=3011"
+        console: "https://pve01:8006/?console=lxc&vmid=3102"
   - host: pve02
     proxmox_url: "https://pve02:8006"
     netdata_url: "http://pve02:19999"
     tailscale: true
     containers:
+      - vmid: 3002
+        name: dns01
+        status: running
+        console: "https://pve02:8006/?console=lxc&vmid=3002"
       - vmid: 3006
         name: mc03
         status: stopped
+      - vmid: 3007
+        name: changedetection
+        status: running
+        console: "https://pve02:8006/?console=lxc&vmid=3007"
+      - vmid: 3008
+        name: readeck
+        status: running
+        console: "https://pve02:8006/?console=lxc&vmid=3008"
   - host: pve03
     proxmox_url: "https://pve03:8006"
     netdata_url: "http://pve03:19999"
@@ -51,6 +54,14 @@ nodes:
       - vmid: 3004
         name: mc01
         status: stopped
+      - vmid: 3009
+        name: alpine-it-tools
+        status: running
+        console: "https://pve03:8006/?console=lxc&vmid=3009"
+      - vmid: 3011
+        name: unifi
+        status: running
+        console: "https://pve03:8006/?console=lxc&vmid=3011"
       - vmid: 3012
         name: dns02
         status: running
@@ -67,5 +78,7 @@ endpoints:
 
 notes:
   - "This data file is generated from a quick repo + live probe. Update via Ansible or by editing this file."
+  - "Container placement last verified against live `pct list` on 2026-09-05."
+  - "LXCs only. VMs (vm-awb, vm-awb-cachyos on pve02; vm-seb on pve03) are not represented in this schema."
   - "Netdata entries may use http and are intended for internal access only; do not expose these URLs publicly without TLS/proxying."
   - "For remote access use Cloudflare Tunnel or Tailscale addresses (see Cloudflare/Tailscale configs in ansible/)."

@@ -1,8 +1,14 @@
 ---
 - name: Verify NUT UPS monitoring setup
-  hosts: proxmox_pve00x
+  hosts: nut_server:nut_netclients
   become: true
   gather_facts: false
+
+  # This play does not load the nut role, so it needs its own copies of these.
+  # ups_server_ip is empty until the UPS is re-cabled to the new cluster.
+  vars:
+    ups_name: myups
+    ups_server_ip: ""
 
   tasks:
     - name: Check if NUT is installed
@@ -19,10 +25,11 @@
       changed_when: false
 
     - name: Query UPS status
-      ansible.builtin.command: upsc myups@10.150.10.44
+      ansible.builtin.command: upsc {{ ups_name }}@{{ ups_server_ip }}
       register: ups_status
       failed_when: false
       changed_when: false
+      when: ups_server_ip | length > 0
 
     - name: Check nut-monitor service
       ansible.builtin.systemd:
@@ -61,7 +68,7 @@
         nut_healthy: "{{ upsc_check.rc == 0 and ups_status.rc == 0 and monitor_service.status.ActiveState == 'active' }}"
 
 - name: Summary
-  hosts: proxmox_pve00x
+  hosts: nut_server:nut_netclients
   gather_facts: false
   tasks:
     - name: Show healthy hosts

@@ -52,25 +52,18 @@ The `homelab.yml` inventory includes:
 | pve02 | Ryzen 9 5900X (12C/24T) | 64GB | 1x RTX 3080 Ti | Aquantia 10G + Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 112GB |
 | pve03 | Ryzen 9 5900X (12C/24T) | 128GB | 2x RTX 3080 | Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 120GB |
 
-### Proxmox Legacy Cluster (`proxmox_pve00x`) — Proxmox 8, 10.150.10.0/24, UPS connected
+### NUT / UPS Groups
 
-To be decommissioned after jellyfin migration to new cluster.
+- **nut_server:** empty - host the UPS plugs into directly
+- **nut_netclients:** empty - hosts monitoring the UPS over the network
 
-| Host | CPU | RAM | GPU | NIC | Storage | Notes |
-|------|-----|-----|-----|-----|---------|-------|
-| pve001 | i5-6500 (4C/4T) | 16GB | Intel HD 530 | Intel I219-LM 1G | 477GB SSD + 954GB NVMe | |
-| pve002 | i5-6500 (4C/4T) | 16GB | Intel HD 530 | Intel I219-LM 1G | 477GB SSD + 954GB NVMe | |
-| pve003 | i5-6500 (4C/4T) | 16GB | Intel HD 530 | Intel I219-LM 1G | 477GB SSD + 954GB NVMe | |
-| pve004 | i5-6500 (4C/4T) | 16GB | Intel HD 530 | Intel I219-LM 1G | 477GB SSD + 954GB NVMe | NUT/UPS server |
-| pve005 | i5-7500 (4C/4T) | 16GB | Intel HD 630 (QSV) | Intel I219-V 1G | 954GB SSD + 112GB SSD + 2.7TB HDD | Jellyfin host |
-| pve006 | i7-4600U (2C/4T) | 16GB | Intel Haswell ULT | Realtek 8111 1G | 239GB SSD | Laptop form factor |
-
-- **nut_server:** `pve004` - UPS server with direct serial connection
-- **nut_netclients:** `pve001-pve003`, `pve005-pve006` - UPS network clients
+Both are intentionally empty since the legacy cluster was retired 2026-09-05.
+Populate them once the UPS is re-cabled to the new cluster, and set
+`ups_server_ip` in `group_vars/nut_netclients.yml`.
 
 ### Backup Infrastructure
 - **backup_servers:** `pi-burg` - Raspberry Pi with 8TB USB backup storage
-- **media_servers:** `jellyfin` - Media server (LXC 3001 on pve005) backing up to pi-burg
+- **media_servers:** `jellyfin01` - Media server (LXC 3001 on pve01) backing up to pi-burg
 
 ### k3s Cluster (decommissioned 2026-01)
 - Commented out in inventory, preserved for history
@@ -79,7 +72,6 @@ To be decommissioned after jellyfin migration to new cluster.
 
 Host-specific variables are loaded from:
 - `group_vars/proxmox.yml` - Shared settings for all Proxmox hosts (Tailscale, Netdata)
-- `group_vars/proxmox_pve00x.yml` - Legacy cluster (NUT/UPS config)
 - `group_vars/all.yml` - All hosts
 - `host_vars/` - Individual host overrides
 
