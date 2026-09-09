@@ -5,3 +5,13 @@
     state: present
     update_cache: true
     cache_valid_time: 3600
+  register: nut_install
+
+# In check mode the package is not actually installed, so its systemd units do not
+# exist yet and every service task against them fails. That is exactly what CI does
+# when it runs site.yml --check against a host where NUT is absent. Only skip the
+# service tasks in that case; a check run on an already-installed host still covers
+# them, and a real run always has the units by the time they are reached.
+- name: Record whether NUT service units can be managed this run
+  ansible.builtin.set_fact:
+    nut_units_present: "{{ not (ansible_check_mode and nut_install is changed) }}"

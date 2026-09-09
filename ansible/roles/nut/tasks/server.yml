@@ -76,18 +76,21 @@
     name: "nut-driver@{{ ups_name }}"
     state: started
     enabled: true
+  when: nut_units_present
 
 - name: Ensure nut-server is started and enabled
   ansible.builtin.systemd:
     name: nut-server
     state: started
     enabled: true
+  when: nut_units_present
 
 - name: Ensure nut-monitor is started and enabled
   ansible.builtin.systemd:
     name: nut-monitor
     state: started
     enabled: true
+  when: nut_units_present
 
 # Any config change above must land before upsd is queried below.
 - name: Apply pending NUT restarts
