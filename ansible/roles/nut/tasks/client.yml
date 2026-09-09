@@ -1,26 +1,18 @@
 ---
-- name: Find UPS server hostname from detected hosts
-  ansible.builtin.set_fact:
-    dynamic_ups_server_hostname: "{{ item }}"
-  when: hostvars[item].has_ups | default(false)
-  loop: "{{ ansible_play_hosts }}"
-  run_once: false
-
-- name: Extract 10.150.10.x IP from UPS server
-  ansible.builtin.set_fact:
-    dynamic_ups_server_ip: "{{ hostvars[dynamic_ups_server_hostname].ansible_all_ipv4_addresses | select('match', '^10\\.150\\.10\\.') | first }}"
-  when: dynamic_ups_server_hostname is defined
-
-- name: Use dynamic IP or configured fallback
-  ansible.builtin.set_fact:
-    ups_server_ip: "{{ dynamic_ups_server_ip | default(ups_server_ip) }}"
-    ups_server_source: "{{ 'dynamically detected (10.150.10.x IP)' if dynamic_ups_server_ip is defined else 'fallback default' }}"
+- name: Require an explicit UPS server address
+  ansible.builtin.assert:
+    that:
+      - ups_server_ip is defined
+      - ups_server_ip | length > 0
+    fail_msg: >-
+      ups_server_ip is not set. Define it in group_vars for nut_netclients with
+      the address of the host in the nut_server group, otherwise upsmon.conf is
+      written with an empty MONITOR target and UPS shutdown never coordinates.
+    quiet: true
 
 - name: Display UPS server being used
   ansible.builtin.debug:
-    msg:
-      - "Configuring {{ inventory_hostname }} as NUT client"
-      - "UPS server: {{ ups_server_ip }} ({{ ups_server_source }})"
+    msg: "Configuring {{ inventory_hostname }} as NUT client against {{ ups_server_ip }}"
 
 - name: Set NUT mode to netclient
   ansible.builtin.lineinfile:

@@ -1,5 +1,5 @@
 ---
-# Shared settings for all Proxmox clusters (proxmox_pve00x + proxmox_pve0x)
+# Shared settings for all Proxmox hosts (proxmox_pve0x)
 ansible_user: root
 
 # Tailscale configuration for all Proxmox hosts
