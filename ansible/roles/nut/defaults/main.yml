@@ -8,6 +8,12 @@ ups_driver: apcsmart
 ups_port: /dev/ttyS0
 ups_desc: "APC SMART-UPS 2200"
 
+# Low-battery threshold, in seconds of runtime remaining. The UPS ships at 120,
+# which is not enough for three Proxmox nodes to stop their guests and quiesce
+# Ceph before the batteries go (measured runtime is ~7 min, see UPS-SHUTDOWN.md).
+# The apcsmart driver only accepts 120, 300, 420 and 600.
+ups_lowbatt_runtime: 300
+
 # User configuration
 ups_admin_user: admin
 ups_monitor_user: monuser

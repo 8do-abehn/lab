@@ -88,3 +88,33 @@
     name: nut-monitor
     state: started
     enabled: true
+
+# Any config change above must land before upsd is queried below.
+- name: Apply pending NUT restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Read the current low-battery threshold
+  ansible.builtin.command: upsc {{ ups_name }}@localhost battery.runtime.low
+  register: ups_runtime_low
+  changed_when: false
+  failed_when: false
+  # upsd takes a moment to answer after a restart.
+  retries: 5
+  delay: 3
+  until: ups_runtime_low.rc | default(1) == 0
+
+# Raises the LB signal from the shipped 2 min to 5 min so upsmon has time to shut
+# pve01 down and propagate FSD to the netclients. Written to UPS NVRAM, so it
+# survives reboots and only needs setting once.
+# Note: upsrw takes the password as an argument, so it is briefly visible in the
+# process list on this host. no_log keeps it out of Ansible output.
+- name: Raise the low-battery threshold on the UPS
+  ansible.builtin.command: >-
+    upsrw -s battery.runtime.low={{ ups_lowbatt_runtime }}
+    -u {{ ups_admin_user }} -p {{ ups_admin_pass }}
+    {{ ups_name }}@localhost
+  when:
+    - ups_runtime_low.rc | default(1) == 0
+    - (ups_runtime_low.stdout | default("") | trim | int) != (ups_lowbatt_runtime | int)
+  changed_when: true
+  no_log: true

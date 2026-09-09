@@ -29,12 +29,16 @@ Read directly off the UPS over the 940-0024C cable:
 | Load | 31.2% | roughly 690 VA of 2200 VA |
 | Runtime remaining | 7 min | at the above load, battery at 100% |
 | Battery | 55.05 V (48 V nominal) | float voltage, last replaced 01/24/25 |
-| Low-battery warning | 2 min | the `q` register, this is what triggers LB |
+| Low-battery warning | 2 min as shipped, raised to 5 min | the `q` register, this is what triggers LB |
 | Shutdown threshold | 0% | UPS-side threshold is disabled |
 | Internal temp | 34.2 C | |
 
-The "low battery" trigger referenced below is therefore **2 minutes of remaining
-runtime**, not a battery percentage.
+The "low battery" trigger is remaining *runtime*, not a battery percentage. The UPS
+ships at 2 minutes, which is not enough for three Proxmox nodes to stop their guests
+and quiesce Ceph out of a ~7 minute total budget. The role therefore raises it to
+**5 minutes** via `upsrw -s battery.runtime.low=300` (`ups_lowbatt_runtime` in the
+role defaults). The value is stored in UPS NVRAM and survives reboots. The apcsmart
+driver only accepts 120, 300, 420 and 600 seconds.
 
 ## Shutdown Timeline
 
@@ -44,7 +48,7 @@ runtime**, not a battery percentage.
 
 ### Shutdown Trigger
 - Shutdown initiates when UPS reports **"low battery" (LB)** status
-- This depends on **UPS-side configuration**, measured at **2 min** remaining runtime (see table above)
+- This depends on **UPS-side configuration**, set by the role to **5 min** remaining runtime (see table above)
 - **Note:** This is configured on the UPS itself, not in NUT
 
 ### Execution Phase
@@ -64,7 +68,13 @@ runtime**, not a battery percentage.
 
 ## Alternative: Time-Based Shutdown
 
-If you want faster/more predictable shutdown based on time on battery instead of UPS battery threshold, you can use `upssched`:
+Raising `battery.runtime.low` was chosen over `upssched` because `upsmon` runs
+`NOTIFYCMD` as its unprivileged child, so the `upsmon -c fsd` in an upssched command
+script cannot signal the root parent that performs the shutdown. Making that work
+needs `RUN_AS_USER root` in `upsmon.conf`, which runs the network-facing upsd client
+as root on every node.
+
+If you still want shutdown keyed to time on battery rather than the UPS threshold:
 
 ### Additional Configuration Required
 
