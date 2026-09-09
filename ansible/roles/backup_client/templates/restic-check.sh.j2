@@ -10,10 +10,10 @@ export PATH="/usr/local/bin:$PATH"
 
 LOGFILE="{{ backup_log_path }}"
 RESTIC_REPOSITORY="sftp:{{ backup_server_user }}@{{ backup_server_host }}:{{ backup_server_repo_path }}"
-RESTIC_PASSWORD="{{ restic_password }}"
+RESTIC_PASSWORD_FILE="{{ backup_password_file }}"
 
 export RESTIC_REPOSITORY
-export RESTIC_PASSWORD
+export RESTIC_PASSWORD_FILE
 
 {% if backup_notify_enabled | default(false) %}
 # Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
