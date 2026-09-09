@@ -7,25 +7,17 @@ all:
     # Parent group — all Proxmox hosts (used by site.yml)
     proxmox:
       children:
-        proxmox_pve00x:
         proxmox_pve0x:
 
-    # Proxmox Legacy Cluster (10.150.10.0/24, UPS connected)
-    proxmox_pve00x:
-      children:
-        nut_server:
-          hosts:
-            pve004:
-        nut_netclients:
-          hosts:
-            pve001:
-            pve002:
-            pve003:
-            # pve005:  # Decommissioned, retired from legacy cluster (#335)
-            pve006:
-            # pve007:  # Needs BIOS VT-x/VT-d enabled
-            # pve008:  # Decommissioned, rebuilt as pve02
-            # pve009:  # Decommissioned, rebuilt as pve03
+    # NUT / UPS groups — empty since the legacy cluster was retired 2026-09-05.
+    # The APC SMART-UPS 2200 has not been re-cabled to the new cluster yet; doing so
+    # needs a USB-to-serial adapter plus an APC 940-0024C cable (pve01-03 have no UART).
+    # Populate nut_server with the host the UPS plugs into, nut_netclients with the rest.
+    nut_server:
+      hosts: {}
+
+    nut_netclients:
+      hosts: {}
 
     # Proxmox New Cluster (3-node, Proxmox 9, Ceph)
     # Management VLAN 60: 10.150.60.0/24

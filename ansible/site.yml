@@ -33,8 +33,10 @@
   roles:
     - tailscale
 
-- name: Configure NUT UPS (auto-detect server/client)
-  hosts: proxmox
+# Legacy cluster retired 2026-09-05; UPS not yet re-cabled to the new cluster.
+# Play is a no-op until nut_server / nut_netclients are populated again.
+- name: Configure NUT UPS (server/client by group membership)
+  hosts: nut_server:nut_netclients
   become: true
   vars_files:
     - vault.yml
@@ -105,6 +107,7 @@
 - name: Setup Cloudflare Tunnels
   hosts: cloudflare_tunnel
   become: true
+  tags: cloudflare
   vars_files:
     - vault.yml
   roles:
@@ -113,6 +116,7 @@
 - name: Setup Cloudflare IP Registration
   hosts: cloudflare_ip_registration
   become: true
+  tags: cloudflare
   vars_files:
     - vault.yml
   roles:

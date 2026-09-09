@@ -8,12 +8,14 @@ What I'm reading, what I've finished, and what's next. A mix of technical books,
 
 ## Currently Reading
 
-- **Punishment-Free Parenting** by Jon Fogel
+- *Nothing at the moment.*
 
 ## Recently Finished
 
 | Book | Author | Completed |
 |------|--------|-----------|
+| The Church of Baseball | Ron Shelton | Aug 2026 |
+| Wiring the Winning Organization | Kim & Spear | Jul 2026 |
 | How Not to Hate Your Husband After Kids | Jancee Dunn | Jan 2026 |
 | One Man's Wilderness | Sam Keith | Dec 2025 |
 | Radical Candor | Kim Scott | Dec 2025 |
@@ -37,7 +39,6 @@ These are the books I'm working through for professional development:
 - The Goal (Goldratt) - Theory of constraints
 - Legacy (James Kerr) - Team culture
 - An Elegant Puzzle (Will Larson) - Engineering management
-- Wiring the Winning Organization (Kim & Spear)
 
 ## Want to Read
 
@@ -48,6 +49,7 @@ These are the books I'm working through for professional development:
 - Dare to Lead (Brene Brown)
 - Empowered
 - Start with Why (Simon Sinek)
+- Punishment-Free Parenting (Jon Fogel) - started, set aside, want to revisit
 
 ---
 
