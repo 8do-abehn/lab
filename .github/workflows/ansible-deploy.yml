@@ -17,6 +17,10 @@ on:
         description: 'Limit to specific hosts (optional)'
         required: false
         type: string
+      tags:
+        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, cloudflare'
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -55,16 +59,30 @@ jobs:
       - name: Run Ansible playbook
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
+          # Inputs are passed through the environment rather than interpolated
+          # into the script body. ${{ }} substitution happens before the shell
+          # ever sees the line, so an input containing shell metacharacters
+          # would otherwise run as code.
+          INPUT_PLAYBOOK: ${{ inputs.playbook }}
+          INPUT_LIMIT: ${{ inputs.limit }}
+          INPUT_TAGS: ${{ inputs.tags }}
         run: |
+          set -euo pipefail
           cd ansible
-          LIMIT_FLAG=""
-          if [ -n "${{ github.event.inputs.limit }}" ]; then
-            LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
+
+          EXTRA_ARGS=()
+          if [ -n "$INPUT_LIMIT" ]; then
+            EXTRA_ARGS+=(--limit "$INPUT_LIMIT")
+          fi
+          if [ -n "$INPUT_TAGS" ]; then
+            EXTRA_ARGS+=(--tags "$INPUT_TAGS")
           fi
 
-          ansible-playbook -i inventory/homelab.yml ${{ github.event.inputs.playbook }} \
+          echo "Running $INPUT_PLAYBOOK ${EXTRA_ARGS[*]:-(no limit or tags)}"
+
+          ansible-playbook -i inventory/homelab.yml "$INPUT_PLAYBOOK" \
             --vault-password-file /tmp/vault_pass \
-            $LIMIT_FLAG \
+            "${EXTRA_ARGS[@]}" \
             -v
 
       - name: Netdata fleet health check
