@@ -62,10 +62,14 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
         run: |
           cd ansible
+          # Cloudflare plays are skipped here: they call the live Cloudflare
+          # API from the target host, so a stale token fails unrelated PRs.
+          # They still run in the manual ansible-deploy workflow.
           ansible-playbook -i inventory/homelab.yml site.yml \
             --vault-password-file /tmp/vault_pass \
             --check \
-            --diff
+            --diff \
+            --skip-tags cloudflare
 
       - name: Clean up vault password
         if: always()
