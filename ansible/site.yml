@@ -67,6 +67,7 @@
 - name: Configure Jellyfin backup to Backblaze B2
   hosts: media_servers
   become: true
+  tags: backup
   vars_files:
     - vault.yml
   roles:
@@ -75,6 +76,7 @@
 - name: Configure restic backup clients
   hosts: backup_clients
   become: true
+  tags: backup
   vars_files:
     - vault.yml
   roles:

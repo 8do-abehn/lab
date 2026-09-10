@@ -18,7 +18,7 @@ on:
         required: false
         type: string
       tags:
-        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, cloudflare'
+        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, backup, cloudflare'
         required: false
         type: string
 
