@@ -1,0 +1,101 @@
+---
+name: Ansible Deploy Drift
+
+# Merging an ansible/ change to main deploys nothing: ansible-deploy.yml is
+# workflow_dispatch only. PR #451 sat merged and undeployed for four days while
+# the alert it fixed kept firing. This reports that gap.
+#
+# It is deliberately self-clearing. The moment a deploy runs, this goes quiet
+# on its own, so it cannot decay into the kind of permanent daily alert that
+# #451 existed to remove.
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 09:00 CDT
+  workflow_dispatch:
+    inputs:
+      grace_hours:
+        description: 'Ignore commits newer than this many hours (default 24)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  drift:
+    name: Check for undeployed ansible changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compare main against last successful deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GRACE_HOURS: ${{ inputs.grace_hours || '24' }}
+        run: |
+          set -euo pipefail
+
+          LAST_SHA=$(gh run list --workflow ansible-deploy.yml --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // empty')
+
+          if [ -z "$LAST_SHA" ]; then
+            echo "No successful ansible-deploy run found; nothing to compare against."
+            echo "No successful deploy run to compare against." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # A history rewrite can leave the recorded sha unreachable. That is
+          # not a drift signal, so report it and stop rather than failing.
+          if ! git cat-file -e "${LAST_SHA}^{commit}" 2>/dev/null; then
+            echo "Last deploy sha ${LAST_SHA:0:8} is not in this history; cannot compare."
+            {
+              echo "### Cannot compare"
+              echo ""
+              echo "Last deploy sha \`${LAST_SHA:0:8}\` is not reachable from main."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Only count commits older than the grace window, so merging and
+          # deploying on the same day never trips this.
+          CUTOFF=$(date -u -d "${GRACE_HOURS} hours ago" +%s)
+
+          UNDEPLOYED=""
+          while read -r sha ts subject; do
+            [ -z "$sha" ] && continue
+            if [ "$ts" -lt "$CUTOFF" ]; then
+              UNDEPLOYED="${UNDEPLOYED}- \`${sha}\` ${subject}"$'\n'
+            fi
+          done < <(git log --format='%h %ct %s' "${LAST_SHA}..HEAD" -- ansible/)
+
+          if [ -z "$UNDEPLOYED" ]; then
+            echo "In sync: no ansible/ commits older than ${GRACE_HOURS}h are undeployed."
+            {
+              echo "### In sync"
+              echo ""
+              echo "Last deploy \`${LAST_SHA:0:8}\` covers everything on main."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "### Undeployed ansible/ changes on main"
+            echo ""
+            echo "Last successful deploy: \`${LAST_SHA:0:8}\`"
+            echo ""
+            echo "$UNDEPLOYED"
+            echo "Deploy with:"
+            echo ""
+            echo '```'
+            echo 'gh workflow run ansible-deploy.yml -f playbook=site.yml -f tags=<tag>'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::error::main has ansible/ changes that have not been deployed"
+          echo "$UNDEPLOYED"
+          exit 1
