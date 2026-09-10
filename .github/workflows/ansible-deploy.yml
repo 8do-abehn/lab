@@ -21,6 +21,11 @@ on:
         description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, backup, cloudflare'
         required: false
         type: string
+      verbose:
+        description: 'Run with -v. Off by default: -v prints full task results into a PUBLIC log. Only enable to debug, and check for secrets afterwards.'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -66,6 +71,7 @@ jobs:
           INPUT_PLAYBOOK: ${{ inputs.playbook }}
           INPUT_LIMIT: ${{ inputs.limit }}
           INPUT_TAGS: ${{ inputs.tags }}
+          INPUT_VERBOSE: ${{ inputs.verbose }}
         run: |
           set -euo pipefail
           cd ansible
@@ -78,12 +84,21 @@ jobs:
             EXTRA_ARGS+=(--tags "$INPUT_TAGS")
           fi
 
+          # -v prints the full result dict for every task. This repo is public
+          # and Actions logs are world readable, so one task missing no_log
+          # publishes whatever it returned. Run 34432844757 leaked a live
+          # cloudflared tunnel token that way. Failures still report their own
+          # error without it, so verbosity is opt-in for debugging only.
+          if [ "$INPUT_VERBOSE" = "true" ]; then
+            echo "::warning::Running with -v. Full task results will appear in this PUBLIC log; review it for secrets afterwards."
+            EXTRA_ARGS+=(-v)
+          fi
+
           echo "Running $INPUT_PLAYBOOK ${EXTRA_ARGS[*]:-(no limit or tags)}"
 
           ansible-playbook -i inventory/homelab.yml "$INPUT_PLAYBOOK" \
             --vault-password-file /tmp/vault_pass \
-            "${EXTRA_ARGS[@]}" \
-            -v
+            "${EXTRA_ARGS[@]}"
 
       - name: Netdata fleet health check
         if: >-
