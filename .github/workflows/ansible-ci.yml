@@ -22,6 +22,45 @@ jobs:
           cd ansible
           ansible-lint
 
+  # Runs in parallel with the slow job on purpose. "Test Against Infrastructure"
+  # decrypts the vault only as a side effect of a full check-mode run against
+  # every host, so a bad ANSIBLE_VAULT_PASSWORD and a Tailscale flake look
+  # identical there, and the answer takes four minutes. This isolates the
+  # question to its own named check that answers in well under one.
+  vault:
+    name: Vault Decrypts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install ansible-core
+        run: pip install ansible-core
+
+      - name: Verify vault.yml decrypts with the repo secret
+        env:
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f /tmp/vault_pass' EXIT
+          printf '%s' "$VAULT_PASSWORD" > /tmp/vault_pass
+          chmod 600 /tmp/vault_pass
+
+          # Output discarded: the exit status is the whole signal, and the
+          # decrypted body must never reach a public Actions log.
+          if ansible-vault view ansible/vault.yml --vault-password-file /tmp/vault_pass > /dev/null 2>&1; then
+            echo "ansible/vault.yml decrypts with ANSIBLE_VAULT_PASSWORD"
+          else
+            echo "::error::ansible/vault.yml does NOT decrypt with the ANSIBLE_VAULT_PASSWORD secret."
+            echo "::error::After an ansible-vault rekey, update the secret: bw get password ansible_vault | gh secret set ANSIBLE_VAULT_PASSWORD"
+            exit 1
+          fi
+
   test-infrastructure:
     name: Test Against Infrastructure
     runs-on: ubuntu-latest
@@ -54,8 +93,11 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519_behner
 
       - name: Create vault password file
+        env:
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/vault_pass
+          printf '%s' "$VAULT_PASSWORD" > /tmp/vault_pass
+          chmod 600 /tmp/vault_pass
 
       - name: Run Ansible playbook in check mode
         env:
