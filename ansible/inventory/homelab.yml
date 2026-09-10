@@ -83,6 +83,11 @@ all:
             - /mnt/library
             - /var/lib/jellyfin
             - /etc/jellyfin
+          # /mnt/library is CephFS via ceph-fuse. If it fails to mount the
+          # directory is still there, just empty, so the backup must abort
+          # rather than snapshot nothing and report success.
+          backup_required_mounts:
+            - /mnt/library
           backup_excludes:
             - "*.tmp"
             - "lost+found"

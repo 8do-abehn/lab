@@ -13,6 +13,13 @@ restic_password: "{{ vault_restic_password }}"
 backup_paths:
   - /mnt/library
 
+# Paths from backup_paths that live on a separate filesystem and must be
+# mounted for the backup to mean anything. Checked before restic runs: if one
+# is missing or empty the backup aborts instead of snapshotting an empty
+# directory and reporting success. Opt-in per host, since most hosts back up
+# local paths only.
+backup_required_mounts: []
+
 # Paths to exclude
 backup_excludes:
   - "*.tmp"
