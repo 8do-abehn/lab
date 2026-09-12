@@ -14,12 +14,12 @@ minecraft_servers:
     gamemode: creative
     motd: "Creative Server"
 
-  # Held at 26.1: the standard-skyblock and sky-void-additions datapacks
+  # Capped at 26.1.2: the standard-skyblock and sky-void-additions datapacks
   # only publish builds for 26.1 / 26.1.1 / 26.1.2, nothing for 26.2.
   - name: oneblock
     port: 25567
     memory: "4G"
-    version: "26.1"
+    version: "26.1.2"
     motd: "SkyBlock"
     extra_env:
       MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
