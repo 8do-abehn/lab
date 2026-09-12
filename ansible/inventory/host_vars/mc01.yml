@@ -14,12 +14,14 @@ minecraft_servers:
     gamemode: creative
     motd: "Creative Server"
 
-  # Capped at 26.1.2: the standard-skyblock and sky-void-additions datapacks
-  # only publish builds for 26.1 / 26.1.1 / 26.1.2, nothing for 26.2.
+  # Switched from standard-skyblock + sky-void-additions to Skyblock
+  # Infinite, which is the only maintained SkyBlock datapack with a 26.2
+  # build. See the note in mc02.yml about LEVEL and the old worlds.
   - name: oneblock
     port: 25567
     memory: "4G"
-    version: "26.1.2"
+    version: "26.2"
     motd: "SkyBlock"
     extra_env:
-      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
+      MODRINTH_PROJECTS: "datapack:skyblock-infinite"
+      LEVEL: "skyblock-infinite"
