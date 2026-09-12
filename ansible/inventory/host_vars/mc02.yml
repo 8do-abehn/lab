@@ -1,22 +1,32 @@
 ---
 # Minecraft servers on mc02 (LXC 3005 on pve01, 32GB RAM)
 #
-# Both servers are capped at 26.1.2: the standard-skyblock and
-# sky-void-additions datapacks only publish builds for 26.1 / 26.1.1 /
-# 26.1.2, nothing for 26.2.
+# Switched from standard-skyblock + sky-void-additions to Skyblock
+# Infinite. The old pair never shipped a 26.2 build on any channel, so
+# they pinned these servers to 26.1.2; Skyblock Infinite 1.1.15 supports
+# 26.2 and needs no companion datapack.
+#
+# LEVEL points at a fresh world directory rather than reusing "world".
+# Skyblock Infinite changes world generation, so it only takes effect on
+# a newly generated world. Pointing LEVEL at a new name leaves the old
+# "world" directory untouched inside the same volume, so this is
+# reversible: drop LEVEL and the previous islands come back. Pre-switch
+# snapshots also live in /root/mc-pre-26.1.2/ on pve01 and pve03.
 minecraft_servers:
   - name: sawyer-skyblock
     port: 25567
     memory: "4G"
-    version: "26.1.2"
+    version: "26.2"
     motd: "Sawyer's SkyBlock"
     extra_env:
-      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
+      MODRINTH_PROJECTS: "datapack:skyblock-infinite"
+      LEVEL: "skyblock-infinite"
 
   - name: riley-skyblock
     port: 25568
     memory: "4G"
-    version: "26.1.2"
+    version: "26.2"
     motd: "Riley's SkyBlock"
     extra_env:
-      MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
+      MODRINTH_PROJECTS: "datapack:skyblock-infinite"
+      LEVEL: "skyblock-infinite"
