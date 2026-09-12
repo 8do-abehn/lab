@@ -33,10 +33,9 @@
   roles:
     - tailscale
 
-# Legacy cluster retired 2026-09-05; UPS not yet re-cabled to the new cluster.
-# Play is a no-op until nut_server / nut_netclients are populated again.
+# UPS is cabled to pve01 (nut_server); pve02/pve03 monitor it as nut_netclients.
 - name: Configure NUT UPS (server/client by group membership)
-  hosts: nut_server:nut_netclients
+  hosts: nut
   become: true
   vars_files:
     - vault.yml

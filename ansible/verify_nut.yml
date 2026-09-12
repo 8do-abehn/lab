@@ -1,14 +1,11 @@
 ---
 - name: Verify NUT UPS monitoring setup
-  hosts: nut_server:nut_netclients
+  hosts: nut
   become: true
   gather_facts: false
 
-  # This play does not load the nut role, so it needs its own copies of these.
-  # ups_server_ip is empty until the UPS is re-cabled to the new cluster.
-  vars:
-    ups_name: myups
-    ups_server_ip: ""
+  # ups_name and ups_server_ip come from inventory/group_vars/nut.yml, so this play
+  # queries the same upsd the nut role configured.
 
   tasks:
     - name: Check if NUT is installed
@@ -68,7 +65,7 @@
         nut_healthy: "{{ upsc_check.rc == 0 and ups_status.rc == 0 and monitor_service.status.ActiveState == 'active' }}"
 
 - name: Summary
-  hosts: nut_server:nut_netclients
+  hosts: nut
   gather_facts: false
   tasks:
     - name: Show healthy hosts

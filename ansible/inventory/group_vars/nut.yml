@@ -1,0 +1,8 @@
+---
+# Shared NUT settings for the nut_server host and the nut_netclients that monitor it.
+
+ups_name: myups
+
+# Clients reach upsd on pve01 over the management VLAN rather than Tailscale, so
+# UPS shutdown coordination keeps working even if the tailnet is down.
+ups_server_ip: 10.150.60.21
