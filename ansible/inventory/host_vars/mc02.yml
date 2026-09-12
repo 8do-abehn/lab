@@ -1,10 +1,14 @@
 ---
-# Minecraft servers on mc02 (LXC 3005 on pve02, 32GB RAM)
+# Minecraft servers on mc02 (LXC 3005 on pve01, 32GB RAM)
+#
+# Both servers are capped at 26.1.2: the standard-skyblock and
+# sky-void-additions datapacks only publish builds for 26.1 / 26.1.1 /
+# 26.1.2, nothing for 26.2.
 minecraft_servers:
   - name: sawyer-skyblock
     port: 25567
     memory: "4G"
-    version: "26.1"
+    version: "26.1.2"
     motd: "Sawyer's SkyBlock"
     extra_env:
       MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"
@@ -12,7 +16,7 @@ minecraft_servers:
   - name: riley-skyblock
     port: 25568
     memory: "4G"
-    version: "26.1"
+    version: "26.1.2"
     motd: "Riley's SkyBlock"
     extra_env:
       MODRINTH_PROJECTS: "datapack:standard-skyblock,datapack:sky-void-additions"

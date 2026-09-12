@@ -52,14 +52,13 @@ all:
           ansible_user: root
 
     # Minecraft Servers (Docker in LXCs). All three are running again as of
-    # 2026-09-12. Only mc01 is managed by Ansible so far; mc02/mc03 stay
-    # commented out until their configs are reviewed.
+    # 2026-09-12. mc03 stays commented out until its config is reviewed.
     minecraft_servers:
       hosts:
         mc01:  # LXC 3004 on pve03, 32GB RAM -- survival, creative, oneblock
           ansible_user: root
-        # mc02:  # LXC 3005 on pve01, 32GB RAM -- sawyer-skyblock, riley-skyblock
-        #   ansible_user: root
+        mc02:  # LXC 3005 on pve01, 32GB RAM -- sawyer-skyblock, riley-skyblock
+          ansible_user: root
         # mc03:  # LXC 3006 on pve02, 32GB RAM -- cobblemon
         #   ansible_user: root
 
