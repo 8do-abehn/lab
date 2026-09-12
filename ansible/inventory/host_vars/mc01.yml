@@ -1,17 +1,21 @@
 ---
-# Minecraft servers on mc01 (LXC 3004 on pve01, 32GB RAM)
+# Minecraft servers on mc01 (LXC 3004 on pve03, 32GB RAM)
 minecraft_servers:
   - name: survival
     port: 25565
     memory: "6G"
+    version: "26.2"
     motd: "Survival Server"
 
   - name: creative
     port: 25566
     memory: "4G"
+    version: "26.2"
     gamemode: creative
     motd: "Creative Server"
 
+  # Held at 26.1: the standard-skyblock and sky-void-additions datapacks
+  # only publish builds for 26.1 / 26.1.1 / 26.1.2, nothing for 26.2.
   - name: oneblock
     port: 25567
     memory: "4G"
