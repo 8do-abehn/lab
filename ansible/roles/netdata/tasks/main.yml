@@ -61,13 +61,26 @@
 # in lockstep. Plugin packages have strict `Depends: netdata (= X.Y.Z)`
 # pins, so upgrading only `netdata` leaves plugins wedged in iU state
 # when the repo publishes split-version updates.
+#
+# Only keep packages whose apt candidate matches the one `netdata` is
+# heading to. A package upstream has retired has no build at the new
+# version, so forcing it into the same transaction makes apt unsolvable
+# (#472). Dropping it lets apt retire it through its own
+# Conflicts/Replaces instead.
 - name: Query installed netdata packages
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
+      target=$(apt-cache policy netdata | awk '/Candidate:/ {print $2}')
       dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'netdata*' 2>/dev/null \
         | awk '/^ii/ {print $2}' \
-        | grep -v '^netdata-repo$' || true
+        | grep -v '^netdata-repo$' \
+        | while read -r pkg; do
+            candidate=$(apt-cache policy "$pkg" | awk '/Candidate:/ {print $2}')
+            if [ "$candidate" = "$target" ]; then
+              echo "$pkg"
+            fi
+          done || true
     executable: /bin/bash
   register: netdata_installed_pkgs
   changed_when: false
