@@ -1,0 +1,38 @@
+---
+# octoDNS configuration for personal email domains.
+#
+# The Cloudflare token is read from the CLOUDFLARE_API_TOKEN environment
+# variable and is never stored in this repo. See README.md for how to
+# supply it.
+
+providers:
+  # Source of truth: the YAML files in ./zones
+  config:
+    class: octodns.provider.yaml.YamlProvider
+    directory: ./zones
+    default_ttl: 3600
+    # Keeps record order stable so diffs stay readable in review
+    enforce_order: true
+
+  cloudflare:
+    class: octodns_cloudflare.CloudflareProvider
+    token: env/CLOUDFLARE_API_TOKEN
+    # Cloudflare rate limits at 1200 req/5min; retries smooth over bursts
+    retry_count: 4
+
+zones:
+  abehn.com.:
+    sources:
+      - config
+    targets:
+      - cloudflare
+  b3hn.com.:
+    sources:
+      - config
+    targets:
+      - cloudflare
+  behn.email.:
+    sources:
+      - config
+    targets:
+      - cloudflare
