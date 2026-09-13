@@ -32,6 +32,18 @@
     - manage_rewrites.py
     - manage_blocked_services.py
     - manage_users.py
+    - manage_settings.py
+
+- name: Reconcile AdGuard Home web/DNS bind settings
+  ansible.builtin.command: /opt/AdGuardHome/manage_settings.py
+  args:
+    stdin: >-
+      {{ {'http_address': adguard_home_web_bind ~ ':' ~ adguard_home_web_port,
+          'dns_bind_hosts': [adguard_home_dns_bind],
+          'dns_port': adguard_home_dns_port} | to_json }}
+  register: settings_result
+  changed_when: settings_result.stdout == "CHANGED"
+  notify: Restart AdGuard Home
 
 - name: Reconcile AdGuard Home DNS rewrites
   ansible.builtin.command: /opt/AdGuardHome/manage_rewrites.py
