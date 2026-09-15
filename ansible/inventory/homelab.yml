@@ -80,6 +80,9 @@ all:
       hosts:
         jellyfin01:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          # Designated prune host. Prune reclaims space for the whole shared repo,
+          # so exactly one client should run it -- see backup_client defaults.
+          backup_prune_enabled: true
           backup_paths:
             - /mnt/library
             - /var/lib/jellyfin

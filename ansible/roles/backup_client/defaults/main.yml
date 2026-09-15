@@ -35,6 +35,29 @@ backup_keep_daily: 7
 backup_keep_weekly: 4
 backup_keep_monthly: 6
 
+# Pruning. `restic forget --prune` walks the entire repository and holds an
+# exclusive repo lock for the whole run. Every client shares one repo over sftp,
+# so running it nightly on every host does not scale, and a run that hangs leaves
+# exactly the stale lock #429 tracks.
+#
+# Split instead: nightly `restic forget` (metadata only, fast) on every client,
+# plus one weekly `restic prune` on a single designated host. Prune reclaims space
+# for the whole repo, not just that host's snapshots, so set backup_prune_enabled
+# on exactly one client.
+#
+# Prune runs client-side deliberately. pi-burg is a Pi 3 with under 1GB of RAM and
+# would OOM long before finishing, so it cannot prune its own repo locally.
+backup_prune_inline: false
+backup_prune_enabled: false
+
+# Weekly prune schedule. Sunday 9am keeps it clear of every backup window (2-3am)
+# and every repository check (6-7am), so the locks never overlap.
+backup_prune_cron_hour: "9"
+backup_prune_cron_minute: "0"
+backup_prune_cron_weekday: "0"
+
+backup_prune_script_path: /usr/local/bin/restic-prune.sh
+
 # Notifications (Apprise)
 backup_notify_enabled: true
 backup_apprise_urls: "{{ vault_backup_apprise_urls | default('') }}"

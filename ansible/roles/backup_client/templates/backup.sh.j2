@@ -130,13 +130,19 @@ Error: $BACKUP_ERROR"
 fi
 rm -f "$BACKUP_STDERR"
 
-# Run retention policy
+# Run retention policy. Dropping snapshot references is metadata-only and cheap;
+# reclaiming the space is not. --prune walks the whole repo under an exclusive
+# lock, so it is opt-in here and normally left to the weekly job on the designated
+# prune host instead of running on every client every night.
 log_message "Applying retention policy"
 if restic forget \
     --keep-daily {{ backup_keep_daily }} \
     --keep-weekly {{ backup_keep_weekly }} \
     --keep-monthly {{ backup_keep_monthly }} \
-    --prune >> "$LOGFILE" 2>&1; then
+{% if backup_prune_inline | default(false) %}
+    --prune \
+{% endif %}
+    >> "$LOGFILE" 2>&1; then
     log_message "Retention policy applied successfully"
 else
     EXIT_CODE=$?
