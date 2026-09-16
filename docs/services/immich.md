@@ -63,20 +63,34 @@ an RX 570 would strip `/dev/dri` from that node.
 
 ## Backups
 
-| Job | Destination | Schedule | Managed By |
-|-----|-------------|----------|------------|
-| restic | pi-burg | Daily 3:00 AM | `backup_client` role |
+**Not yet configured. This host is deliberately not a `backup_clients` member.**
+
+pi-burg's `wlan0` negotiates 5.5 Mbit/s and its `eth0` is unplugged (#478), giving
+a measured ~1.2 MB/s. Immich's roughly 600 GB first backup would take about six
+days at that rate. With no concurrency guard in `backup_client` (#479) the nightly
+cron would relaunch and stack, and because every client shares one restic repo it
+would contend for locks with jellyfin01's working backup.
+
+**Interim protection:** the photos still exist in Google Photos. Do not delete
+them from Google until immich01 has a verified snapshot. Ceph `size=3` covers disk
+and host failure but not deletion, corruption, or site loss.
+
+### Planned, once eth0 is connected
+
+| Job | Destination | Schedule |
+|-----|-------------|----------|
+| restic | pi-burg | Daily 3:00 AM |
 
 Staggered off jellyfin01's 02:00 so the two clients never contend for the shared
-repo lock, and late enough to capture Immich's 02:30 database dump.
+repo lock, and late enough to capture Immich's 02:30 database dump. Weekly
+integrity check Sundays 7:00 AM.
 
-Backed up: `/opt/immich/upload` and `/opt/immich/.env`. The `.env` carries the
-installer-generated database password and lives on the rootfs, outside the
-library volume.
+Back up `/opt/immich/upload` and `/opt/immich/.env` -- the `.env` carries the
+installer-generated database password and lives on the rootfs, outside the library
+volume. Exclude `thumbs/` and `encoded-video/`, both regenerable.
 
-Excluded: `thumbs/` and `encoded-video/`, both regenerable from the originals.
-
-Weekly integrity check Sundays 7:00 AM. Notifications via Apprise (Gmail SMTP).
+Add via `backup-setup.yml` run against both hosts in one invocation, so pi-burg
+authorizes the new key in the same run that generates it.
 
 ## Ansible
 

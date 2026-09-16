@@ -108,31 +108,16 @@ all:
             - "log/"
             - "*.log*"
 
-        immich01:
-          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
-          backup_paths:
-            - /opt/immich/upload
-            # Carries the installer-generated DB password and lives on the
-            # rootfs, outside the library volume. Without it a restore is
-            # painful. The restic repo is encrypted, so this is safe to include.
-            - /opt/immich/.env
-          # /opt/immich/upload is a separate RBD volume. Immich refuses to start
-          # if it is unmounted, but the backup must not snapshot an empty tree
-          # if it somehow runs anyway.
-          backup_required_mounts:
-            - /opt/immich/upload
-          # thumbs/ and encoded-video/ are regenerable and large; Immich rebuilds
-          # them from the originals. Keeping them out of a shared repo matters.
-          backup_excludes:
-            - "*.tmp"
-            - "lost+found"
-            - "tmp/"
-            - "thumbs/"
-            - "encoded-video/"
-          # Staggered off jellyfin01's 02:00 so the two clients never contend for
-          # the repo lock, and late enough to pick up Immich's 02:30 database dump.
-          backup_cron_hour: "3"
-          backup_check_cron_hour: "7"
+        # immich01 is deliberately NOT a backup client yet. See #478: pi-burg's
+        # wlan0 negotiates 5.5 Mbit/s (eth0 is unplugged), so Immich's ~600 GB
+        # first backup would take about six days. With no concurrency guard
+        # (#479) the nightly cron would relaunch and stack, and because every
+        # client shares one restic repo it would contend for locks with
+        # jellyfin01's working backup. Add immich01 here once eth0 is connected.
+        #
+        # Until then the photos still exist in Google Photos, so nothing is
+        # unprotected -- but do not delete them from Google before immich01 has
+        # a verified snapshot.
 
     # Backup Servers
     backup_servers:
