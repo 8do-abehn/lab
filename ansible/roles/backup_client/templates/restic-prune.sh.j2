@@ -1,0 +1,98 @@
+#!/bin/bash
+set -euo pipefail
+
+# Cron's default PATH omits /usr/local/bin, where pipx symlinks apprise.
+# Without this, `command -v apprise` silently fails and notifications never fire.
+export PATH="/usr/local/bin:$PATH"
+
+# Restic repository prune - managed by Ansible
+# Reclaims space for the WHOLE shared repo, not just this host's snapshots.
+# Runs weekly on one designated client because prune holds an exclusive repo lock
+# for its entire duration; running it nightly on every client serialises the fleet
+# behind it and is the likely source of the stale locks in #429.
+
+LOGFILE="{{ backup_log_path }}"
+RESTIC_REPOSITORY="sftp:{{ backup_server_user }}@{{ backup_server_host }}:{{ backup_server_repo_path }}"
+RESTIC_PASSWORD_FILE="{{ backup_password_file }}"
+
+export RESTIC_REPOSITORY
+export RESTIC_PASSWORD_FILE
+
+{% if backup_notify_enabled | default(false) %}
+# Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
+# is world-readable, so the credential must not live here.
+notify() {
+    local title="$1"
+    local body="$2"
+    if [ -r /etc/apprise.yml ] && command -v apprise &>/dev/null; then
+        apprise -t "$title" --body "$body" --config /etc/apprise.yml 2>/dev/null || true
+    fi
+}
+{% endif %}
+
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+}
+
+# A killed prune leaves a lock that blocks every client's backup, so log loudly
+# rather than dying silently.
+trap 'log_message "Prune interrupted - repo may hold a lock until it is cleared"; exit 130' INT TERM
+
+log_message "Starting restic prune"
+PRUNE_START=$(date +%s)
+
+if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
+    log_message "ERROR: Backup server {{ backup_server_host }} is not reachable"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic prune FAILED on $(hostname)" "Server {{ backup_server_host }} unreachable at $(date)"
+{% endif %}
+    exit 1
+fi
+
+# Clear stale locks older than 24h. Same guard the backup script uses: a hung run
+# leaves a lock behind and nothing else removes it.
+LOCK_OUTPUT=$(restic list locks --json 2>/dev/null || true)
+if [ -n "$LOCK_OUTPUT" ]; then
+    LOCK_AGE=$(echo "$LOCK_OUTPUT" | grep -o '"time":"[^"]*"' | head -1 | grep -o '[0-9T:Z.-]*' || true)
+    if [ -n "$LOCK_AGE" ]; then
+        LOCK_EPOCH=$(date -d "$LOCK_AGE" +%s 2>/dev/null || true)
+        NOW_EPOCH=$(date +%s)
+        if [ -n "$LOCK_EPOCH" ] && [ $(( NOW_EPOCH - LOCK_EPOCH )) -gt 86400 ]; then
+            log_message "WARNING: Stale lock found (age > 24h), removing before prune"
+            restic unlock >> "$LOGFILE" 2>&1
+{% if backup_notify_enabled | default(false) %}
+            notify "Prune lock cleared on $(hostname)" "Stale restic lock removed at $(date). Lock was created at ${LOCK_AGE}."
+{% endif %}
+        fi
+    fi
+fi
+
+PRUNE_OUTPUT=$(restic prune 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
+echo "$PRUNE_OUTPUT" >> "$LOGFILE"
+
+PRUNE_END=$(date +%s)
+DURATION=$(( PRUNE_END - PRUNE_START ))
+DURATION_MIN=$(( DURATION / 60 ))
+DURATION_SEC=$(( DURATION % 60 ))
+
+if [ $PRUNE_RC -eq 0 ]; then
+    log_message "Prune completed successfully in ${DURATION_MIN}m ${DURATION_SEC}s"
+{% if backup_notify_enabled | default(false) %}
+    # Duration is the number worth watching: it grows with repo size, and a prune
+    # that starts overrunning its window is the early warning for lock contention.
+    notify "Restic prune OK on $(hostname)" "$(cat <<NOTIFY
+Completed at $(date)
+
+Duration: ${DURATION_MIN}m ${DURATION_SEC}s
+$(echo "$PRUNE_OUTPUT" | tail -3)
+NOTIFY
+)"
+{% endif %}
+else
+    log_message "Prune FAILED with exit code $PRUNE_RC after ${DURATION_MIN}m ${DURATION_SEC}s"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic prune FAILED on $(hostname)" "restic prune exited with code $PRUNE_RC at $(date) after ${DURATION_MIN}m ${DURATION_SEC}s.
+$(echo "$PRUNE_OUTPUT" | tail -5)"
+{% endif %}
+    exit $PRUNE_RC
+fi

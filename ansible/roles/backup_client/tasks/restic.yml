@@ -129,6 +129,32 @@
     user: root
     state: present
 
+- name: Deploy restic prune script
+  ansible.builtin.template:
+    src: restic-prune.sh.j2
+    dest: "{{ backup_prune_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: backup_prune_enabled | bool
+
+# Keep the host clean if pruning is handed to a different client later.
+- name: Remove restic prune script when pruning is disabled
+  ansible.builtin.file:
+    path: "{{ backup_prune_script_path }}"
+    state: absent
+  when: not (backup_prune_enabled | bool)
+
+- name: Setup weekly restic prune cron
+  ansible.builtin.cron:
+    name: "Restic repository prune"
+    minute: "{{ backup_prune_cron_minute }}"
+    hour: "{{ backup_prune_cron_hour }}"
+    weekday: "{{ backup_prune_cron_weekday }}"
+    job: "{{ backup_prune_script_path }}"
+    user: root
+    state: "{{ 'present' if backup_prune_enabled | bool else 'absent' }}"
+
 - name: Deploy logrotate config
   ansible.builtin.copy:
     src: logrotate
