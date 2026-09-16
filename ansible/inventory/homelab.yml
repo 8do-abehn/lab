@@ -51,6 +51,16 @@ all:
         jellyfin01:  # LXC 3001 on pve01, CephFS media at /mnt/library
           ansible_user: root
 
+    # Immich Photos (VLAN 70, new cluster LXC)
+    immich_servers:
+      hosts:
+        immich01:  # LXC 3013 on pve03, 8GB RAM -- Immich photo library
+          ansible_user: root
+          # Pinned to the LAN address: this host was built by the community
+          # script and is not on the tailnet until the tailscale role runs, so
+          # there is no MagicDNS name to resolve yet.
+          ansible_host: 10.150.70.15
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     minecraft_servers:
@@ -97,6 +107,32 @@ all:
             - "transcodes/"
             - "log/"
             - "*.log*"
+
+        immich01:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_paths:
+            - /opt/immich/upload
+            # Carries the installer-generated DB password and lives on the
+            # rootfs, outside the library volume. Without it a restore is
+            # painful. The restic repo is encrypted, so this is safe to include.
+            - /opt/immich/.env
+          # /opt/immich/upload is a separate RBD volume. Immich refuses to start
+          # if it is unmounted, but the backup must not snapshot an empty tree
+          # if it somehow runs anyway.
+          backup_required_mounts:
+            - /opt/immich/upload
+          # thumbs/ and encoded-video/ are regenerable and large; Immich rebuilds
+          # them from the originals. Keeping them out of a shared repo matters.
+          backup_excludes:
+            - "*.tmp"
+            - "lost+found"
+            - "tmp/"
+            - "thumbs/"
+            - "encoded-video/"
+          # Staggered off jellyfin01's 02:00 so the two clients never contend for
+          # the repo lock, and late enough to pick up Immich's 02:30 database dump.
+          backup_cron_hour: "3"
+          backup_check_cron_hour: "7"
 
     # Backup Servers
     backup_servers:

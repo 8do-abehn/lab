@@ -22,6 +22,10 @@ adguard_home_rewrites:
     answer: 10.150.70.12
   - domain: jellyfin01.taile975f.ts.net
     answer: 10.150.70.12
+  - domain: immich01
+    answer: 10.150.70.15
+  - domain: immich01.taile975f.ts.net
+    answer: 10.150.70.15
 
 # Service IDs blocked at DNS level (AdGuard's "Blocked services" presets).
 # Reconciled idempotently — order doesn't matter, duplicates ignored.

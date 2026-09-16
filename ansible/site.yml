@@ -7,7 +7,7 @@
     - proxmox
 
 - name: Fix DNS resolution on LXC containers (#313)
-  hosts: dns_servers:media_servers:mem0_servers:minecraft_servers
+  hosts: dns_servers:media_servers:mem0_servers:minecraft_servers:immich_servers
   become: true
   tasks:
     - name: Disable systemd-resolved
@@ -26,7 +26,7 @@
         mode: "0644"
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers
   become: true
   vars_files:
     - vault.yml
@@ -57,7 +57,7 @@
     - smart_monitoring
 
 - name: Install Netdata monitoring
-  hosts: proxmox:k3s_cluster:dns_servers:media_servers:mem0_servers:minecraft_servers
+  hosts: proxmox:k3s_cluster:dns_servers:media_servers:mem0_servers:minecraft_servers:immich_servers
   become: true
   vars_files:
     - vault.yml

@@ -211,6 +211,8 @@ Minecraft servers via Docker Compose:
 - `mem0_servers`: AI memory stack (mem01)
 - `minecraft_servers`: Minecraft servers (mc01-mc03) — currently commented out, see #317
 - `media_servers`: Media servers with backup clients (jellyfin01)
+- `immich_servers`: Immich photo library (immich01) — app installed by the community
+  script, Ansible owns networking, DNS, monitoring and backup only
 
 ### Backup Groups
 - `backup_servers`: Backup storage servers (pi-burg)

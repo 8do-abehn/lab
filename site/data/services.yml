@@ -66,6 +66,10 @@ nodes:
         name: dns02
         status: running
         console: "https://pve03:8006/?console=lxc&vmid=3012"
+      - vmid: 3013
+        name: immich01
+        status: running
+        console: "https://pve03:8006/?console=lxc&vmid=3013"
 
 endpoints:
   - name: Jellyfin (Cloudflare Tunnel)
