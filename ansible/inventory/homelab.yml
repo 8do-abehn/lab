@@ -20,11 +20,25 @@ all:
           hosts:
             pve01:
 
-        # Everything else monitors upsd on pve01 over the network
+        # Everything else monitors upsd on pve01 over the network.
+        #
+        # pve02 and pve03 are commented out deliberately, see #487. pve01's UPS
+        # cannot be trusted to report its own runtime: the pack was swapped to
+        # LiFePO4 on 01/24/25 but the UPS dates from 2000 and models capacity
+        # for lead acid, so its estimate is quantised to 60s steps and swings
+        # 4x on an 8% load change. Enrolling netclients now would arm shutdown
+        # monitoring cluster wide against that.
+        #
+        # They were left in the group but undeployed, which made any unscoped
+        # `site.yml` run enrol them silently. That is a poor thing to rely on
+        # remembering, so the state is explicit here instead.
+        #
+        # Uncomment once #487 has measured real runtime and set thresholds
+        # from it.
         nut_netclients:
-          hosts:
-            pve02:
-            pve03:
+          hosts: {}
+          # pve02:
+          # pve03:
 
     # Proxmox New Cluster (3-node, Proxmox 9, Ceph)
     # Management VLAN 60: 10.150.60.0/24
