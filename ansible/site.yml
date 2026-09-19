@@ -30,6 +30,7 @@
   become: true
   vars_files:
     - vault.yml
+  tags: tailscale
   roles:
     - tailscale
 
