@@ -28,3 +28,7 @@ proxmox_gpu_grub_extra: ""
 # LVM thin pool autoextend (#378)
 proxmox_lvm_thin_autoextend_threshold: 80
 proxmox_lvm_thin_autoextend_percent: 20
+
+# VLANs allowed on the vmbr0 uplink, applied identically to pve01-03.
+# 10 = client LAN (dropbox LXC), 65 = Ceph storage, 70 = guest
+proxmox_bridge_vids: "10 65 70"
