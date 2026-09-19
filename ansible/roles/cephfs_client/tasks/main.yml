@@ -1,0 +1,59 @@
+---
+# ceph.conf is appended to rather than templated. The file already carries
+# mon_host, written when the container was built, and templating it would mean
+# taking ownership of a value we would then have to keep in sync with the
+# cluster by hand. A marked blockinfile section leaves the rest untouched.
+- name: Bound the CephFS client caches
+  ansible.builtin.blockinfile:
+    path: /etc/ceph/ceph.conf
+    marker: "# {mark} ANSIBLE MANAGED - cephfs_client"
+    block: |
+      [client]
+      client_oc_size = {{ cephfs_client_oc_size }}
+      client_cache_size = {{ cephfs_client_cache_size }}
+    create: false
+    mode: "0644"
+  register: cephfs_conf
+  when: cephfs_client_enabled | bool
+
+- name: Create systemd drop-in directory for the mount unit
+  ansible.builtin.file:
+    path: /etc/systemd/system/{{ cephfs_client_mount_unit }}.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: cephfs_client_enabled | bool
+
+- name: Apply a soft memory ceiling to the CephFS mount unit
+  ansible.builtin.template:
+    src: resources.conf.j2
+    dest: /etc/systemd/system/{{ cephfs_client_mount_unit }}.d/resources.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: cephfs_dropin
+  when: cephfs_client_enabled | bool
+
+# daemon-reload applies MemoryHigh to the already-running cgroup, so this takes
+# effect without remounting. Skipped in check mode because the drop-in has not
+# actually been written there.
+- name: Reload systemd so the memory ceiling applies to the running mount
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_dropin.changed
+    - not ansible_check_mode
+
+# Deliberately no remount here. ceph.conf is only read when ceph-fuse starts,
+# so the cache settings apply at the next mount. Forcing one would interrupt
+# Jellyfin playback for a tuning change that is not urgent.
+- name: Note that cache settings need a remount to take effect
+  ansible.builtin.debug:
+    msg: >-
+      ceph.conf changed; client cache settings apply on the next mount of
+      {{ cephfs_client_mount_unit }}. The MemoryHigh ceiling is already live.
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_conf.changed
