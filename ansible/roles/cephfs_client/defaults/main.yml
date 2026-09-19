@@ -27,3 +27,22 @@ cephfs_client_cache_size: 8192
 
 # The mount unit this applies to. Still hand written and unmanaged, see #456.
 cephfs_client_mount_unit: mnt-library.mount
+cephfs_client_mount_path: /mnt/library
+
+# Mount watchdog (#456). Recovers the two failures actually seen: a boot race
+# that left the unit failed and nothing retrying (2026-09-06, offline 2 days),
+# and an OOM-killed ceph-fuse that left a stale mount (2026-09-10, offline 27
+# hours). The second is why the health check is a real read rather than
+# mountpoint -q, which a stale FUSE mount passes.
+cephfs_client_watchdog_enabled: true
+
+# How often to probe. Frequent enough that an outage is minutes rather than
+# days, infrequent enough to be negligible: the probe is one directory read.
+cephfs_client_watchdog_interval: 5min
+
+# Timeout on the read probe. Without it the watchdog would hang on a stale
+# mount, which is exactly when it needs to run.
+cephfs_client_watchdog_probe_timeout: 10
+
+cephfs_client_watchdog_log: /var/log/cephfs-watchdog.log
+cephfs_client_watchdog_script: /usr/local/bin/cephfs-watchdog.sh

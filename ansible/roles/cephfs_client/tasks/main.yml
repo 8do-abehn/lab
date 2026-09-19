@@ -57,3 +57,92 @@
   when:
     - cephfs_client_enabled | bool
     - cephfs_conf.changed
+
+# Watchdog (#456). Deliberately a timer rather than converting the mount to an
+# .automount unit: automount would make the path a mountpoint even when the
+# real filesystem is absent, which silently defeats the backup mount guard in
+# backup.sh that aborts on an unmounted /mnt/library (#457).
+- name: Deploy the CephFS mount watchdog
+  ansible.builtin.template:
+    src: cephfs-watchdog.sh.j2
+    dest: "{{ cephfs_client_watchdog_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+
+- name: Install the CephFS watchdog service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cephfs-watchdog.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Probe and recover the CephFS mount ({{ cephfs_client_mount_path }})
+      Documentation=https://github.com/8do-abehn/lab/issues/456
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ cephfs_client_watchdog_script }}
+  register: cephfs_watchdog_unit
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+
+- name: Install the CephFS watchdog timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cephfs-watchdog.timer
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Probe the CephFS mount every {{ cephfs_client_watchdog_interval }}
+      Documentation=https://github.com/8do-abehn/lab/issues/456
+
+      [Timer]
+      # OnBootSec covers the boot race directly: the mount unit may have already
+      # failed before the MDS was reachable, and nothing else would retry it.
+      OnBootSec=2min
+      OnUnitActiveSec={{ cephfs_client_watchdog_interval }}
+      AccuracySec=30s
+
+      [Install]
+      WantedBy=timers.target
+  register: cephfs_watchdog_timer
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+
+- name: Enable the CephFS watchdog timer
+  ansible.builtin.systemd:
+    name: cephfs-watchdog.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ (cephfs_watchdog_unit.changed or cephfs_watchdog_timer.changed) | bool }}"
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+    - not ansible_check_mode
+
+- name: Rotate the watchdog log
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/cephfs-watchdog
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ cephfs_client_watchdog_log }} {
+          weekly
+          rotate 4
+          compress
+          missingok
+          notifempty
+      }
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool

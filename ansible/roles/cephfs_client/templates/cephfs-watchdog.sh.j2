@@ -1,0 +1,73 @@
+#!/bin/bash
+# CephFS mount watchdog - managed by Ansible. See #456.
+#
+# Recovers {{ cephfs_client_mount_path }} from the two ways it has actually
+# broken, which need different detection:
+#
+#   2026-09-06  The container booted before the Ceph MDS was ready. ceph-fuse
+#               failed once, systemd .mount units have no Restart=, and nothing
+#               retried. Offline 2 days. Detected by: not a mountpoint.
+#
+#   2026-09-10  ceph-fuse was OOM-killed inside the container, leaving a stale
+#               FUSE mount. Offline 27 hours. NOT detected by mountpoint -q,
+#               which still returns true; the mount only fails on I/O.
+#
+# Hence the health check below is an actual read, not just a mountpoint test.
+set -uo pipefail
+
+# Cron's PATH omits /usr/local/bin, where pipx puts apprise.
+export PATH="/usr/local/bin:$PATH"
+
+MOUNT_PATH="{{ cephfs_client_mount_path }}"
+MOUNT_UNIT="{{ cephfs_client_mount_unit }}"
+LOGFILE="{{ cephfs_client_watchdog_log }}"
+PROBE_TIMEOUT={{ cephfs_client_watchdog_probe_timeout }}
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"; }
+
+notify() {
+    [ -r /etc/apprise.yml ] || return 0
+    command -v apprise >/dev/null 2>&1 || return 0
+    apprise -t "$1" --body "$2" --config /etc/apprise.yml >/dev/null 2>&1 || true
+}
+
+# Healthy means readable, not merely mounted. A stale FUSE mount passes
+# mountpoint -q and then blocks or errors on the first read, so the read is
+# wrapped in a timeout: without it this script would hang exactly when the
+# mount is broken, which is when it most needs to run.
+healthy() {
+    mountpoint -q "$MOUNT_PATH" || return 1
+    timeout "$PROBE_TIMEOUT" ls -A "$MOUNT_PATH" >/dev/null 2>&1 || return 1
+    return 0
+}
+
+if healthy; then
+    exit 0
+fi
+
+log "UNHEALTHY: $MOUNT_PATH failed its read probe, attempting recovery"
+
+# A stale mount must be cleared before remounting, or the new mount lands on
+# top of a broken one. Lazy unmount is the fallback: a hung FUSE mount will
+# refuse a normal umount because processes still hold references to it.
+if mountpoint -q "$MOUNT_PATH"; then
+    log "clearing stale mount"
+    umount "$MOUNT_PATH" 2>/dev/null || umount -l "$MOUNT_PATH" 2>/dev/null || true
+fi
+
+# Essential: a unit left in failed state refuses to start again. This is
+# precisely why the 2026-09-06 failure persisted for two days rather than
+# being fixed by the next boot or any later trigger.
+systemctl reset-failed "$MOUNT_UNIT" 2>/dev/null || true
+
+log "starting $MOUNT_UNIT"
+systemctl start "$MOUNT_UNIT" 2>&1 | tee -a "$LOGFILE"
+sleep 5
+
+if healthy; then
+    log "RECOVERED: $MOUNT_PATH is readable again"
+    notify "CephFS mount recovered on $(hostname)" "$MOUNT_PATH failed its health probe at $(date) and was remounted successfully. Worth checking why: a boot race, or ceph-fuse being OOM-killed, look different in the journal."
+else
+    log "FAILED: $MOUNT_PATH still unreadable after remount"
+    notify "CephFS mount DOWN on $(hostname)" "$MOUNT_PATH failed its health probe at $(date) and could NOT be remounted. Anything reading it is broken until this is fixed. Check Ceph health and the MDS first."
+fi
