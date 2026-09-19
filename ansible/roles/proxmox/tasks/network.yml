@@ -1,0 +1,19 @@
+---
+# Keep the VLAN allow-list on the vmbr0 uplink identical across pve01-03.
+#
+# pve01 carried "bridge-vids 10 65 70" because the dropbox LXC is tagged VLAN 10,
+# while pve02 and pve03 only had "65 70". A VLAN 10 guest migrating onto either of
+# those nodes would come up with no network and no obvious reason why, so the
+# allow-list is set from one variable for the whole cluster instead.
+#
+# This edits the file only. It takes effect on "ifreload -a" or the next boot,
+# and that is deliberate: reloading the network on a node running Ceph belongs in
+# a maintenance window, not in a routine site.yml run.
+- name: Allow the cluster VLANs on the vmbr0 uplink
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^\s*bridge-vids\s+'
+    insertafter: '^\s*bridge-ports\s+'
+    line: "    bridge-vids {{ proxmox_bridge_vids }}"
+    state: present
+    backup: true
