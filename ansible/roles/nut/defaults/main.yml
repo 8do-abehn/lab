@@ -8,11 +8,28 @@ ups_driver: apcsmart
 ups_port: /dev/ttyS0
 ups_desc: "APC SMART-UPS 2200"
 
-# Low-battery threshold, in seconds of runtime remaining. The UPS ships at 120,
-# which is not enough for three Proxmox nodes to stop their guests and quiesce
-# Ceph before the batteries go (measured runtime is ~7 min, see UPS-SHUTDOWN.md).
+# Low-battery threshold, in seconds of runtime remaining.
 # The apcsmart driver only accepts 120, 300, 420 and 600.
-ups_lowbatt_runtime: 300
+#
+# Set to 120 (the minimum) because this UPS cannot be trusted to estimate its
+# own runtime. The pack was swapped to LiFePO4 on 01/24/25, but the UPS dates
+# from 2000 and derives runtime from a lead-acid capacity model that has never
+# been recalibrated (ups.test.result: NO). The resulting estimate is quantised
+# to 60s steps and swings 4x on an 8% load change, e.g. 60s at 47% load and
+# 240s at 40%.
+#
+# At the previous 300 the estimate sat permanently below the threshold, so the
+# UPS asserted LB continuously at 100% charge on line power. That armed upsmon
+# to shut pve01 down on any brief outage with no delay at all.
+#
+# This is a stopgap that buys back a usable signal, not a considered value. The
+# real number has never been measured with a stopwatch. See #487 for the
+# maintenance window that will measure it and set this properly.
+#
+# NOTE: an earlier version of this comment cited "measured runtime is ~7 min,
+# see UPS-SHUTDOWN.md". That document contains no such measurement, and the
+# figure appears to trace back to this same unreliable estimator via #460.
+ups_lowbatt_runtime: 120
 
 # User configuration
 ups_admin_user: admin
