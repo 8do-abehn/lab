@@ -62,6 +62,14 @@ backup_prune_script_path: /usr/local/bin/restic-prune.sh
 backup_notify_enabled: true
 backup_apprise_urls: "{{ vault_backup_apprise_urls | default('') }}"
 
+# Throttle restic network transfer, in KiB/s, applied symmetrically to upload
+# and download. Empty means no limit, which is the right default for local or
+# well-connected targets. Set it per host when the far end is on a connection
+# someone else has to live with: pi-burg is offsite on a domestic link, where an
+# unthrottled run would consume most of that household's bandwidth for hours
+# (#478). 5120 is roughly 40 Mbit/s.
+backup_bandwidth_limit: ""
+
 # Shared lock for every restic job against this repo. On tmpfs on purpose, so a
 # reboot never leaves a stale lock behind. See #479.
 backup_lock_file: /run/restic-backup.lock
