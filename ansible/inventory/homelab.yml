@@ -56,10 +56,10 @@ all:
       hosts:
         immich01:  # LXC 3013 on pve03, 8GB RAM -- Immich photo library
           ansible_user: root
-          # Pinned to the LAN address: this host was built by the community
-          # script and is not on the tailnet until the tailscale role runs, so
-          # there is no MagicDNS name to resolve yet.
-          ansible_host: 10.150.70.15
+          # No ansible_host: registered on the tailnet 2026-09-19 as tag:immich,
+          # so MagicDNS resolves it like every other host. A raw IP here would
+          # bypass Tailscale SSH, which is how CI authenticates, and CI has no
+          # key on any host.
 
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
