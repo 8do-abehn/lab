@@ -31,6 +31,8 @@ log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
 }
 
+{% include '_restic_lock.sh.j2' %}
+
 log_message "Starting restic repository check"
 
 if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then

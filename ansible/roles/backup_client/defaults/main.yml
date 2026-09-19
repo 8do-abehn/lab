@@ -62,6 +62,10 @@ backup_prune_script_path: /usr/local/bin/restic-prune.sh
 backup_notify_enabled: true
 backup_apprise_urls: "{{ vault_backup_apprise_urls | default('') }}"
 
+# Shared lock for every restic job against this repo. On tmpfs on purpose, so a
+# reboot never leaves a stale lock behind. See #479.
+backup_lock_file: /run/restic-backup.lock
+
 # Script and log locations
 backup_script_path: /usr/local/bin/backup-library.sh
 backup_check_script_path: /usr/local/bin/restic-check.sh
