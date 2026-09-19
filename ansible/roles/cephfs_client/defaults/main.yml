@@ -1,0 +1,29 @@
+---
+# CephFS FUSE client tuning for the media LXCs.
+#
+# Context: ceph-fuse on jellyfin01 grew to 3.5GB inside a 4096MB container and
+# was OOM-killed on 2026-09-10, leaving a stale mount that took the Jellyfin
+# library offline for 27 hours (#456). The container OOM-killed three more
+# processes over the following week, so the pressure is chronic, not a one-off.
+
+cephfs_client_enabled: true
+
+# Soft memory ceiling for the mount unit's cgroup. Above this the kernel
+# applies reclaim pressure to ceph-fuse instead of letting it grow until the
+# container's OOM killer picks a victim at random.
+#
+# Deliberately MemoryHigh and NOT MemoryMax. A hard cap would kill ceph-fuse
+# alone rather than taking down a neighbour, which sounds better but still
+# leaves a stale mount nobody notices. Revisit once the mount watchdog from
+# #456 exists to recover automatically.
+cephfs_client_memory_high: 1500M
+
+# Bound the client caches. These are below Ceph's defaults (oc_size 200MB,
+# cache_size 16384 inodes). Note this does NOT by itself explain the 3.5GB
+# peak, so treat it as reducing growth pressure rather than as the fix; the
+# cgroup limit above is what actually bounds the process.
+cephfs_client_oc_size: 104857600
+cephfs_client_cache_size: 8192
+
+# The mount unit this applies to. Still hand written and unmanaged, see #456.
+cephfs_client_mount_unit: mnt-library.mount

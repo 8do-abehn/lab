@@ -1,0 +1,8 @@
+# Managed by Ansible (roles/cephfs_client) - do not edit by hand.
+#
+# Drop-in rather than owning {{ cephfs_client_mount_unit }} itself, which is
+# still hand written at /etc/systemd/system/ (#456). A drop-in is additive, so
+# this applies without taking ownership of a unit we do not yet manage.
+[Mount]
+MemoryAccounting=yes
+MemoryHigh={{ cephfs_client_memory_high }}

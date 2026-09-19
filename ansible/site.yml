@@ -64,6 +64,17 @@
   roles:
     - netdata
 
+# ceph-fuse OOM'd on jellyfin01 and left a stale mount that hid the media
+# library for 27 hours (#456). This bounds the client so it cannot take the
+# container down with it.
+- name: Tune the CephFS FUSE client on the media LXCs
+  hosts: media_servers
+  become: true
+  tags:
+    - cephfs
+  roles:
+    - cephfs_client
+
 - name: Configure Jellyfin backup to Backblaze B2
   hosts: media_servers
   become: true
