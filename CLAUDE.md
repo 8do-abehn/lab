@@ -37,6 +37,23 @@
 - `priority:medium` - fix soon, not blocking
 - `priority:low` - nice to have, backlog
 
+## Worktrees
+- **`~/8do/lab` stays on `main`. Always.** No session switches the branch there. It is
+  the stable checkout: the one you can reason about, and the one deploys run from.
+- Any session needing a branch creates its own worktree:
+  `git worktree add .claude/worktrees/<name> -b <branch> origin/main`
+- `.claude/` is gitignored, so worktrees nested there never get committed.
+- **Lock it**: `git worktree lock .claude/worktrees/<name>`, so a `prune` elsewhere
+  cannot remove a worktree that is still in use.
+- **Remove it properly**: `git worktree remove <path>`, not `rm -rf`. Deleting the
+  directory leaves stale admin data behind that then needs `git worktree prune`.
+- Git refuses to check out the same branch in two worktrees. That is the whole point:
+  two sessions cannot fight over one branch's HEAD, enforced rather than remembered.
+- A worktree on a feature branch cannot deploy. That is intended, see below.
+- Why this exists: on 2026-09-19 two agent sessions shared this checkout. One switched
+  the branch under the other, and a deploy run from a stale branch silently reverted
+  merged work on a production host. Worktrees make that collision impossible.
+
 ## Deploying
 - **Deploy from `main` only.** A deploy applies whatever templates the checked out
   branch holds, so running one from a feature branch silently REVERTS anything merged
