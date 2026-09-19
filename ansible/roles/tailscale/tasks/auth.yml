@@ -28,6 +28,28 @@
     - tailscale_status.rc != 0
     - tailscale_hostname_conflict_check.stdout | default('0') | int > 0
 
+- name: Fail clearly when registration is needed but no auth key is set
+  ansible.builtin.fail:
+    msg: |
+      '{{ inventory_hostname }}' is not authenticated to Tailscale, and no auth key
+      is configured for it.
+
+      Auth keys are consumed only at registration and expire after at most 90 days,
+      so an old one in the vault is dead weight rather than a fallback. Generate a
+      fresh one:
+
+      1. https://login.tailscale.com/admin/settings/keys -> Generate auth key
+      2. Ephemeral OFF, or the device is removed from the tailnet when it goes offline
+      3. Tags ON -> {{ tailscale_tags | default('(this group sets no tag)') }}
+         Tagging also disables node key expiry, so the device will not need
+         re-authenticating every 180 days. The tag must already exist in tagOwners.
+      4. Store it in Bitwarden, add it to vault.yml, and re-run this play
+  when:
+    - tailscale_status.rc != 0
+    # default('', true) also catches an explicit null, which default('') does not:
+    # a bare `tailscale_auth_key:` in YAML is None, and None|trim renders "None".
+    - not (tailscale_auth_key | default('', true) | trim)
+
 - name: Authenticate Tailscale
   ansible.builtin.command: >
     tailscale up --authkey={{ tailscale_auth_key }}
