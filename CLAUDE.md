@@ -37,6 +37,18 @@
 - `priority:medium` - fix soon, not blocking
 - `priority:low` - nice to have, backlog
 
+## Deploying
+- **Deploy from `main` only.** A deploy applies whatever templates the checked out
+  branch holds, so running one from a feature branch silently REVERTS anything merged
+  after that branch was cut, and still reports `changed=N` like a success.
+- Real example 2026-09-19: a deploy from a branch predating #483/#486 rewrote
+  jellyfin01's backup scripts without the concurrency guard or bandwidth limit. Clean
+  recap, no warning, two features gone.
+- `site.yml` enforces this. Override deliberately with `-e allow_branch_deploy=true`.
+- Check mode is exempt, because CI runs `site.yml --check` from PR branches by design.
+- This matters more than usual here: more than one agent session can be working in this
+  repo at once, from different branches and worktrees.
+
 ## Docker in LXC
 - LXCs must be **privileged** (`--unprivileged 0`) - overlay2 fails in unprivileged. Can't change after creation, must destroy and recreate.
 - Podman does NOT work in unprivileged LXCs - use Docker instead

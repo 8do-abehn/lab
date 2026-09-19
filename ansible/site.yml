@@ -1,4 +1,45 @@
 ---
+# Deploying from a feature branch does not merely skip newer work, it actively
+# reverts anything merged after that branch was cut. On 2026-09-19 a deploy run
+# from a branch predating #483 and #486 rewrote jellyfin01's backup scripts
+# without the concurrency guard or the bandwidth limit, reported changed=3, and
+# looked exactly like a successful run.
+#
+# Check mode is exempt: CI runs site.yml --check from PR branches by design.
+- name: Refuse to deploy from a stale branch
+  hosts: all
+  gather_facts: false
+  run_once: true
+  tags: always
+  tasks:
+    - name: Determine the checked out branch
+      ansible.builtin.command: git rev-parse --abbrev-ref HEAD
+      args:
+        chdir: "{{ playbook_dir }}"
+      delegate_to: localhost
+      become: false
+      register: deploy_branch
+      changed_when: false
+      failed_when: false
+
+    - name: Fail when deploying from anything other than main
+      ansible.builtin.fail:
+        msg: |
+          Refusing to deploy from branch '{{ deploy_branch.stdout | default("unknown") }}'.
+
+          A deploy applies whatever templates the checked out branch holds. If the
+          branch was cut before something merged, this run will silently REVERT it
+          on the target hosts and still report success.
+
+          Either:
+            git checkout main && git pull
+          or, if you genuinely mean to deploy this branch:
+            -e allow_branch_deploy=true
+      when:
+        - not ansible_check_mode
+        - deploy_branch.stdout | default('') not in ['main', 'HEAD']
+        - not (allow_branch_deploy | default(false) | bool)
+
 # Main site playbook - applies roles to all infrastructure
 - name: Configure base Proxmox settings
   hosts: proxmox
