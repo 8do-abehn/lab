@@ -9,15 +9,22 @@ all:
       children:
         proxmox_pve0x:
 
-    # NUT / UPS groups — empty since the legacy cluster was retired 2026-09-05.
-    # The APC SMART-UPS 2200 has not been re-cabled to the new cluster yet; doing so
-    # needs a USB-to-serial adapter plus an APC 940-0024C cable (pve01-03 have no UART).
-    # Populate nut_server with the host the UPS plugs into, nut_netclients with the rest.
-    nut_server:
-      hosts: {}
+    # NUT / UPS monitoring. Re-cabled to the new cluster 2026-09-08.
+    # The APC SMART-UPS 2200 plugs into pve01 through an FTDI USB-to-serial adapter
+    # and an APC 940-0024C smart-signalling cable (pve01-03 have no onboard UART).
+    # Shared settings live in inventory/group_vars/nut.yml.
+    nut:
+      children:
+        # Host the UPS is physically cabled to (runs the driver and upsd)
+        nut_server:
+          hosts:
+            pve01:
 
-    nut_netclients:
-      hosts: {}
+        # Everything else monitors upsd on pve01 over the network
+        nut_netclients:
+          hosts:
+            pve02:
+            pve03:
 
     # Proxmox New Cluster (3-node, Proxmox 9, Ceph)
     # Management VLAN 60: 10.150.60.0/24

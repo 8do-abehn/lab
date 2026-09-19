@@ -1,0 +1,10 @@
+---
+# Configure NUT only. Same play as the NUT section of site.yml, split out so the
+# UPS can be reconfigured without running every other role against pve01-03.
+- name: Configure NUT UPS (server/client by group membership)
+  hosts: nut
+  become: true
+  vars_files:
+    - vault.yml
+  roles:
+    - nut

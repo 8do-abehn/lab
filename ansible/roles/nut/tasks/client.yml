@@ -48,10 +48,12 @@
     name: nut-server
     state: stopped
     enabled: false
+  when: nut_units_present
 
 - name: Disable nut-driver on clients (in case node was previously a server)
   ansible.builtin.systemd:
     name: "nut-driver@{{ ups_name }}"
     state: stopped
     enabled: false
+  when: nut_units_present
   failed_when: false # Don't fail if service doesn't exist

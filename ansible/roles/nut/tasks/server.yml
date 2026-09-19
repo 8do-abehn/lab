@@ -62,14 +62,62 @@
   notify: Restart NUT services
   no_log: true
 
+# Must happen before the driver starts, otherwise it cannot open the serial port.
 - name: Add nut user to dialout group
   ansible.builtin.user:
     name: nut
     groups: dialout
     append: true
 
+# client.yml disables this unit, so a host promoted from client to server needs it
+# explicitly re-enabled. Without the driver, upsd runs but only serves stale data.
+- name: Ensure the UPS driver is started and enabled
+  ansible.builtin.systemd:
+    name: "nut-driver@{{ ups_name }}"
+    state: started
+    enabled: true
+  when: nut_units_present
+
 - name: Ensure nut-server is started and enabled
   ansible.builtin.systemd:
     name: nut-server
     state: started
     enabled: true
+  when: nut_units_present
+
+- name: Ensure nut-monitor is started and enabled
+  ansible.builtin.systemd:
+    name: nut-monitor
+    state: started
+    enabled: true
+  when: nut_units_present
+
+# Any config change above must land before upsd is queried below.
+- name: Apply pending NUT restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Read the current low-battery threshold
+  ansible.builtin.command: upsc {{ ups_name }}@localhost battery.runtime.low
+  register: ups_runtime_low
+  changed_when: false
+  failed_when: false
+  # upsd takes a moment to answer after a restart.
+  retries: 5
+  delay: 3
+  until: ups_runtime_low.rc | default(1) == 0
+
+# Raises the LB signal from the shipped 2 min to 5 min so upsmon has time to shut
+# pve01 down and propagate FSD to the netclients. Written to UPS NVRAM, so it
+# survives reboots and only needs setting once.
+# Note: upsrw takes the password as an argument, so it is briefly visible in the
+# process list on this host. no_log keeps it out of Ansible output.
+- name: Raise the low-battery threshold on the UPS
+  ansible.builtin.command: >-
+    upsrw -s battery.runtime.low={{ ups_lowbatt_runtime }}
+    -u {{ ups_admin_user }} -p {{ ups_admin_pass }}
+    {{ ups_name }}@localhost
+  when:
+    - ups_runtime_low.rc | default(1) == 0
+    - (ups_runtime_low.stdout | default("") | trim | int) != (ups_lowbatt_runtime | int)
+  changed_when: true
+  no_log: true
