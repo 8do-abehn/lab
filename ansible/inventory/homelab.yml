@@ -58,6 +58,16 @@ all:
         jellyfin01:  # LXC 3001 on pve01, CephFS media at /mnt/library
           ansible_user: root
 
+    # Immich Photos (VLAN 70, new cluster LXC)
+    immich_servers:
+      hosts:
+        immich01:  # LXC 3013 on pve03, 8GB RAM -- Immich photo library
+          ansible_user: root
+          # No ansible_host: registered on the tailnet 2026-09-19 as tag:immich,
+          # so MagicDNS resolves it like every other host. A raw IP here would
+          # bypass Tailscale SSH, which is how CI authenticates, and CI has no
+          # key on any host.
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     minecraft_servers:
@@ -107,6 +117,17 @@ all:
             - "transcodes/"
             - "log/"
             - "*.log*"
+
+        # immich01 is deliberately NOT a backup client yet. See #478: pi-burg's
+        # wlan0 negotiates 5.5 Mbit/s (eth0 is unplugged), so Immich's ~600 GB
+        # first backup would take about six days. With no concurrency guard
+        # (#479) the nightly cron would relaunch and stack, and because every
+        # client shares one restic repo it would contend for locks with
+        # jellyfin01's working backup. Add immich01 here once eth0 is connected.
+        #
+        # Until then the photos still exist in Google Photos, so nothing is
+        # unprotected -- but do not delete them from Google before immich01 has
+        # a verified snapshot.
 
     # Backup Servers
     backup_servers:
