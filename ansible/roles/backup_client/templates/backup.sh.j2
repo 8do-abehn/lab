@@ -15,6 +15,15 @@ RESTIC_PASSWORD_FILE="{{ backup_password_file }}"
 export RESTIC_REPOSITORY
 export RESTIC_PASSWORD_FILE
 
+{% if backup_bandwidth_limit | default('') %}
+# Throttle transfer so a long run does not saturate the link at the far end.
+# pi-burg sits on a domestic connection offsite, and an unthrottled seed would
+# take most of that household's bandwidth for the better part of a day (#478).
+RESTIC_LIMITS=(--limit-upload {{ backup_bandwidth_limit }} --limit-download {{ backup_bandwidth_limit }})
+{% else %}
+RESTIC_LIMITS=()
+{% endif %}
+
 {% if backup_notify_enabled | default(false) %}
 # Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
 # is world-readable, so the credential must not live here.
@@ -98,7 +107,7 @@ fi
 # Run backup
 log_message "Backing up: {{ backup_paths | join(', ') }}"
 BACKUP_STDERR=$(mktemp)
-BACKUP_OUTPUT=$(restic backup \
+BACKUP_OUTPUT=$(restic backup "${RESTIC_LIMITS[@]}" \
 {% for path in backup_paths %}
     "{{ path }}" \
 {% endfor %}
@@ -137,7 +146,7 @@ rm -f "$BACKUP_STDERR"
 # lock, so it is opt-in here and normally left to the weekly job on the designated
 # prune host instead of running on every client every night.
 log_message "Applying retention policy"
-if restic forget \
+if restic forget "${RESTIC_LIMITS[@]}" \
     --keep-daily {{ backup_keep_daily }} \
     --keep-weekly {{ backup_keep_weekly }} \
     --keep-monthly {{ backup_keep_monthly }} \

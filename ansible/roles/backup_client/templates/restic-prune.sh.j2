@@ -18,6 +18,15 @@ RESTIC_PASSWORD_FILE="{{ backup_password_file }}"
 export RESTIC_REPOSITORY
 export RESTIC_PASSWORD_FILE
 
+{% if backup_bandwidth_limit | default('') %}
+# Throttle transfer so a long run does not saturate the link at the far end.
+# pi-burg sits on a domestic connection offsite, and an unthrottled seed would
+# take most of that household's bandwidth for the better part of a day (#478).
+RESTIC_LIMITS=(--limit-upload {{ backup_bandwidth_limit }} --limit-download {{ backup_bandwidth_limit }})
+{% else %}
+RESTIC_LIMITS=()
+{% endif %}
+
 {% if backup_notify_enabled | default(false) %}
 # Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
 # is world-readable, so the credential must not live here.
@@ -69,7 +78,7 @@ if [ -n "$LOCK_OUTPUT" ]; then
     fi
 fi
 
-PRUNE_OUTPUT=$(restic prune 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
+PRUNE_OUTPUT=$(restic prune "${RESTIC_LIMITS[@]}" 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
 echo "$PRUNE_OUTPUT" >> "$LOGFILE"
 
 PRUNE_END=$(date +%s)
