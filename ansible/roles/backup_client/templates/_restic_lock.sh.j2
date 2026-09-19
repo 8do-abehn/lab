@@ -1,0 +1,18 @@
+{# Shared mutex for every restic job touching this repo. Included by
+   backup.sh.j2, restic-check.sh.j2 and restic-prune.sh.j2. Expects
+   log_message() to already be defined, and notify() when notifications
+   are enabled. #}
+# Serialize every restic job against this repo (#479). Cron fires on a fixed
+# schedule no matter how long the last run took: a 14h backup, or a multi-day
+# initial seed, would otherwise have tonight's run stack on top of it. One
+# shared lock rather than one per script, because forget and prune take
+# exclusive repo locks, so overlapping jobs fail late and messily partway
+# through instead of early and cleanly.
+exec 9>"{{ backup_lock_file }}"
+if ! flock -n 9; then
+    log_message "SKIPPED: another restic job still holds {{ backup_lock_file }}"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic job SKIPPED on $(hostname)" "$(basename "$0") exited at $(date) without running: another restic job still holds {{ backup_lock_file }}. One skip means the previous run overran its window. Repeated skips mean the schedule is no longer keeping up."
+{% endif %}
+    exit 0
+fi

@@ -38,6 +38,8 @@ log_message() {
 # rather than dying silently.
 trap 'log_message "Prune interrupted - repo may hold a lock until it is cleared"; exit 130' INT TERM
 
+{% include '_restic_lock.sh.j2' %}
+
 log_message "Starting restic prune"
 PRUNE_START=$(date +%s)
 

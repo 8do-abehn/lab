@@ -35,6 +35,8 @@ log_message() {
 # Trap Ctrl+C or TERM and log
 trap 'log_message "Backup interrupted"; exit 130' INT TERM
 
+{% include '_restic_lock.sh.j2' %}
+
 log_message "Starting restic backup"
 {% if backup_notify_enabled | default(false) %}
 BACKUP_START=$(date +%s)
