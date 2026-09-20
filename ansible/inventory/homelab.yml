@@ -149,6 +149,19 @@ all:
           backup_paths:
             - /opt/immich/upload
 
+            # Immich's config lives OUTSIDE UPLOAD_LOCATION and holds
+            # DB_PASSWORD. The nightly dump in upload/backups is a pg_dump of
+            # the database, which does not carry the role that owns it, so
+            # without this file a restore yields 497 GB of photos and a
+            # database nothing can connect to.
+            - /opt/immich/.env
+
+            # How Immich is wired on this host (user, working dir, start
+            # script). A few KB, and it saves reconstructing the unit files
+            # from memory during a rebuild.
+            - /etc/systemd/system/immich-ml.service
+            - /etc/systemd/system/immich-web.service
+
           # /opt/immich/upload is a Ceph RBD mount. If it fails to mount the
           # directory is still there but empty, which is the silent-success
           # failure #457 describes. Abort instead.
@@ -173,6 +186,28 @@ all:
         #
         # Do not delete anything from Google Photos until immich01 has a
         # verified snapshot. As of this commit it has none.
+
+        # AdGuard Home configuration and custom filter state are small and
+        # restoreable from the application directory. Query logs and stats are
+        # intentionally excluded: they are high-churn operational data, not
+        # part of the DNS service's recovery state.
+        dns01:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_paths:
+            - /opt/AdGuardHome
+          backup_excludes:
+            - "data/querylog.json"
+            - "data/querylog.json.*"
+            - "data/stats.db"
+
+        dns02:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_paths:
+            - /opt/AdGuardHome
+          backup_excludes:
+            - "data/querylog.json"
+            - "data/querylog.json.*"
+            - "data/stats.db"
 
     # Backup Servers
     backup_servers:
