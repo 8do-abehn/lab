@@ -63,3 +63,8 @@ yarn-error.log*
 
 # Build artifacts
 *.tar.gz
+
+# octoDNS / DNS-as-code
+cloudflare-token
+*cloudflare-token*
+dns/zones/*.local.yaml
