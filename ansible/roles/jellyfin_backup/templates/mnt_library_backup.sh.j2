@@ -9,7 +9,7 @@ DEST="b2:mnt-library-backup"
 JELLYFIN_CONFIG_DATA="/var/lib/jellyfin"
 JELLYFIN_CONFIG_ETC="/etc/jellyfin"
 JELLYFIN_DEST="b2:behner-jellyfin-config"
-MAX_DURATION="4h"
+MAX_DURATION="{{ jellyfin_backup_max_duration }}"
 
 # Function to log messages with timestamp
 log_message() {
@@ -29,10 +29,10 @@ if [ -d "$JELLYFIN_CONFIG_DATA" ]; then
     log_message "Backing up $JELLYFIN_CONFIG_DATA"
     rclone sync "$JELLYFIN_CONFIG_DATA" "$JELLYFIN_DEST/var-lib-jellyfin" \
         --log-format json \
-        --bwlimit 1M \
+        --bwlimit {{ jellyfin_backup_config_bwlimit }} \
         --log-file="$LOGFILE" \
         --log-level INFO \
-        --transfers 1 \
+        --transfers {{ jellyfin_backup_config_transfers }} \
         --retries 5 \
         --exclude "cache/" \
         --exclude "transcodes/" \
@@ -55,10 +55,10 @@ if [ -d "$JELLYFIN_CONFIG_ETC" ]; then
     log_message "Backing up $JELLYFIN_CONFIG_ETC"
     rclone sync "$JELLYFIN_CONFIG_ETC" "$JELLYFIN_DEST/etc-jellyfin" \
         --log-format json \
-        --bwlimit 1M \
+        --bwlimit {{ jellyfin_backup_config_bwlimit }} \
         --log-file="$LOGFILE" \
         --log-level INFO \
-        --transfers 1 \
+        --transfers {{ jellyfin_backup_config_transfers }} \
         --retries 5 \
         --low-level-retries 10
 
@@ -76,12 +76,12 @@ fi
 log_message "Starting main library backup"
 (
   timeout "$MAX_DURATION" rclone sync "$SOURCE" "$DEST" \
-    --track-renames \
+{% if jellyfin_backup_track_renames %}    --track-renames \
     --track-renames-strategy hash \
-    --bwlimit 1M \
+{% endif %}    --bwlimit {{ jellyfin_backup_bwlimit }} \
     --log-file="$LOGFILE" \
     --log-level INFO \
-    --transfers 1 \
+    --transfers {{ jellyfin_backup_transfers }} \
     --retries 10 \
     --exclude tmp/ \
     --exclude vhs/ \
@@ -89,12 +89,16 @@ log_message "Starting main library backup"
     --log-format json \
     --low-level-retries 20
 ) &
-wait $!
-EXIT_CODE=$?
+# `wait` returning non-zero would trip `set -e` and kill the script right
+# here, before EXIT_CODE is captured. That is why no timeout or failure has
+# ever been logged: the reporting block below was unreachable on every path
+# except success. See #405.
+EXIT_CODE=0
+wait $! || EXIT_CODE=$?
 
 # Log timeout or success/failure
 if [ $EXIT_CODE -eq 124 ]; then
-    log_message "Main backup aborted after reaching 4-hour timeout"
+    log_message "Main backup aborted after reaching $MAX_DURATION timeout"
 elif [ $EXIT_CODE -eq 130 ]; then
     log_message "Main backup was interrupted by user (SIGINT/SIGTERM)"
 elif [ $EXIT_CODE -ne 0 ]; then

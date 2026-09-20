@@ -1,0 +1,27 @@
+---
+# rclone throughput settings for the Backblaze B2 backup.
+#
+# These were hardcoded at 1M with a single transfer, tuned for a 20 Mbit/s
+# uplink. The line is now 500 Mbit/s, so 1 MB/s was using roughly 1.6% of
+# available upload. The nightly job could move about 14 GB before hitting its
+# timeout, and /mnt/library is 1.2 TB, so any night with more churn than that
+# could never finish. See #405.
+#
+# A single stream rarely saturates a fast link, so transfers matters as much
+# as bwlimit. 30M leaves substantial headroom on a 500 Mbit/s line.
+jellyfin_backup_bwlimit: 30M
+jellyfin_backup_transfers: 8
+
+# Config directories are small and finish in minutes. Throttled lower
+# deliberately so they cannot crowd out the library sync that follows.
+jellyfin_backup_config_bwlimit: 10M
+jellyfin_backup_config_transfers: 4
+
+# Wall clock ceiling for the library sync. At 30M a full 1.2 TB seed is around
+# 12 hours; incremental runs should finish far inside this.
+jellyfin_backup_max_duration: 6h
+
+# rclone hashes local files to detect renames, which means reading the library
+# through ceph-fuse on every run. Left on because it avoids re-uploading
+# renamed media, but it is a suspected time sink and is now cheap to disable.
+jellyfin_backup_track_renames: true
