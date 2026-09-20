@@ -25,10 +25,18 @@ jellyfin_backup_config_transfers: 4
 # 12 hours; incremental runs should finish far inside this.
 jellyfin_backup_max_duration: 6h
 
-# rclone hashes local files to detect renames, which means reading the library
-# through ceph-fuse on every run. Left on because it avoids re-uploading
-# renamed media, but it is a suspected time sink and is now cheap to disable.
-jellyfin_backup_track_renames: true
+# rclone hashes local files to detect renames, which means reading the entire
+# 1.2 TB library through ceph-fuse before transferring much of anything.
+#
+# OFF for now, deliberately. B2 currently holds 98.4 GiB of a ~1.15 TB library
+# (400 of 9,327 files), partial across every directory rather than stalled at
+# one point. At the old 1 MB/s that is only ~7 productive nights of transfer,
+# yet this job has run far longer, so throttling alone does not explain the
+# shortfall. Hashing consuming the window is the leading explanation. See #405.
+#
+# The cost of disabling is re-uploading anything renamed. That is cheap against
+# never seeding at all. Turn back on once coverage is complete.
+jellyfin_backup_track_renames: false
 
 # Ceiling on deletions per run, as defence in depth behind the mountpoint and
 # non-empty guards in the script. `rclone sync` mirrors deletions, so a source
