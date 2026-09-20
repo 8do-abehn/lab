@@ -9,6 +9,11 @@
     group: root
     mode: "0700"
 
+- name: Check whether backup client public key exists
+  ansible.builtin.stat:
+    path: /root/.ssh/id_backup_client.pub
+  register: backup_client_pubkey_file
+
 - name: Generate SSH key for backup client
   community.crypto.openssh_keypair:
     path: /root/.ssh/id_backup_client
@@ -23,10 +28,13 @@
   ansible.builtin.slurp:
     src: /root/.ssh/id_backup_client.pub
   register: backup_client_pubkey_slurp
+  when:
+    - not ansible_check_mode or backup_client_pubkey_file.stat.exists
 
 - name: Register backup client pubkey as fact
   ansible.builtin.set_fact:
     backup_client_pubkey: "{{ backup_client_pubkey_slurp.content | b64decode | trim }}"
+  when: backup_client_pubkey_slurp is not skipped
 
 - name: Configure SSH to use backup client key for backup server
   ansible.builtin.blockinfile:
