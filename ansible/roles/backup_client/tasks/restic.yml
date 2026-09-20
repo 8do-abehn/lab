@@ -118,6 +118,7 @@
     owner: root
     group: root
     mode: "0755"
+  when: backup_check_enabled | bool
 
 - name: Setup weekly restic check cron
   ansible.builtin.cron:
@@ -127,7 +128,7 @@
     weekday: "{{ backup_check_cron_weekday }}"
     job: "{{ backup_check_script_path }}"
     user: root
-    state: present
+    state: "{{ 'present' if backup_check_enabled | bool else 'absent' }}"
 
 - name: Deploy restic prune script
   ansible.builtin.template:

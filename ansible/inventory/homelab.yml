@@ -114,6 +114,9 @@ all:
           # Designated prune host. Prune reclaims space for the whole shared repo,
           # so exactly one client should run it -- see backup_client defaults.
           backup_prune_enabled: true
+          # Designated checker too: `restic check` covers the whole shared repo,
+          # so it runs from one client rather than every client.
+          backup_check_enabled: true
           backup_paths:
             - /mnt/library
             - /var/lib/jellyfin
@@ -142,6 +145,25 @@ all:
         # Until then the photos still exist in Google Photos, so nothing is
         # unprotected -- but do not delete them from Google before immich01 has
         # a verified snapshot.
+
+        # AdGuardHome.yaml only, deliberately. /opt/AdGuardHome/data is 879MB of
+        # query logs and statistics, which are disposable and would churn the repo
+        # daily for no recovery value. The config is 6.7KB and holds user_rules,
+        # clients and filters, the parts the adguard_home role does not fully
+        # reproduce. Schedules are staggered away from jellyfin01's 02:00 so three
+        # clients are not contending for the same repo at once.
+        dns01:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_paths:
+            - /opt/AdGuardHome/AdGuardHome.yaml
+          backup_cron_hour: "3"
+          backup_cron_minute: "15"
+        dns02:
+          backup_server_host: 100.83.251.53
+          backup_paths:
+            - /opt/AdGuardHome/AdGuardHome.yaml
+          backup_cron_hour: "3"
+          backup_cron_minute: "45"
 
     # Backup Servers
     backup_servers:
