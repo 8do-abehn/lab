@@ -19,14 +19,22 @@
     mode: "0600"
   register: backup_client_key
 
+# In check mode the keypair above is not actually written, so on a host being
+# onboarded for the first time this file does not exist yet and a hard slurp
+# fails the whole run. Existing clients are unaffected because their key is
+# already on disk, which is why this only shows up when adding a new client.
 - name: Read backup client public key
   ansible.builtin.slurp:
     src: /root/.ssh/id_backup_client.pub
   register: backup_client_pubkey_slurp
+  failed_when:
+    - backup_client_pubkey_slurp.content is not defined
+    - not ansible_check_mode
 
 - name: Register backup client pubkey as fact
   ansible.builtin.set_fact:
     backup_client_pubkey: "{{ backup_client_pubkey_slurp.content | b64decode | trim }}"
+  when: backup_client_pubkey_slurp.content is defined
 
 - name: Configure SSH to use backup client key for backup server
   ansible.builtin.blockinfile:

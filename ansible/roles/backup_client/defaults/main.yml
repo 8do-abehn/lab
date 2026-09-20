@@ -77,6 +77,11 @@ backup_lock_file: /run/restic-backup.lock
 # Script and log locations
 backup_script_path: /usr/local/bin/backup-library.sh
 backup_check_script_path: /usr/local/bin/restic-check.sh
+
+# `restic check` verifies the WHOLE shared repo, not just this host's snapshots, so
+# running it from every client is redundant work and simultaneous repo access for no
+# extra assurance. Enable it on one designated client, same as backup_prune_enabled.
+backup_check_enabled: false
 backup_log_path: /var/log/restic-backup.log
 
 # Restic password file (kept out of the backup scripts themselves)
