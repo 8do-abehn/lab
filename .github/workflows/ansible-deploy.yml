@@ -11,6 +11,7 @@ on:
         type: choice
         options:
           - site.yml
+          - backup-setup.yml
           - netdata_install.yml
           - verify_nut.yml
       limit:
