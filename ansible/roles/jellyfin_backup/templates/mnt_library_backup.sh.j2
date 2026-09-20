@@ -72,6 +72,25 @@ else
     log_message "Warning: Jellyfin system config directory $JELLYFIN_CONFIG_ETC not found, skipping"
 fi
 
+# Refuse to sync an absent or empty source.
+#
+# `rclone sync` makes the destination match the source, so if ceph-fuse has
+# failed, /mnt/library is an empty directory and this would DELETE THE ENTIRE
+# B2 BUCKET to match it. ceph-fuse has failed twice recently: a boot race on
+# 2026-09-06 (2 days down) and an OOM kill on 2026-09-10 (27 hours). The restic
+# script has guarded against this since jellyfin01 lost 3 days of snapshots the
+# same way; this one never did. See #405.
+if ! mountpoint -q "$SOURCE"; then
+    log_message "ERROR: $SOURCE is not a mountpoint - aborting before rclone runs"
+    exit 1
+fi
+
+# Mounted but empty means the filesystem is there and the data is not.
+if [ -z "$(ls -A "$SOURCE" 2>/dev/null)" ]; then
+    log_message "ERROR: $SOURCE is mounted but empty - aborting before rclone runs"
+    exit 1
+fi
+
 # Run main library backup with timeout and logging
 log_message "Starting main library backup"
 (
@@ -83,6 +102,7 @@ log_message "Starting main library backup"
     --log-level INFO \
     --transfers {{ jellyfin_backup_transfers }} \
     --retries 10 \
+    --max-delete {{ jellyfin_backup_max_delete }} \
     --exclude tmp/ \
     --exclude vhs/ \
     --exclude "lost+found/" \

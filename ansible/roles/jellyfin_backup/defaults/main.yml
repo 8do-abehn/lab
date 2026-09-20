@@ -10,7 +10,11 @@
 # A single stream rarely saturates a fast link, so transfers matters as much
 # as bwlimit. 30M leaves substantial headroom on a 500 Mbit/s line.
 jellyfin_backup_bwlimit: 30M
-jellyfin_backup_transfers: 8
+# Starting at 4 rather than 8 deliberately. Each transfer is a concurrent
+# reader through ceph-fuse, which #484 has just capped at MemoryHigh=1500M
+# precisely because ceph-fuse was OOM-killed. Raise once that interaction
+# has been observed rather than assumed.
+jellyfin_backup_transfers: 4
 
 # Config directories are small and finish in minutes. Throttled lower
 # deliberately so they cannot crowd out the library sync that follows.
@@ -25,3 +29,9 @@ jellyfin_backup_max_duration: 6h
 # through ceph-fuse on every run. Left on because it avoids re-uploading
 # renamed media, but it is a suspected time sink and is now cheap to disable.
 jellyfin_backup_track_renames: true
+
+# Ceiling on deletions per run, as defence in depth behind the mountpoint and
+# non-empty guards in the script. `rclone sync` mirrors deletions, so a source
+# that vanishes would otherwise empty the bucket. If a legitimate bulk delete
+# ever exceeds this the run fails loudly, which is the preferred direction.
+jellyfin_backup_max_delete: 500
