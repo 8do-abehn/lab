@@ -132,16 +132,47 @@ all:
             - "log/"
             - "*.log*"
 
-        # immich01 is deliberately NOT a backup client yet. See #478: pi-burg's
-        # wlan0 negotiates 5.5 Mbit/s (eth0 is unplugged), so Immich's ~600 GB
-        # first backup would take about six days. With no concurrency guard
-        # (#479) the nightly cron would relaunch and stack, and because every
-        # client shares one restic repo it would contend for locks with
-        # jellyfin01's working backup. Add immich01 here once eth0 is connected.
+        # Added once pi-burg moved to eth0 (#478). The concurrency concern from
+        # #479 is resolved: #483 serializes every restic job against this shared
+        # repo behind a common flock, so immich01 and jellyfin01 queue rather
+        # than contend.
+        immich01:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+
+          # Immich dumps its own Postgres database to upload/backups nightly at
+          # 02:30 (3 retained, ~18 MB each), so no pre-backup hook is needed.
+          # But run AFTER that, or each snapshot carries the previous night's
+          # dump and the metadata trails the photos by a day. Photos without
+          # albums, faces and metadata are not a restore.
+          backup_cron_hour: "3"
+
+          backup_paths:
+            - /opt/immich/upload
+
+          # /opt/immich/upload is a Ceph RBD mount. If it fails to mount the
+          # directory is still there but empty, which is the silent-success
+          # failure #457 describes. Abort instead.
+          backup_required_mounts:
+            - /opt/immich/upload
+
+          backup_excludes:
+            - "*.tmp"
+            - "lost+found"
+            - "thumbs/"          # 1.2 GB, regenerated from originals
+            - "encoded-video/"   # 521 MB, regenerated from originals
+
+          # pi-burg is offsite on a domestic link someone else has to live with.
+          # Clear this temporarily for the initial seed while the Pi is on the
+          # local network, or ~217 GB at 40 Mbit/s takes about twelve hours.
+          backup_bandwidth_limit: 5120
+
+        # /staging (608 GB) is deliberately NOT backed up. It is the raw Google
+        # Photos export being imported into Immich, so once imported it is
+        # duplicated under /opt/immich/upload. Backing up both would roughly
+        # double the repo for no additional recoverability.
         #
-        # Until then the photos still exist in Google Photos, so nothing is
-        # unprotected -- but do not delete them from Google before immich01 has
-        # a verified snapshot.
+        # Do not delete anything from Google Photos until immich01 has a
+        # verified snapshot. As of this commit it has none.
 
     # Backup Servers
     backup_servers:
