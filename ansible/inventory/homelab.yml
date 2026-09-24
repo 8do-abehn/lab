@@ -191,8 +191,19 @@ all:
         # restoreable from the application directory. Query logs and stats are
         # intentionally excluded: they are high-churn operational data, not
         # part of the DNS service's recovery state.
+        # dns01 and dns02 share this same repo (backup_server_repo_path
+        # defaults identically for every client) and both defaulted to the
+        # same 02:00 cron slot as jellyfin01. restic forget takes an
+        # exclusive repo lock even without --prune, so whichever of the two
+        # loses the race fails with "repository is already locked" every
+        # time their runs overlap (first caught 2026-09-24). Staggered by
+        # minute rather than hour, unlike immich01's #483 stagger against
+        # jellyfin01: each run here is a handful of seconds (25 small config
+        # files), not immich01's photo library, so there is no dump-timing
+        # dependency to protect, just the lock collision itself.
         dns01:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_cron_minute: "5"
           backup_paths:
             - /opt/AdGuardHome
           backup_excludes:
@@ -202,6 +213,7 @@ all:
 
         dns02:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
+          backup_cron_minute: "10"
           backup_paths:
             - /opt/AdGuardHome
           backup_excludes:
