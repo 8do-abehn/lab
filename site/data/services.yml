@@ -4,9 +4,6 @@ nodes:
     netdata_url: "http://pve01:19999"
     tailscale: true
     containers:
-      - vmid: 100
-        name: metube
-        status: running
       - vmid: 3001
         name: jellyfin01
         status: running
