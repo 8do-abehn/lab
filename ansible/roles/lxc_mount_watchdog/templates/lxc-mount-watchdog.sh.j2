@@ -1,0 +1,42 @@
+#!/bin/bash
+# Host-level LXC mount watchdog - managed by Ansible. See #516.
+#
+# Catches the failure mode the in-container cephfs_client watchdog (#456)
+# structurally cannot: a D-state (uninterruptible) hang deep inside a FUSE
+# mount ignores SIGKILL, so a probe running INSIDE the container blocks
+# forever and never reaches its own recovery or notification code. Here the
+# probe runs via `pct exec` from the host, wrapped in an outer `timeout` that
+# can still kill the `pct exec` wrapper itself even when the process it
+# attached to is unkillable - that wrapper is just doing an ordinary wait(),
+# not an uninterruptible sleep.
+#
+# Deliberately does not attempt any recovery. `pct stop` is the only thing
+# that has actually cleared this (#516), and it kills the whole container,
+# not just the mount - not something to trigger unattended on a false
+# positive.
+set -uo pipefail
+
+export PATH="/usr/local/bin:$PATH"
+
+LOGFILE="{{ lxc_watchdog_log }}"
+INNER_TIMEOUT={{ lxc_watchdog_inner_timeout }}
+OUTER_TIMEOUT={{ lxc_watchdog_outer_timeout }}
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"; }
+
+notify() {
+    [ -r /etc/apprise.yml ] || return 0
+    command -v apprise >/dev/null 2>&1 || return 0
+    apprise -t "$1" --body "$2" --config /etc/apprise.yml >/dev/null 2>&1 || true
+}
+
+{% for target in lxc_watchdog_targets %}
+if ! timeout --signal=KILL "$OUTER_TIMEOUT" pct exec {{ target.ctid }} -- timeout "$INNER_TIMEOUT" ls -A {{ target.mount_path }} >/dev/null 2>&1; then
+    log "UNHEALTHY: {{ target.name }} (ct:{{ target.ctid }}) {{ target.mount_path }} did not respond within ${OUTER_TIMEOUT}s"
+    notify "LXC mount watchdog: {{ target.name }} unresponsive" "$(hostname): ct:{{ target.ctid }} ({{ target.name }}) did not answer a read probe on {{ target.mount_path }} within ${OUTER_TIMEOUT}s at $(date).
+
+This check does not auto-recover. Give the in-container watchdog (#456) a few minutes to fix it on its own first. If it hasn't, check process state inside the container:
+  pct exec {{ target.ctid }} -- ps -eo pid,stat,cmd | grep ceph-fuse
+State D means only 'pct stop {{ target.ctid }}' from this host will clear it (#516) - that stops the whole container. State S, try the umount -l + kill -9 fix from #517 first."
+fi
+{% endfor %}

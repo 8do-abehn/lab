@@ -1,0 +1,46 @@
+---
+# Host-level watchdog for CephFS-in-LXC mounts that hang in D-state (#516).
+#
+# The in-container cephfs_client watchdog (#456) probes with `timeout N ls`,
+# which only works because timeout can SIGKILL a normally-blocked process. A
+# D-state hang (uninterruptible sleep, stuck deep in a fuse getattr) ignores
+# every signal including SIGKILL until its blocking syscall returns, which for
+# #516 never happened on its own. That leaves the in-container watchdog stuck
+# forever inside its own health check too: it never reaches its recovery
+# code, never logs, never notifies. The only thing that actually cleared #516
+# was `pct stop` run from the Proxmox host, outside the container.
+#
+# This role runs there instead. It wraps the same kind of read probe in an
+# OUTER timeout via `pct exec`, so even if the probe inside the container
+# wedges, the outer timeout can still kill the `pct exec` wrapper on the host
+# side (an ordinary wait() syscall, not uninterruptible) and the check
+# returns within a bounded time either way.
+#
+# Deliberately alert-only, not auto-recovering: `pct stop` forcibly kills the
+# whole container, not just the mount, and a false positive (the container
+# legitimately busy under real I/O) would mean an unattended full restart of
+# a service people are using. A human decides when to pull that trigger.
+lxc_watchdog_enabled: true
+
+# One entry per container+mount to probe. Empty by default; set per-host in
+# host_vars where the watched containers actually run.
+lxc_watchdog_targets: []
+# Example (see host_vars/pve01.yml):
+# lxc_watchdog_targets:
+#   - ctid: 3001
+#     name: jellyfin01
+#     mount_path: /mnt/library
+
+# Same cadence as the in-container watchdog (#456), since this exists purely
+# to catch what that one structurally cannot.
+lxc_watchdog_interval: 5min
+
+# Inner probe timeout, run inside the container via pct exec.
+lxc_watchdog_inner_timeout: 10
+
+# Outer timeout on the host. Must clear inner_timeout plus pct exec's own
+# attach overhead, or a healthy container could report a false unhealthy.
+lxc_watchdog_outer_timeout: 20
+
+lxc_watchdog_log: /var/log/lxc-mount-watchdog.log
+lxc_watchdog_script: /usr/local/bin/lxc-mount-watchdog.sh
