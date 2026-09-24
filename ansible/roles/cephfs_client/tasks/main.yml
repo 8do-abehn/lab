@@ -1,4 +1,84 @@
 ---
+# Ceph upstream repo + version upgrade (#515). Prerequisite for rotating
+# client.lxc-media off the aes cipher: the pending/commit rotation flow makes
+# both keys valid until commit, but a client too old to speak aes256k would
+# simply fail auth the moment the old key retires. This only gets the client
+# onto a compatible ceph-fuse; it does not touch the mount or the key, so it
+# is safe to run any time, independent of the actual rotation.
+- name: Create the apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  when: cephfs_client_upstream_repo_enabled | bool
+
+- name: Download the Ceph release GPG key
+  ansible.builtin.get_url:
+    url: "{{ cephfs_client_upstream_repo_key_url }}"
+    dest: /etc/apt/keyrings/ceph.asc
+    mode: "0644"
+  when: cephfs_client_upstream_repo_enabled | bool
+
+# distribution_release is used as-is (e.g. "noble") because the Tentacle repo
+# only publishes bookworm/jammy/noble today. Unlike the docker role, there is
+# no trixie fallback here: Ceph has not published trixie packages under any
+# release yet (verified 2026-09-23), so a host on trixie needs handling outside
+# this role until that changes.
+- name: Add the Ceph upstream apt repository
+  ansible.builtin.deb822_repository:
+    name: ceph
+    types: deb
+    uris: "{{ cephfs_client_upstream_repo_url }}"
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: main
+    architectures: "{{ ansible_facts['architecture'] | regex_replace('x86_64', 'amd64') }}"
+    signed_by: /etc/apt/keyrings/ceph.asc
+    state: present
+  register: cephfs_upstream_repo
+  when:
+    - cephfs_client_upstream_repo_enabled | bool
+    - not ansible_check_mode
+
+- name: Update apt cache after adding the Ceph repo
+  ansible.builtin.apt:
+    update_cache: true
+  when:
+    - cephfs_client_upstream_repo_enabled | bool
+    - not ansible_check_mode
+    - cephfs_upstream_repo.changed
+
+# Guarded like the repo task above: in check mode the repo was never actually
+# added, so apt has no candidate for the pinned version and this would fail
+# every check run.
+- name: Upgrade ceph-fuse to a version with aes256k support
+  ansible.builtin.apt:
+    name: "ceph-fuse={{ cephfs_client_min_version }}*"
+    state: present
+  when:
+    - cephfs_client_upstream_repo_enabled | bool
+    - not ansible_check_mode
+
+- name: Check the installed ceph-fuse version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' ceph-fuse
+  register: cephfs_fuse_version
+  changed_when: false
+  check_mode: false
+  when: cephfs_client_upstream_repo_enabled | bool
+
+# Informational only. Confirms the prerequisite for #515 is met; it does not
+# gate anything here, since the actual rotation is a separate, deliberate step
+# against the live cluster.
+- name: Warn if ceph-fuse is still below the aes256k-capable version
+  ansible.builtin.debug:
+    msg: >-
+      ceph-fuse is {{ cephfs_fuse_version.stdout }}, below the
+      {{ cephfs_client_min_version }} needed for aes256k. client.lxc-media
+      cannot be rotated until every consumer reports a version at or above
+      this.
+  when:
+    - cephfs_client_upstream_repo_enabled | bool
+    - cephfs_fuse_version.stdout is version(cephfs_client_min_version, '<')
+
 # ceph.conf is appended to rather than templated. The file already carries
 # mon_host, written when the container was built, and templating it would mean
 # taking ownership of a value we would then have to keep in sync with the
