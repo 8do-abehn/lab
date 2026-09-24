@@ -1,0 +1,86 @@
+---
+# Host-level LXC mount watchdog (#516). See defaults/main.yml for why this
+# exists and runs on the Proxmox host rather than inside the container.
+# No-op on any host with an empty lxc_watchdog_targets (the default), so this
+# role is safe to apply across the whole proxmox group.
+- name: Deploy the LXC mount watchdog script
+  ansible.builtin.template:
+    src: lxc-mount-watchdog.sh.j2
+    dest: "{{ lxc_watchdog_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - lxc_watchdog_enabled | bool
+    - lxc_watchdog_targets | length > 0
+
+- name: Install the LXC mount watchdog service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/lxc-mount-watchdog.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Probe LXC CephFS mounts from the host for hangs the in-container watchdog cannot clear
+      Documentation=https://github.com/8do-abehn/lab/issues/516
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ lxc_watchdog_script }}
+  register: lxc_watchdog_unit
+  when:
+    - lxc_watchdog_enabled | bool
+    - lxc_watchdog_targets | length > 0
+
+- name: Install the LXC mount watchdog timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/lxc-mount-watchdog.timer
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Probe LXC CephFS mounts every {{ lxc_watchdog_interval }}
+      Documentation=https://github.com/8do-abehn/lab/issues/516
+
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec={{ lxc_watchdog_interval }}
+      AccuracySec=30s
+
+      [Install]
+      WantedBy=timers.target
+  register: lxc_watchdog_timer
+  when:
+    - lxc_watchdog_enabled | bool
+    - lxc_watchdog_targets | length > 0
+
+- name: Enable the LXC mount watchdog timer
+  ansible.builtin.systemd:
+    name: lxc-mount-watchdog.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ (lxc_watchdog_unit.changed or lxc_watchdog_timer.changed) | bool }}"
+  when:
+    - lxc_watchdog_enabled | bool
+    - lxc_watchdog_targets | length > 0
+    - not ansible_check_mode
+
+- name: Rotate the LXC mount watchdog log
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/lxc-mount-watchdog
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ lxc_watchdog_log }} {
+          weekly
+          rotate 4
+          compress
+          missingok
+          notifempty
+      }
+  when:
+    - lxc_watchdog_enabled | bool
+    - lxc_watchdog_targets | length > 0

@@ -97,6 +97,19 @@
   roles:
     - smart_monitoring
 
+# Host-level counterpart to the in-container cephfs_client watchdog (#456):
+# catches D-state FUSE hangs (#516) that a probe running inside the container
+# can never detect, because it would hang inside its own health check too.
+# Runs after smart_monitoring so /etc/apprise.yml already exists to notify
+# through. A no-op on any host with no lxc_watchdog_targets set.
+- name: Configure host-level LXC mount watchdog
+  hosts: proxmox
+  become: true
+  tags:
+    - lxc-watchdog
+  roles:
+    - lxc_mount_watchdog
+
 - name: Install Netdata monitoring
   hosts: proxmox:k3s_cluster:dns_servers:media_servers:mem0_servers:minecraft_servers:immich_servers
   become: true

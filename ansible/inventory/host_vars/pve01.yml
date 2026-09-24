@@ -7,3 +7,11 @@ proxmox_gpu_blacklist_drivers:
   - nvidiafb
   - nvidia_drm
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
+
+# Host-level watchdog for CephFS mounts inside LXCs on this node (#516). See
+# roles/lxc_mount_watchdog for why this exists and runs here rather than
+# inside the container.
+lxc_watchdog_targets:
+  - ctid: 3001
+    name: jellyfin01
+    mount_path: /mnt/library
