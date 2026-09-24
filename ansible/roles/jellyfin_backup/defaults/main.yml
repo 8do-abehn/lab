@@ -1,0 +1,45 @@
+---
+# rclone throughput settings for the Backblaze B2 backup.
+#
+# These were hardcoded at 1M with a single transfer, tuned for a 20 Mbit/s
+# uplink. The line is now 500 Mbit/s, so 1 MB/s was using roughly 1.6% of
+# available upload. The nightly job could move about 14 GB before hitting its
+# timeout, and /mnt/library is 1.2 TB, so any night with more churn than that
+# could never finish. See #405.
+#
+# A single stream rarely saturates a fast link, so transfers matters as much
+# as bwlimit. 30M leaves substantial headroom on a 500 Mbit/s line.
+jellyfin_backup_bwlimit: 30M
+# Starting at 4 rather than 8 deliberately. Each transfer is a concurrent
+# reader through ceph-fuse, which #484 has just capped at MemoryHigh=1500M
+# precisely because ceph-fuse was OOM-killed. Raise once that interaction
+# has been observed rather than assumed.
+jellyfin_backup_transfers: 4
+
+# Config directories are small and finish in minutes. Throttled lower
+# deliberately so they cannot crowd out the library sync that follows.
+jellyfin_backup_config_bwlimit: 10M
+jellyfin_backup_config_transfers: 4
+
+# Wall clock ceiling for the library sync. At 30M a full 1.2 TB seed is around
+# 12 hours; incremental runs should finish far inside this.
+jellyfin_backup_max_duration: 6h
+
+# rclone hashes local files to detect renames, which means reading the entire
+# 1.2 TB library through ceph-fuse before transferring much of anything.
+#
+# OFF for now, deliberately. B2 currently holds 98.4 GiB of a ~1.15 TB library
+# (400 of 9,327 files), partial across every directory rather than stalled at
+# one point. At the old 1 MB/s that is only ~7 productive nights of transfer,
+# yet this job has run far longer, so throttling alone does not explain the
+# shortfall. Hashing consuming the window is the leading explanation. See #405.
+#
+# The cost of disabling is re-uploading anything renamed. That is cheap against
+# never seeding at all. Turn back on once coverage is complete.
+jellyfin_backup_track_renames: false
+
+# Ceiling on deletions per run, as defence in depth behind the mountpoint and
+# non-empty guards in the script. `rclone sync` mirrors deletions, so a source
+# that vanishes would otherwise empty the bucket. If a legitimate bulk delete
+# ever exceeds this the run fails loudly, which is the preferred direction.
+jellyfin_backup_max_delete: 500
