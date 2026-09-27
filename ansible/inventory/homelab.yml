@@ -114,6 +114,9 @@ all:
           # Designated prune host. Prune reclaims space for the whole shared repo,
           # so exactly one client should run it -- see backup_client defaults.
           backup_prune_enabled: true
+          # Designated checker as well: `restic check` covers the whole shared
+          # repo, so it runs from one client rather than all four.
+          backup_check_enabled: true
           backup_paths:
             - /mnt/library
             - /var/lib/jellyfin
@@ -204,8 +207,13 @@ all:
         dns01:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
           backup_cron_minute: "5"
+          # Config only. /opt/AdGuardHome is ~946MB on dns01, nearly all of it
+          # data/ query logs and statistics: disposable, rewritten constantly,
+          # and so they churn the repo every night. AdGuardHome.yaml is 6.7KB
+          # and holds user_rules, clients and filters, the parts the
+          # adguard_home role does not fully reproduce.
           backup_paths:
-            - /opt/AdGuardHome
+            - /opt/AdGuardHome/AdGuardHome.yaml
           backup_excludes:
             - "data/querylog.json"
             - "data/querylog.json.*"
@@ -214,8 +222,13 @@ all:
         dns02:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
           backup_cron_minute: "10"
+          # Config only. /opt/AdGuardHome is ~946MB on dns01, nearly all of it
+          # data/ query logs and statistics: disposable, rewritten constantly,
+          # and so they churn the repo every night. AdGuardHome.yaml is 6.7KB
+          # and holds user_rules, clients and filters, the parts the
+          # adguard_home role does not fully reproduce.
           backup_paths:
-            - /opt/AdGuardHome
+            - /opt/AdGuardHome/AdGuardHome.yaml
           backup_excludes:
             - "data/querylog.json"
             - "data/querylog.json.*"
