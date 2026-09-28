@@ -1,9 +1,15 @@
 ---
 proxmox_gpu_passthrough_enabled: true
-proxmox_gpu_vfio_ids: "10de:2208,10de:1aef"
+# RX 570 (1002:67df,1002:aaf0) added 2026-09-27: dedicated to vm-awb-cachyos (704) via
+# VFIO instead of host amdgpu, so cachyos no longer waits behind vm-awb (703) for the
+# shared 3080 Ti. amdgpu added to the blacklist below so the host doesn't grab the card
+# before vfio-pci can claim it. This also means jellyfin (ct:3001) loses /dev/dri on this
+# node -- see the jellyfin-gpu-pin HA rule (live on the cluster, not tracked in this repo).
+proxmox_gpu_vfio_ids: "10de:2208,10de:1aef,1002:67df,1002:aaf0"
 proxmox_gpu_blacklist_drivers:
   - nouveau
   - nvidia
   - nvidiafb
   - nvidia_drm
+  - amdgpu
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
