@@ -48,9 +48,9 @@ The `homelab.yml` inventory includes:
 
 | Host | CPU | RAM | GPU | NIC | NVMe (local) | SSD (Ceph) | HDD (Ceph) | OS Disk |
 |------|-----|-----|-----|-----|-------------|-----------|-----------|---------|
-| pve01 | Ryzen 9 5900X (12C/24T) | 128GB | 2x RX 570 | Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 120GB |
-| pve02 | Ryzen 9 5900X (12C/24T) | 64GB | 1x RTX 3080 Ti | Aquantia 10G + Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 112GB |
-| pve03 | Ryzen 9 5900X (12C/24T) | 128GB | 2x RTX 3080 | Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 120GB |
+| pve01 | Ryzen 9 5900X (12C/24T) | 128GB | 1x RTX 3080 + 1x RX 570 | Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 120GB |
+| pve02 | Ryzen 9 5900X (12C/24T) | 64GB | 1x RTX 3080 Ti + 1x RX 570 | Aquantia 10G + Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 112GB |
+| pve03 | Ryzen 9 5900X (12C/24T) | 128GB | 1x RTX 3080 + 1x RX 570 | Intel I225-V 2.5G | 1.8TB | 3.6TB | 1.8TB | 120GB |
 
 ### NUT / UPS Groups
 
