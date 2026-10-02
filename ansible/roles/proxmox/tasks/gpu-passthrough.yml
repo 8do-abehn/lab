@@ -26,6 +26,21 @@
     - vfio_virqfd
   notify: Update initramfs
 
+# Orphan dropped by an abandoned NVIDIA driver install: it holds "blacklist nouveau",
+# is owned by no dpkg package, and nothing in this role wrote it. While it exists,
+# blacklist-gpu.conf below is not the only thing deciding whether nouveau loads, which
+# is how pve02's 3080 Ti ended up bound to no driver at all (#536 B3): the host got no
+# /dev/dri and ollama01 fell back to software rasterisation.
+#
+# Removed unconditionally so blacklist-gpu.conf is the single source of truth on every
+# node. pve01 and pve03 list nouveau in proxmox_gpu_blacklist_drivers, so they stay
+# blacklisted by the managed file; pve02 omits it on purpose, so nouveau can load.
+- name: Remove unmanaged nouveau blacklist dropped by the NVIDIA driver installer
+  ansible.builtin.file:
+    path: /etc/modprobe.d/nvidia-blacklists-nouveau.conf
+    state: absent
+  notify: Update initramfs
+
 - name: Create GPU driver blacklist
   ansible.builtin.copy:
     content: |
