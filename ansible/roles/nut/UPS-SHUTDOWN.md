@@ -29,7 +29,7 @@ Read directly off the UPS over the 940-0024C cable:
 | Load | 31.2% | roughly 690 VA of 2200 VA |
 | Runtime remaining | 7 min | at the above load, battery at 100% |
 | Battery | 55.05 V (48 V nominal) | float voltage, last replaced 01/24/25 |
-| Low-battery warning | 2 min as shipped, raised to 5 min | the `q` register, this is what triggers LB |
+| Low-battery warning | 2 min as shipped | the `q` register; no longer what triggers LB, see below |
 | Shutdown threshold | 0% | UPS-side threshold is disabled |
 | Internal temp | 34.2 C | |
 
