@@ -33,12 +33,49 @@ Read directly off the UPS over the 940-0024C cable:
 | Shutdown threshold | 0% | UPS-side threshold is disabled |
 | Internal temp | 34.2 C | |
 
-The "low battery" trigger is remaining *runtime*, not a battery percentage. The UPS
-ships at 2 minutes, which is not enough for three Proxmox nodes to stop their guests
-and quiesce Ceph out of a ~7 minute total budget. The role therefore raises it to
-**5 minutes** via `upsrw -s battery.runtime.low=300` (`ups_lowbatt_runtime` in the
-role defaults). The value is stored in UPS NVRAM and survives reboots. The apcsmart
-driver only accepts 120, 300, 420 and 600 seconds.
+The 7 minute figure above is the UPS's own estimator, not a measured discharge, and
+it is not trustworthy. See the next section.
+
+## Who decides "low battery"
+
+Since #536, **NUT decides, not the UPS**. The role writes this into the `[myups]`
+section of `ups.conf` whenever `ups_ignore_lb` is true (the default):
+
+```
+ignorelb
+override.battery.runtime.low = -1
+override.battery.charge.low = {{ ups_charge_low }}
+```
+
+`ignorelb` makes the driver discard the UPS's own LB flag and re-derive LB on every
+poll from `battery.charge < battery.charge.low OR battery.runtime < battery.runtime.low`.
+Setting `battery.runtime.low` to -1 disables the runtime half, leaving charge as the
+only trigger. See `man apcsmart`, section "IGNORING LB STATE".
+
+Why: the pack was swapped to LiFePO4 on 01/24/25, but the UPS is from 2000 and
+models capacity for lead acid, so its runtime estimate is fiction. On 2026-10-02 the
+estimate had decayed to `battery.runtime.low`, the UPS latched LB at 100% charge on
+line power, and the first momentary transfer to battery read as OB+LB and shut pve01
+down with mains present the whole time. Deriving LB in NUT also means LB clears again
+on the next poll instead of latching. Full writeup in #492 and #536.
+
+`ups_charge_low` is **provisional**. battery.charge is derived from pack voltage
+through a lead-acid curve, and LiFePO4's discharge curve is flat, so the reading
+stays high for most of the discharge and then collapses. The real threshold needs
+#487's measured discharge. See the comment on the variable in
+`roles/nut/defaults/main.yml` for the full reasoning behind the current value.
+
+### When `ups_ignore_lb` is false
+
+The UPS decides LB from remaining *runtime*, not a battery percentage. It ships at
+2 minutes. The role then sets the threshold to `ups_lowbatt_runtime` via
+`upsrw -s battery.runtime.low=...`, stored in UPS NVRAM so it survives reboots. The
+apcsmart driver only accepts 120, 300, 420 and 600 seconds.
+
+The two modes are mutually exclusive: `override.battery.runtime.low` marks the
+variable immutable in the driver, so `upsc` reports the override rather than NVRAM
+and `upsrw` is refused. The role skips both NVRAM tasks while `ups_ignore_lb` is
+true.
 
 ## Shutdown Timeline
 
@@ -47,9 +84,11 @@ driver only accepts 120, 300, 420 and 600 seconds.
 - UPS status change detected within **5 seconds**
 
 ### Shutdown Trigger
-- Shutdown initiates when UPS reports **"low battery" (LB)** status
-- This depends on **UPS-side configuration**, set by the role to **5 min** remaining runtime (see table above)
-- **Note:** This is configured on the UPS itself, not in NUT
+- Shutdown initiates when the UPS is on battery (OB) **and** low battery (LB)
+- With `ups_ignore_lb` true (the default), LB comes from the driver comparing
+  `battery.charge` against `ups_charge_low`, not from the UPS
+- With `ups_ignore_lb` false, LB comes from the UPS itself at `ups_lowbatt_runtime`
+  seconds of estimated remaining runtime
 
 ### Execution Phase
 - **FINALDELAY 5** - **5 second** delay before shutdown command
@@ -61,8 +100,8 @@ driver only accepts 120, 300, 420 and 600 seconds.
 ## Current Behavior Flow
 
 1. **Power loss** → UPS switches to battery
-2. **Wait period** → UPS runtime decreases until "low battery" threshold (2-5 min typical)
-3. **Detection** → NUT detects LB status within 5 seconds
+2. **Wait period** → `battery.charge` falls to `ups_charge_low`
+3. **Detection** → the driver sets LB and upsmon sees OB+LB within 5 seconds
 4. **Delay** → 5 second FINALDELAY
 5. **Shutdown** → Immediate system halt
 
@@ -112,8 +151,10 @@ This would trigger shutdown **2 minutes** after power loss, regardless of UPS ba
 
 ### For Fast Shutdown (Minimize Downtime)
 - Keep current configuration
-- Ensure UPS "low battery" threshold is set appropriately
-- Typical: 2-3 minutes runtime remaining or 20-30% battery
+- Ensure the low battery threshold is set appropriately
+- Generic advice is 2-3 minutes runtime remaining or 20-30% battery, but it does not
+  apply to this unit: see "Who decides low battery" above for why the percentage
+  reading is distorted here
 
 ### For Maximum Runtime (Ride Through Short Outages)
 - Implement time-based shutdown with upssched

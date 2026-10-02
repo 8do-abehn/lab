@@ -1,4 +1,11 @@
 ---
+# The ignorelb block hands the low-battery decision to NUT instead of the UPS.
+# See ups_ignore_lb and ups_charge_low in defaults/main.yml for the reasoning,
+# and `man apcsmart` under "IGNORING LB STATE".
+#
+# override.battery.runtime.low = -1 disables the runtime half of NUT's LB test,
+# because this unit's runtime estimate is the number that misfired in #492.
+# battery.runtime is never below -1, so only the charge test remains.
 - name: Configure ups.conf
   ansible.builtin.copy:
     dest: /etc/nut/ups.conf
@@ -8,8 +15,32 @@
       driver = {{ ups_driver }}
       port = {{ ups_port }}
       desc = "{{ ups_desc }}"
+      {% if ups_ignore_lb %}
+      ignorelb
+      override.battery.runtime.low = -1
+      override.battery.charge.low = {{ ups_charge_low }}
+      {% endif %}
   notify: Restart NUT services
 
+# `upsmon master` on the admin user is what makes FSD work. upsmon on this host
+# logs into upsd as ups_admin_user in master mode, and upsd authorises LOGIN,
+# MASTER and FSD as three separate actions. The user previously had only
+# `actions = SET` and `instcmds = ALL`, so FSD was denied and upsmon logged
+# "FSD set on UPS myups@localhost failed: ERR ACCESS-DENIED". Without FSD the UPS
+# is never told to drop the load, which is why pve01 came straight back up on
+# 2026-10-02, and HOSTSYNC burned its full timer waiting on secondaries that
+# could not be signalled. See #536 A2.
+#
+# `upsmon master` grants exactly login + master + fsd (server/user.c,
+# set_upsmon_type). It does NOT grant SET, so the `actions = SET` line below is
+# still required for upsrw. Multiple actions on one line would also work, but
+# the keyword is the documented way and keeps us honest if NUT ever adds to the
+# set a primary needs.
+#
+# Spelling: NUT 2.8.x prefers `primary`/`secondary` and keeps `master`/`slave`
+# as accepted aliases. We use the old spelling because upsmon.conf below and
+# client.yml both still say master/slave, and the three have to agree. Moving
+# the whole role to primary/secondary is a separate change.
 - name: Configure upsd.users
   ansible.builtin.copy:
     dest: /etc/nut/upsd.users
@@ -19,6 +50,7 @@
     content: |
       [{{ ups_admin_user }}]
         password = {{ ups_admin_pass }}
+        upsmon master
         actions = SET
         instcmds = ALL
 
@@ -96,9 +128,15 @@
 - name: Apply pending NUT restarts
   ansible.builtin.meta: flush_handlers
 
+# Both tasks below are skipped while ups_ignore_lb is true.
+# override.battery.runtime.low marks the variable ST_FLAG_IMMUTABLE in the
+# driver, so upsc reports the override (-1) rather than what NVRAM holds and
+# upsd refuses the upsrw write. Left ungated they would report changed on every
+# run and then fail.
 - name: Read the current low-battery threshold
   ansible.builtin.command: upsc {{ ups_name }}@localhost battery.runtime.low
   register: ups_runtime_low
+  when: not ups_ignore_lb
   changed_when: false
   failed_when: false
   # upsd takes a moment to answer after a restart.
@@ -106,9 +144,9 @@
   delay: 3
   until: ups_runtime_low.rc | default(1) == 0
 
-# Raises the LB signal from the shipped 2 min to 5 min so upsmon has time to shut
-# pve01 down and propagate FSD to the netclients. Written to UPS NVRAM, so it
-# survives reboots and only needs setting once.
+# Sets the UPS-side LB threshold to ups_lowbatt_runtime so upsmon has time to
+# shut pve01 down and propagate FSD to the netclients. Written to UPS NVRAM, so
+# it survives reboots and only needs setting once.
 # Note: upsrw takes the password as an argument, so it is briefly visible in the
 # process list on this host. no_log keeps it out of Ansible output.
 - name: Raise the low-battery threshold on the UPS
@@ -117,6 +155,7 @@
     -u {{ ups_admin_user }} -p {{ ups_admin_pass }}
     {{ ups_name }}@localhost
   when:
+    - not ups_ignore_lb
     - ups_runtime_low.rc | default(1) == 0
     - (ups_runtime_low.stdout | default("") | trim | int) != (ups_lowbatt_runtime | int)
   changed_when: true

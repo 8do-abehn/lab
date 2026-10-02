@@ -8,7 +8,61 @@ ups_driver: apcsmart
 ups_port: /dev/ttyS0
 ups_desc: "APC SMART-UPS 2200"
 
+# Let NUT decide the low-battery condition instead of the UPS.
+#
+# With this enabled the role writes `ignorelb` plus two `override.*` settings
+# into the [myups] section of ups.conf. The driver then drops the UPS's own LB
+# flag on the floor and re-derives LB on every poll from
+#   battery.charge < battery.charge.low  OR  battery.runtime < battery.runtime.low
+# (drivers/dstate.c, status_set/status_commit). See `man apcsmart`, section
+# "IGNORING LB STATE".
+#
+# Why: on 2026-10-02 the UPS shut pve01 down while mains power was present the
+# whole time. Its runtime estimate had decayed to battery.runtime.low, so it
+# latched LB at 100% charge on line power, and the first momentary transfer to
+# battery read as OB+LB and triggered an immediate shutdown. See #492 and #536.
+# Deriving LB in NUT also means LB clears again on the next poll instead of
+# latching in the UPS.
+#
+# Turning this off restores the previous behaviour: the UPS decides LB, and the
+# role writes battery.runtime.low into UPS NVRAM from ups_lowbatt_runtime below.
+# The two are mutually exclusive, because override.battery.runtime.low marks the
+# variable immutable in the driver, so upsrw can no longer write it and upsc can
+# no longer read back what NVRAM actually holds.
+ups_ignore_lb: true
+
+# Battery charge percentage below which NUT declares LB, used only when
+# ups_ignore_lb is true.
+#
+# PROVISIONAL. This number has never been measured and cannot be derived from
+# the telemetry we have. It is a placeholder until #487 runs a real discharge
+# in a maintenance window.
+#
+# Why it cannot simply be the 15 from the apcsmart man page example: the pack
+# was swapped to LiFePO4 on 01/24/25, but the UPS is from 2000 and derives
+# battery.charge from pack voltage through a lead-acid capacity model. LiFePO4
+# has a famously flat discharge curve, so the pack holds roughly the same
+# voltage across most of its usable capacity and then falls off a cliff. Read
+# through a lead-acid curve that means battery.charge reads high for nearly the
+# whole discharge and then collapses through its entire range in the last
+# stretch. A threshold of 15 would very likely fire with no useful warning left,
+# or not at all before the pack is flat.
+#
+# Chosen conservatively at 50, i.e. shut down early rather than late:
+#  - Upper bound: the lowest battery.charge ever observed while on mains is 84
+#    (#536 records 100, 93 and 84-85 readings taken minutes apart on line
+#    power). Anything near that reintroduces the false positive A1 exists to
+#    remove, so the threshold has to sit clearly underneath it. 50 leaves a wide
+#    margin.
+#  - Lower bound: because the reading collapses rather than declines, we want to
+#    act on the first poll after it starts falling, not once it is nearly at the
+#    bottom. 50 is more than three times the man page's example value.
+#
+# Revisit as soon as #487 produces a measured discharge curve.
+ups_charge_low: 50
+
 # Low-battery threshold, in seconds of runtime remaining.
+# Applies only when ups_ignore_lb is false.
 # The apcsmart driver only accepts 120, 300, 420 and 600.
 #
 # Set to 120 (the minimum) because this UPS cannot be trusted to estimate its
