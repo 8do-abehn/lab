@@ -67,7 +67,7 @@
         mode: "0644"
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers
   become: true
   vars_files:
     - vault.yml

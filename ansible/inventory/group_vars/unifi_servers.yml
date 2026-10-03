@@ -1,0 +1,8 @@
+---
+# unifi was registered on the tailnet by hand, untagged, so CI's tag-scoped
+# Tailscale SSH could not reach it. The tailscale role re-runs `tailscale up
+# --advertise-tags` on an already-authenticated node, which needs no auth key,
+# only that tag:unifi exists in tagOwners. The vault key is a fallback for a
+# rebuild, when the node has to register from scratch.
+tailscale_auth_key: "{{ vault_tailscale_unifi_auth_key | default('') }}"
+tailscale_tags: "tag:unifi"
