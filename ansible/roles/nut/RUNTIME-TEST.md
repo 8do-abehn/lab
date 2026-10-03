@@ -73,7 +73,13 @@ The steps below are **1a**. Where 1b differs it says so.
       (600 to 750 W) with the thermostat at max, an oil-filled radiator on max, or
       halogen work lights. Not the 1500 W setting: that is ~94% of the UPS rating.
       Keep it on a hard floor, away from cables and the rack.
-- [ ] Plug-in **AC watt meter** (Kill A Watt type) that accumulates Wh
+- [ ] **Kasa KP115** energy-monitoring plug (on hand) between the UPS and the heater.
+      The logger polls it over the LAN every sample, so watts and Wh land in the
+      same CSV row as the battery voltage and nobody reads a meter by eye. Give it a
+      DHCP reservation so its address cannot change mid-test, and keep it on the
+      main LAN: pve01 reaches it there on TCP 9999 with no TP-Link login. It sits
+      near the edge of Wi-Fi range where it was first tested (RSSI -76), so check the
+      signal at the UPS; a dropped reading only leaves two empty cells
 - [ ] **DMM** with insulated probes, for per-unit voltages
 - [ ] Optional: **DC clamp meter** with inrush or MAX hold, for battery current and
       the transfer surge
@@ -102,16 +108,17 @@ terminals cannot be reached without moving the pack wiring.
 
 - [ ] Immich Takeout work finished, no backup running, `ceph -s` HEALTH_OK, no recovery
       or backfill in flight
-- [ ] **Measure the real load.** Put the AC meter between the wall and the UPS input
-      while on line power and the pack is on float (the charger then draws almost
-      nothing). Record meter W and, at the same moment:
-      `upsc myups@localhost ups.load`
-      Do it once quiet and once with vm-seb (VMID 701) running and busy. The busy
-      reading is `P_worst` for the analysis. This also gives a first answer to the W
-      vs VA question: `W / (ups.load / 100)` is near 1600 for watts, 2200 for VA.
-- [ ] Size the dummy load to the quiet reading, and confirm on the meter that it holds
-      steady for 10 minutes without cycling
-- [ ] Copy the scripts to pve01 from a checkout of main: `scp scripts/ups-discharge-log.sh scripts/ups-discharge-analyze.py root@pve01:/root/`
+- [ ] **Record the real load as `ups.load`**, once quiet and once with vm-seb (VMID
+      701) running and busy: `upsc myups@localhost ups.load`
+      The busy reading is the worst case for the analysis (`--worst-load-pct`).
+      It is a percentage, not watts, because a plug-in meter cannot go on the UPS
+      input if that is the SU2200's L5-30P twist-lock plug (check it). Step 5 turns
+      the percentage into watts: the heater is a known resistive load measured by the
+      KP115, so it calibrates what one percent of `ups.load` means on this unit
+- [ ] Size the dummy load to roughly the quiet reading (36% is about 580 W if
+      `ups.load` is watts), and confirm on the KP115 that it holds steady for 10
+      minutes without cycling: `python3 scripts/kp115-read.py <plug address>`
+- [ ] Copy the scripts to pve01 from a checkout of main: `scp scripts/ups-discharge-log.sh scripts/ups-discharge-analyze.py scripts/kp115-read.py root@pve01:/root/`
 - [ ] Check tmux is on pve01: `command -v tmux || apt-get install -y tmux`
 
 ## Step 1: Morning of (cluster still running, on the UPS)
@@ -143,8 +150,8 @@ Run on pve01 unless noted.
 
 - [ ] Move **pve01** and the **network gear** to the wall power strip
 - [ ] Leave pve02 and pve03 off (their plugs can stay in the UPS)
-- [ ] Plug the **dummy load** into a UPS output **through the AC meter** (UPS, meter,
-      heater), switched off for now
+- [ ] Plug the **dummy load** into a UPS output **through the KP115** (UPS, KP115,
+      heater), heater switched off for now, KP115 switched on
 - [ ] Clamp meter, if used, on one battery string lead, zeroed
 
 **1b:** move pve02 and pve03 to the wall strip too, and boot all three.
@@ -165,11 +172,15 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
 
 ## Step 5: Start logging, check on line power
 
-- [ ] Start the logger in tmux at 2 s: `tmux new -s ups '/root/ups-discharge-log.sh 2'`
+- [ ] Start the logger in tmux at 2 s, polling the KP115: `tmux new -s ups 'KP115_HOST=<plug address> /root/ups-discharge-log.sh 2'`
       (detach with `Ctrl-b d`, reattach with `tmux attach -t ups`)
 - [ ] Note the CSV path it prints
-- [ ] Switch the heater on, still on line power. Watch the meter for 3 minutes: the
-      watts must hold steady. Record meter W and the logged `ups.load` (field sheet)
+- [ ] Switch the heater on, still on line power. Watch `plugW` for 3 minutes: it must
+      hold steady. Record it and the logged `ups.load` (field sheet). This is the
+      calibration: `plugW / (ups.load / 100)` near 1600 means `ups.load` is watts,
+      near 2200 means VA
+- [ ] **Do not use the Kasa app to switch the KP115 during the run.** Switching it off
+      ends the test early; the heater's own switch is the load control
 - [ ] For notes during the run (meter readings, DMM readings, anything odd), append
       timestamped lines from a second pane: `echo "$(date +%s) heater 702W 0.12kWh" >> /root/ups-notes.txt`
 
@@ -180,7 +191,9 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
 - [ ] Note the time. If the clamp meter has inrush or MAX hold, record the transfer peak
 - [ ] The UPS will beep on battery. That is expected
 
-Every 5 minutes, write down AC meter W and Wh, and the clamp reading if used. Every
+The logger records watts and Wh. Every 5 minutes, write down the clamp reading if
+used, and glance at `plugW`: if it reads blank for more than a minute, write the
+watts from the Kasa app instead. Every
 10 minutes, and every 0.5 V once the string is below 51 V, take per-unit DMM readings
 if the terminals are safely reachable.
 
@@ -220,7 +233,7 @@ battery to shut down cleanly if mains fails during the restore.
 ## Step 9: Restore the cluster
 
 - [ ] Shut pve01 down: `shutdown -h now`
-- [ ] Move pve01 and the network gear back to the UPS. Heater, meter and wall strip out
+- [ ] Move pve01 and the network gear back to the UPS. Heater, KP115 and wall strip out
 - [ ] Power on pve01, pve02 and pve03 together
 - [ ] Quorum and Ceph: `pvecm status && ceph -s`
 - [ ] Clear the flags: `for f in noout norebalance nobackfill norecover; do ceph osd unset $f; done`
@@ -247,10 +260,12 @@ move the three nodes back to the UPS, then this step.
 Run the analyzer on the Mac against the discharge CSV:
 
 ```bash
-python3 scripts/ups-discharge-analyze.py ups-discharge-YYYYMMDD-HHMMSS.csv --test-watts <meter W> --worst-watts <P_worst from step 0>
+python3 scripts/ups-discharge-analyze.py ups-discharge-YYYYMMDD-HHMMSS.csv --worst-load-pct <busy ups.load from step 0>
 ```
 
-It prints the runtime, the energy delivered, whether `ups.load` is W or VA, the
+The test wattage comes from the KP115 readings in the log. If they are missing,
+pass `--test-watts` with the value from the Kasa app. It prints the runtime, the
+energy delivered (also from the KP115's own Wh counter), whether `ups.load` is W or VA, the
 `battery.voltage` step size, a 5-minute table of voltage and charge, when NUT's own
 LB (charge < 50) fired and how much time it left, and proposals for both variables.
 The numbers are a proposal: read them against the field sheet before believing them.
@@ -324,16 +339,16 @@ Following the repo rules: worktree, feature branch, PR to main, deploy from main
 Date: ____________   Variant: 1a / 1b
 
 STEP 0  real load, on line, float
-  quiet:      meter ____ W   ups.load ____ %   -> ____ W/(load/100)
-  vm-seb on:  meter ____ W   ups.load ____ %   (P_worst)
+  quiet:      ups.load ____ %
+  vm-seb on:  ups.load ____ %   (worst case)
 
 STEP 1  per-unit float (V)   U1 ____  U2 ____  U3 ____  U4 ____   string (upsc) ____
 
-STEP 5  heater on line       meter ____ W     ups.load ____ %
+STEP 5  heater on line       KP115 ____ W     ups.load ____ %   -> ____ W/(load/100)
 
 STEP 6  mains pulled at ________   transfer peak (clamp) ____ A
 
-  t(min)  meter W  meter Wh  clamp A  string V  U1    U2    U3    U4    notes
+  t(min)  clamp A  string V  U1    U2    U3    U4    notes   (watts/Wh are in the CSV)
   0
   5
   10

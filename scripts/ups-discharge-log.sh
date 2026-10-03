@@ -11,6 +11,11 @@ set -euo pipefail
 #
 # Usage: ups-discharge-log.sh [interval_seconds] [output.csv]
 #
+# Optional: KP115_HOST=<address> adds plug_w and plug_wh columns from a Kasa
+# KP115 metering the dummy load, read through kp115-read.py next to this
+# script. That replaces reading a meter by eye every few minutes, and puts the
+# true output watts in the same row as the battery voltage.
+#
 # Stopping the test is a human restoring mains, and a person watching a
 # scrolling log misses things, so it also flags the stop conditions loudly:
 #   WARN      battery.voltage <= WARN_V (default 49.0)
@@ -31,6 +36,8 @@ WARN_V="${WARN_V:-49.0}"
 STOP_V="${STOP_V:-48.0}"
 COLLAPSE_STEP_V="${COLLAPSE_STEP_V:-1.0}"
 SETTLE_S="${SETTLE_S:-15}"
+KP115_HOST="${KP115_HOST:-}"
+KP115_READER="${KP115_READER:-$(dirname "$0")/kp115-read.py}"
 
 FIELDS=(ups.status battery.voltage battery.charge battery.runtime ups.load input.voltage output.voltage ups.temperature)
 
@@ -48,9 +55,14 @@ dropped_by() { awk -v prev="$1" -v cur="$2" -v step="$3" 'BEGIN { exit !(prev - 
 # driver state rather than from eight polls a few milliseconds apart
 field() { printf '%s\n' "$snapshot" | awk -F': ' -v k="$1" '$1 == k { print $2 }'; }
 
+if [ -n "$KP115_HOST" ] && [ ! -r "$KP115_READER" ]; then
+	echo "KP115_HOST is set but $KP115_READER is missing" >&2
+	exit 1
+fi
+
 header="epoch,iso_time,elapsed_ob_s"
 for f in "${FIELDS[@]}"; do header+=",$f"; done
-echo "${header},flag" > "$OUT"
+echo "${header},plug_w,plug_wh,flag" > "$OUT"
 echo "logging ${UPS} every ${INTERVAL}s to ${OUT} (WARN<=${WARN_V}V STOP<=${STOP_V}V)"
 
 ob_since=""
@@ -96,13 +108,20 @@ while true; do
 		prev_v="$volts"
 	fi
 
+	# The reader prints "," on any failure, so a plug dropping off Wi-Fi costs
+	# two empty cells, never the battery row
+	plug=","
+	if [ -n "$KP115_HOST" ]; then
+		plug=$(python3 "$KP115_READER" "$KP115_HOST" 1.5)
+	fi
+
 	row="${now},${iso},${elapsed}"
 	for v in "${values[@]}"; do row+=",${v}"; done
-	echo "${row},${flag}" >> "$OUT"
+	echo "${row},${plug},${flag}" >> "$OUT"
 
-	printf '%s  ob=%5ss  %-8s V=%-6s chg=%-5s load=%-5s rt=%-4s %s\n' \
+	printf '%s  ob=%5ss  %-8s V=%-6s chg=%-5s load=%-5s rt=%-4s plugW=%-6s %s\n' \
 		"$(date +%H:%M:%S)" "${elapsed:--}" "${status:-?}" "${volts:-?}" \
-		"${values[2]:-?}" "${values[4]:-?}" "${values[3]:-?}" "$flag"
+		"${values[2]:-?}" "${values[4]:-?}" "${values[3]:-?}" "${plug%%,*}" "$flag"
 
 	case "$flag" in
 		STOP | COLLAPSE | NODATA)

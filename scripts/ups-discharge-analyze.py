@@ -4,10 +4,12 @@
 Stdlib only, so it runs on the Mac or on pve01 as is.
 
 Usage:
-  ups-discharge-analyze.py run.csv --test-watts 700 [--worst-load-pct 48]
+  ups-discharge-analyze.py run.csv [--test-watts 700] [--worst-load-pct 48]
 
 --test-watts is the AC meter reading on the dummy load during the discharge.
-Everything else derives from the log. The method is explained in
+It can be left out when the log has KP115 plug_w readings (KP115_HOST was
+set), which are then averaged over the on-battery run instead. Everything else
+derives from the log. The method is explained in
 ansible/roles/nut/RUNTIME-TEST.md, "Turning the log into thresholds"; the
 numbers printed here are a proposal for a human to check, not a decision.
 """
@@ -71,7 +73,7 @@ def sample_at(run, epoch):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("csv")
-    p.add_argument("--test-watts", type=float, required=True, help="AC meter watts on the dummy load")
+    p.add_argument("--test-watts", type=float, help="AC meter watts on the dummy load (default: mean plug_w from the log)")
     p.add_argument("--worst-watts", type=float, help="worst realistic cluster load in watts")
     p.add_argument("--worst-load-pct", type=float, help="or: worst realistic ups.load, converted via the measured basis")
     p.add_argument("--stop-v", type=float, default=48.0)
@@ -87,6 +89,14 @@ def main():
     if t_meas <= 0:
         sys.exit("on-battery run is too short to analyse")
     run = [r for r in run if r["epoch"] <= end["epoch"]]
+
+    plug_w = [num(r.get("plug_w")) for r in run if num(r.get("plug_w"))]
+    plug_wh = [num(r.get("plug_wh")) for r in run if num(r.get("plug_wh")) is not None]
+    if args.test_watts is None:
+        if not plug_w:
+            sys.exit("no plug_w readings in the log, pass --test-watts")
+        args.test_watts = sum(plug_w) / len(plug_w)
+        print(f"Test load from KP115: mean {args.test_watts:.0f} W over {len(plug_w)} readings (min {min(plug_w):.0f}, max {max(plug_w):.0f})")
 
     loads = [num(r["ups.load"]) for r in run if num(r["ups.load"])]
     mean_load = sum(loads) / len(loads)
@@ -110,6 +120,8 @@ def main():
     print(f"On battery: {t_meas}s ({t_meas / 60:.1f} min), ended by: {reason}")
     print(f"Mean ups.load {mean_load:.1f}% at {args.test_watts:.0f} W -> implied rating {implied:.0f}, ups.load is a % of {basis}")
     print(f"Approx energy delivered: {args.test_watts * t_meas / 3600:.0f} Wh AC (pack rated ~920 Wh DC)")
+    if len(plug_wh) > 1:
+        print(f"KP115 energy counter over the run: {plug_wh[-1] - plug_wh[0]:.0f} Wh AC")
     print(f"battery.voltage resolution: smallest step {v_step} V across {len(volts)} distinct values")
     print()
     print(" min    V      charge  load   runtime  status")
