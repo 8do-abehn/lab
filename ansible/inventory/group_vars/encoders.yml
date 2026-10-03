@@ -1,0 +1,8 @@
+---
+# Registered by hand (community-scripts Tailscale LXC addon, then `tailscale up`
+# with --advertise-tags), so the tailscale role only re-asserts the tag and
+# --ssh. The vault key is a fallback for a rebuild.
+tailscale_auth_key: "{{ vault_tailscale_encode_auth_key | default('') }}"
+tailscale_tags: "tag:encode"
+# Needs nothing on the tailnet by name, and MagicDNS leaks into LXC resolv.conf.
+tailscale_accept_dns: false

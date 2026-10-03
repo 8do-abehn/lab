@@ -89,6 +89,14 @@ all:
           # No ansible_host, same reason as immich01: MagicDNS name, so CI goes
           # through Tailscale SSH.
 
+    # riplab encoders (VLAN 60). HandBrake x265 built from source, works the
+    # queue in cephfs-hdd/riplab (bind-mounted at /riplab). See #548.
+    encoders:
+      hosts:
+        encode01:  # LXC 3015 on pve02, 24 cores at cpuunits 10 -- riplab x265 encoder
+          ansible_user: root
+          # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     minecraft_servers:
