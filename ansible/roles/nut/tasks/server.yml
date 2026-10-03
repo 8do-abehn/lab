@@ -1,4 +1,11 @@
 ---
+# The ignorelb block hands the low-battery decision to NUT instead of the UPS.
+# See ups_charge_low in defaults/main.yml for the reasoning, and `man apcsmart`
+# under "IGNORING LB STATE".
+#
+# override.battery.runtime.low = -1 disables the runtime half of NUT's LB test,
+# because this unit's runtime estimate is the number that misfired in #492.
+# battery.runtime is never below -1, so only the charge test remains.
 - name: Configure ups.conf
   ansible.builtin.copy:
     dest: /etc/nut/ups.conf
@@ -8,8 +15,35 @@
       driver = {{ ups_driver }}
       port = {{ ups_port }}
       desc = "{{ ups_desc }}"
+      ignorelb
+      override.battery.runtime.low = -1
+      override.battery.charge.low = {{ ups_charge_low }}
   notify: Restart NUT services
 
+# `upsmon master` on the admin user is what makes FSD work. upsmon on this host
+# logs into upsd as ups_admin_user in master mode, and upsd authorises LOGIN,
+# MASTER and FSD as three separate actions. The user previously had only
+# `actions = SET` and `instcmds = ALL`, so FSD was denied and upsmon logged
+# "FSD set on UPS myups@localhost failed: ERR ACCESS-DENIED". Without FSD the UPS
+# is never told to drop the load, which is why pve01 came straight back up on
+# 2026-10-02, and HOSTSYNC burned its full timer waiting on secondaries that
+# could not be signalled. See #536 A2.
+#
+# `upsmon master` grants exactly login + master + fsd in one directive
+# (server/user.c, set_upsmon_type). It does NOT grant SET, so `actions = SET`
+# below stays: the role no longer calls upsrw, but an operator still does, for
+# example to change input.sensitivity (#536 A3).
+#
+# Do not write `actions = SET FSD` instead. The parser does accept it
+# (server/user.c, parse_rest loops over the extra tokens) despite the man page
+# saying one action per line, but it would still leave LOGIN and MASTER
+# ungranted, and those are separate checks in server/netuser.c.
+#
+# Spelling: NUT 2.8.1 accepts `master` and `primary` as exact synonyms here.
+# We use `master` so upsd.users, upsmon.conf below and client.yml all agree,
+# and because the old spelling also works on pre-2.8 NUT, where `primary`
+# would log "Unknown upsmon type" and silently grant nothing. Renaming the
+# whole role to primary/secondary is worth doing as its own change.
 - name: Configure upsd.users
   ansible.builtin.copy:
     dest: /etc/nut/upsd.users
@@ -19,6 +53,7 @@
     content: |
       [{{ ups_admin_user }}]
         password = {{ ups_admin_pass }}
+        upsmon master
         actions = SET
         instcmds = ALL
 
@@ -28,19 +63,45 @@
   notify: Restart NUT services
   no_log: true
 
-- name: Configure upsd.conf to listen on all interfaces
+# A loopback listener with netclients enrolled fails silently: their upsmon
+# simply never connects, upsd reports nothing wrong, and FSD reaches nobody.
+# Catch it here rather than discovering it during an outage.
+- name: Refuse a loopback-only listener while netclients are enrolled
+  ansible.builtin.assert:
+    that:
+      - not ((groups['nut_netclients'] | default([]) | length) > 0
+             and ups_listen_address in ['127.0.0.1', '::1', 'localhost'])
+    fail_msg: >-
+      ups_listen_address is {{ ups_listen_address }}, but nut_netclients has
+      {{ groups['nut_netclients'] | default([]) | length }} member(s)
+      ({{ groups['nut_netclients'] | default([]) | join(', ') }}). They could
+      never reach upsd, so UPS shutdown would not coordinate and nothing would
+      say so. Set ups_listen_address in inventory/group_vars/nut.yml to an
+      address those hosts can reach. See #536 A7.
+    quiet: true
+
+# Loopback by default: #497 emptied nut_netclients, so the listener serves
+# nobody. See ups_listen_address in defaults/main.yml for how to widen it again
+# when pve02/pve03 are re-enrolled.
+- name: Configure the upsd listener
   ansible.builtin.copy:
     dest: /etc/nut/upsd.conf
     mode: "0640"
     content: |
-      LISTEN 0.0.0.0
+      LISTEN {{ ups_listen_address }}
   notify: Restart NUT services
 
+# POWEROFF_WAIT matters now that FSD actually works. Without it the
+# systemd-shutdown hook leaves this host halted forever whenever the UPS
+# declines to cut the load, which is exactly what happens if mains returns
+# mid-shutdown. See ups_poweroff_wait in defaults/main.yml.
 - name: Configure nut.conf to standalone
   ansible.builtin.copy:
     dest: /etc/nut/nut.conf
     mode: "0640"
-    content: "MODE=standalone\n"
+    content: |
+      MODE=standalone
+      POWEROFF_WAIT={{ ups_poweroff_wait }}
   notify: Restart NUT services
 
 - name: Configure upsmon.conf completely
@@ -92,32 +153,92 @@
     enabled: true
   when: nut_units_present
 
+# Time-on-battery watchdog (#536 A6).
+#
+# A long-running service with its own sleep loop, not a systemd timer. A timer
+# would have to persist "how long have we been on battery" between invocations
+# in a state file, which then has to be invalidated on boot and cannot survive
+# a clock step. Elapsed time held in memory by one process has neither problem,
+# and the process dying resets it to the safe value by construction.
+- name: Install the time-on-battery watchdog script
+  ansible.builtin.template:
+    src: nut-onbatt-watchdog.sh.j2
+    dest: /usr/local/sbin/nut-onbatt-watchdog
+    owner: root
+    group: root
+    mode: "0750"
+  notify: Restart NUT on-battery watchdog
+
+- name: Install the time-on-battery watchdog unit
+  ansible.builtin.template:
+    src: nut-onbatt-watchdog.service.j2
+    dest: /etc/systemd/system/nut-onbatt-watchdog.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart NUT on-battery watchdog
+
+# Same problem install.yml solves for the packaged units: in check mode the
+# unit file above was not actually written, so systemd cannot be asked about
+# it. stat works in check mode, so ask whether it is already there.
+- name: Check whether the watchdog unit is already installed
+  ansible.builtin.stat:
+    path: /etc/systemd/system/nut-onbatt-watchdog.service
+  register: nut_watchdog_unit
+
+- name: Record whether the watchdog unit can be managed this run
+  ansible.builtin.set_fact:
+    nut_watchdog_manageable: "{{ nut_watchdog_unit.stat.exists or not ansible_check_mode }}"
+
+- name: Ensure the on-battery watchdog is started and enabled
+  ansible.builtin.systemd:
+    name: nut-onbatt-watchdog
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: nut_watchdog_manageable
+
 # Any config change above must land before upsd is queried below.
 - name: Apply pending NUT restarts
   ansible.builtin.meta: flush_handlers
 
-- name: Read the current low-battery threshold
-  ansible.builtin.command: upsc {{ ups_name }}@localhost battery.runtime.low
-  register: ups_runtime_low
+# This read-back is a trap for a silent total loss of protection.
+#
+# The driver's startup check (drivers/main.c) is satisfied if EITHER the charge
+# pair or the runtime pair is present. override.battery.runtime.low = -1
+# supplies the runtime pair, so the driver starts happily even if
+# override.battery.charge.low never took effect. battery.runtime < -1 is never
+# true, so in that state LB would simply never fire and nothing would say so.
+#
+# Skipped in check mode: the config has not been written yet, so there is
+# nothing meaningful to read back.
+- name: Read back the low-battery charge threshold from the driver
+  ansible.builtin.command: upsc {{ ups_name }}@localhost battery.charge.low
+  register: ups_charge_low_readback
+  when:
+    - nut_units_present
+    - not ansible_check_mode
   changed_when: false
   failed_when: false
   # upsd takes a moment to answer after a restart.
   retries: 5
   delay: 3
-  until: ups_runtime_low.rc | default(1) == 0
+  until: ups_charge_low_readback.rc | default(1) == 0
 
-# Raises the LB signal from the shipped 2 min to 5 min so upsmon has time to shut
-# pve01 down and propagate FSD to the netclients. Written to UPS NVRAM, so it
-# survives reboots and only needs setting once.
-# Note: upsrw takes the password as an argument, so it is briefly visible in the
-# process list on this host. no_log keeps it out of Ansible output.
-- name: Raise the low-battery threshold on the UPS
-  ansible.builtin.command: >-
-    upsrw -s battery.runtime.low={{ ups_lowbatt_runtime }}
-    -u {{ ups_admin_user }} -p {{ ups_admin_pass }}
-    {{ ups_name }}@localhost
+- name: Assert the driver is actually enforcing the charge threshold
+  ansible.builtin.assert:
+    that:
+      - ups_charge_low_readback.rc | default(1) == 0
+      - (ups_charge_low_readback.stdout | default("") | trim | int) == (ups_charge_low | int)
+    fail_msg: >-
+      {{ ups_name }} is not enforcing battery.charge.low = {{ ups_charge_low }}
+      (upsc returned rc={{ ups_charge_low_readback.rc | default('n/a') }},
+      value {{ ups_charge_low_readback.stdout | default('') | trim | default('none', true) }}).
+      With override.battery.runtime.low = -1 in place and no working charge
+      threshold, LB can never fire and this host has no UPS shutdown protection
+      at all. Check the [{{ ups_name }}] section of /etc/nut/ups.conf and the
+      nut-driver@{{ ups_name }} journal.
+    quiet: true
   when:
-    - ups_runtime_low.rc | default(1) == 0
-    - (ups_runtime_low.stdout | default("") | trim | int) != (ups_lowbatt_runtime | int)
-  changed_when: true
-  no_log: true
+    - nut_units_present
+    - not ansible_check_mode

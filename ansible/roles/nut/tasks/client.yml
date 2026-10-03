@@ -57,3 +57,13 @@
     enabled: false
   when: nut_units_present
   failed_when: false # Don't fail if service doesn't exist
+
+# The watchdog belongs only on the host the UPS is cabled to. Left running on a
+# demoted node it would call `upsmon -c fsd` there on its own schedule.
+- name: Disable the on-battery watchdog on clients (in case node was a server)
+  ansible.builtin.systemd:
+    name: nut-onbatt-watchdog
+    state: stopped
+    enabled: false
+  when: not ansible_check_mode
+  failed_when: false # Don't fail if the unit was never installed here

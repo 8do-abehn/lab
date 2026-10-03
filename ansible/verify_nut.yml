@@ -28,6 +28,23 @@
       changed_when: false
       when: ups_server_ip | length > 0
 
+    # The driver starts fine with ignorelb even when override.battery.charge.low
+    # never took effect, because override.battery.runtime.low = -1 already
+    # satisfies its startup check. battery.runtime < -1 is never true, so in
+    # that state LB can never fire and nothing warns you. Read it back.
+    - name: Read back the low-battery charge threshold (servers only)
+      ansible.builtin.command: upsc {{ ups_name }}@{{ ups_server_ip }} battery.charge.low
+      register: ups_charge_low_check
+      failed_when: false
+      changed_when: false
+      when:
+        - nut_mode_check.stdout == "standalone"
+        - ups_server_ip | length > 0
+      # upsd takes a moment to answer after a restart.
+      retries: 5
+      delay: 3
+      until: ups_charge_low_check.rc | default(1) == 0
+
     - name: Check nut-monitor service
       ansible.builtin.systemd:
         name: nut-monitor
@@ -55,14 +72,26 @@
           Monitor Service: {{ 'Running' if monitor_service.status.ActiveState == 'active' else 'Not Running' }}
           {% if nut_mode_check.stdout == "standalone" %}
           Server Service: {{ 'Running' if server_service.status.ActiveState == 'active' else 'Not Running' }}
+          {% if ups_charge_low_check.rc | default(1) == 0 %}
+          LB Threshold: battery.charge.low = {{ ups_charge_low_check.stdout | trim }}
+          {% else %}
+          LB Threshold: MISSING - LB can never fire, no shutdown protection
+          {% endif %}
           {% endif %}
           UPS Status: {{ ups_status.stdout_lines | select('search', 'ups.status') | first if ups_status.rc == 0 else 'N/A' }}
           Battery Charge: {{ ups_status.stdout_lines | select('search', 'battery.charge') | first if ups_status.rc == 0 else 'N/A' }}
           UPS Load: {{ ups_status.stdout_lines | select('search', 'ups.load') | first if ups_status.rc == 0 else 'N/A' }}
 
+    # A server with no readable battery.charge.low is not healthy: with
+    # override.battery.runtime.low = -1 it has no way to ever assert LB.
     - name: Set verification status
       ansible.builtin.set_fact:
-        nut_healthy: "{{ upsc_check.rc == 0 and ups_status.rc == 0 and monitor_service.status.ActiveState == 'active' }}"
+        nut_healthy: >-
+          {{ upsc_check.rc == 0
+             and ups_status.rc == 0
+             and monitor_service.status.ActiveState == 'active'
+             and (nut_mode_check.stdout != 'standalone'
+                  or ups_charge_low_check.rc | default(1) == 0) }}
 
 - name: Summary
   hosts: nut

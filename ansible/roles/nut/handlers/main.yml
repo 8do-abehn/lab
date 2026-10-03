@@ -11,6 +11,14 @@
     - nut-monitor
   when: nut_mode == 'server' and nut_units_present
 
+- name: Restart NUT on-battery watchdog
+  ansible.builtin.systemd:
+    name: nut-onbatt-watchdog
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  when: nut_mode == 'server' and nut_watchdog_manageable | default(false)
+
 - name: Restart NUT client services
   ansible.builtin.systemd:
     name: nut-monitor

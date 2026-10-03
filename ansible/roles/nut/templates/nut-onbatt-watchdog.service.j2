@@ -1,0 +1,19 @@
+[Unit]
+# Managed by Ansible (roles/nut). Edits here will be overwritten.
+Description=NUT time-on-battery shutdown watchdog
+Documentation=file:///usr/local/sbin/nut-onbatt-watchdog
+# upsc needs upsd answering. The watchdog tolerates it not being there yet,
+# this just avoids a pointless warning on every boot.
+After=nut-server.service nut-monitor.service
+Wants=nut-server.service nut-monitor.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/nut-onbatt-watchdog
+# The script exits 0 after requesting FSD exactly once. A crash should bring it
+# back; that deliberate one-shot exit must not.
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

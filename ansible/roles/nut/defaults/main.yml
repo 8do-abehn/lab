@@ -8,28 +8,114 @@ ups_driver: apcsmart
 ups_port: /dev/ttyS0
 ups_desc: "APC SMART-UPS 2200"
 
-# Low-battery threshold, in seconds of runtime remaining.
-# The apcsmart driver only accepts 120, 300, 420 and 600.
+# NUT decides the low-battery condition, not the UPS.
 #
-# Set to 120 (the minimum) because this UPS cannot be trusted to estimate its
-# own runtime. The pack was swapped to LiFePO4 on 01/24/25, but the UPS dates
-# from 2000 and derives runtime from a lead-acid capacity model that has never
-# been recalibrated (ups.test.result: NO). The resulting estimate is quantised
-# to 60s steps and swings 4x on an 8% load change, e.g. 60s at 47% load and
-# 240s at 40%.
+# The role writes `ignorelb` plus two `override.*` settings into the [myups]
+# section of ups.conf. The driver then discards the UPS's own LB flag and
+# re-derives LB on every poll from
+#   battery.charge < battery.charge.low  OR  battery.runtime < battery.runtime.low
+# (drivers/dstate.c, status_set/status_commit). `override.battery.runtime.low`
+# is pinned to -1, which can never be satisfied, so charge is the only trigger.
+# See `man apcsmart`, section "IGNORING LB STATE".
 #
-# At the previous 300 the estimate sat permanently below the threshold, so the
-# UPS asserted LB continuously at 100% charge on line power. That armed upsmon
-# to shut pve01 down on any brief outage with no delay at all.
+# Why: on 2026-10-02 the UPS shut pve01 down while mains power was present the
+# whole time. Its runtime estimate had decayed to battery.runtime.low, so it
+# latched LB at 100% charge on line power, and the first momentary transfer to
+# battery read as OB+LB and triggered an immediate shutdown. See #492 and #536.
+# Deriving LB in NUT also means LB clears again on the next poll instead of
+# latching in the UPS.
 #
-# This is a stopgap that buys back a usable signal, not a considered value. The
-# real number has never been measured with a stopwatch. See #487 for the
-# maintenance window that will measure it and set this properly.
+# This replaces the UPS-side threshold the role used to write to NVRAM with
+# upsrw. `override.*` marks a variable ST_FLAG_IMMUTABLE (drivers/main.c,
+# storeval), so the driver never publishes it RW and upsd answers any SET on it
+# with ERR READONLY. The two mechanisms cannot coexist, so ups_lowbatt_runtime
+# and both upsrw tasks are gone. The UPS's own NVRAM value still governs when
+# the unit beeps; it no longer influences any shutdown decision.
+
+# Battery charge percentage below which NUT declares LB.
 #
-# NOTE: an earlier version of this comment cited "measured runtime is ~7 min,
-# see UPS-SHUTDOWN.md". That document contains no such measurement, and the
-# figure appears to trace back to this same unreliable estimator via #460.
-ups_lowbatt_runtime: 120
+# MUST be an integer. drivers/dstate.c compares with strtol on both sides, so
+# 50.5 would silently truncate to 50.
+#
+# PROVISIONAL, and it carries no guarantee of warning time. This value is
+# derived from constraints, not from a measurement, and makes no safety claim.
+# It is a stopgap until #487 runs a real discharge in a maintenance window.
+#
+# Why not the 15 from the apcsmart man page example: the pack was swapped to
+# LiFePO4 on 01/24/25, but the UPS is from 2000 and derives battery.charge from
+# pack voltage through a lead-acid capacity model. LiFePO4's discharge curve is
+# flat, so the pack holds roughly the same voltage across most of its usable
+# capacity and then falls off a cliff. Read through a lead-acid curve, that
+# means battery.charge reads high for nearly the whole discharge and then
+# collapses through its entire range in the last stretch.
+#
+# 50 is what the constraints leave:
+#  - The lowest battery.charge ever observed on line power is 84 (#536 records
+#    100, 93 and 84-85 readings taken minutes apart on mains). 50 leaves 34
+#    points of headroom, so it cannot recreate the false-LB latch that A1
+#    exists to remove.
+#  - It is strictly better than 15 under every model of the distorted curve
+#    considered, because the collapse passes through 50 first.
+#
+# What it does NOT do is promise any particular number of seconds between LB
+# and a flat pack. Nobody knows that number yet. Revisit the moment #487
+# produces a measured discharge curve.
+ups_charge_low: 50
+
+# Address upsd listens on.
+#
+# Loopback, because #497 emptied nut_netclients and the listener currently
+# serves nobody. See #536 A7.
+#
+# This MUST become an address pve02/pve03 can reach the moment they are
+# re-enrolled as netclients. Their upsmon would otherwise never connect, and
+# shutdown coordination would fail silently: upsd reports nothing wrong, the
+# netclients just never learn about FSD. Override it in
+# inventory/group_vars/nut.yml, next to ups_server_ip which already records
+# the address they dial. server.yml refuses to write a loopback listener while
+# nut_netclients has members, so the mistake cannot be made quietly.
+ups_listen_address: 127.0.0.1
+
+# Seconds the systemd-shutdown hook waits, after commanding the UPS to cut the
+# load, before force-rebooting this host instead of staying halted.
+#
+# /lib/systemd/system-shutdown/nutshutdown reads this out of nut.conf. Unset,
+# it takes the else branch, logs "POWEROFF_WAIT is not configured at this time"
+# and leaves the host halted forever if the UPS declines to cut power. That
+# branch was unreachable until now: FSD was denied, so POWERDOWNFLAG was never
+# written, `upsmon -K` was always false and the whole hook was dead code.
+# Granting FSD makes it live, so the value has to be set in the same change.
+#
+# 120 seconds. The UPS reports ups.delay.shutdown = 020, so if it intends to
+# honour the command it has done so around 20 seconds in and this host is
+# already dark. Six times that is ample margin to conclude it is not going to.
+#
+# Deliberately NOT the upstream example of 15m. That example assumes the sleep
+# should last long enough to flatten the battery, which made sense when the
+# only trigger was a genuinely flat pack. Our trigger is a 60 second
+# time-on-battery timer (see ups_onbatt_shutdown_delay), so the pack may still
+# be nearly full, and the only reason the UPS would refuse to cut the load is
+# that mains came back. Sleeping 15 minutes would then keep a Proxmox node
+# needlessly dark while its power is perfectly fine.
+#
+# Revisit if ups.delay.shutdown changes or the unit is replaced.
+ups_poweroff_wait: 120
+
+# Seconds the UPS must be continuously on battery before the watchdog requests
+# a coordinated shutdown. See templates/nut-onbatt-watchdog.sh.j2.
+#
+# PROVISIONAL at 60, and deliberately shorter than any plausible real runtime
+# for this unit. The point is to shut down early and on a signal the hardware
+# cannot distort, rather than to use the last drop of a pack whose true
+# capacity nobody has measured. #487's measurement supplies the real number.
+#
+# Any observation of the UPS back on line power resets the timer, so a short
+# dip costs nothing.
+ups_onbatt_shutdown_delay: 60
+
+# How often the watchdog samples ups.status, in seconds. Matches POLLFREQALERT
+# in upsmon.conf so both react on the same cadence.
+ups_watchdog_poll_interval: 5
 
 # User configuration
 ups_admin_user: admin
