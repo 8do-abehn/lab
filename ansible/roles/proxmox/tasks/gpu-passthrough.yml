@@ -73,6 +73,23 @@
     - "'Alternative: /usr/lib/mesa-diverted' in proxmox_glx_alternative.stdout"
   notify: Update initramfs
 
+# Same intent test as the glx switch: a host that lets nouveau drive its NVIDIA card
+# has no proprietary kernel module, so nvidia-persistenced (shipped by the nvidia
+# userland packages pve02 deliberately keeps) fails on every boot and leaves systemd
+# reporting "degraded". Masked rather than removed so the packages stay intact (#536).
+- name: Check whether nvidia-persistenced is installed
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/nvidia-persistenced.service
+  register: proxmox_nvidia_persistenced_unit
+
+- name: Mask nvidia-persistenced on hosts that use nouveau
+  ansible.builtin.systemd:
+    name: nvidia-persistenced.service
+    masked: true
+  when:
+    - "'nouveau' not in proxmox_gpu_blacklist_drivers"
+    - proxmox_nvidia_persistenced_unit.stat.exists
+
 # Backstop only. The alternatives switch above removes this file as its own slave link,
 # so on a correctly converged host this is a no-op. It stays to cover the case where the
 # file is present without a glx alternative behind it, which is what a hand-deleted
