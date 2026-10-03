@@ -8,14 +8,15 @@ ups_driver: apcsmart
 ups_port: /dev/ttyS0
 ups_desc: "APC SMART-UPS 2200"
 
-# Let NUT decide the low-battery condition instead of the UPS.
+# NUT decides the low-battery condition, not the UPS.
 #
-# With this enabled the role writes `ignorelb` plus two `override.*` settings
-# into the [myups] section of ups.conf. The driver then drops the UPS's own LB
-# flag on the floor and re-derives LB on every poll from
+# The role writes `ignorelb` plus two `override.*` settings into the [myups]
+# section of ups.conf. The driver then discards the UPS's own LB flag and
+# re-derives LB on every poll from
 #   battery.charge < battery.charge.low  OR  battery.runtime < battery.runtime.low
-# (drivers/dstate.c, status_set/status_commit). See `man apcsmart`, section
-# "IGNORING LB STATE".
+# (drivers/dstate.c, status_set/status_commit). `override.battery.runtime.low`
+# is pinned to -1, which can never be satisfied, so charge is the only trigger.
+# See `man apcsmart`, section "IGNORING LB STATE".
 #
 # Why: on 2026-10-02 the UPS shut pve01 down while mains power was present the
 # whole time. Its runtime estimate had decayed to battery.runtime.low, so it
@@ -24,66 +25,42 @@ ups_desc: "APC SMART-UPS 2200"
 # Deriving LB in NUT also means LB clears again on the next poll instead of
 # latching in the UPS.
 #
-# Turning this off restores the previous behaviour: the UPS decides LB, and the
-# role writes battery.runtime.low into UPS NVRAM from ups_lowbatt_runtime below.
-# The two are mutually exclusive, because override.battery.runtime.low marks the
-# variable immutable in the driver, so upsrw can no longer write it and upsc can
-# no longer read back what NVRAM actually holds.
-ups_ignore_lb: true
+# This replaces the UPS-side threshold the role used to write to NVRAM with
+# upsrw. `override.*` marks a variable ST_FLAG_IMMUTABLE (drivers/main.c,
+# storeval), so the driver never publishes it RW and upsd answers any SET on it
+# with ERR READONLY. The two mechanisms cannot coexist, so ups_lowbatt_runtime
+# and both upsrw tasks are gone. The UPS's own NVRAM value still governs when
+# the unit beeps; it no longer influences any shutdown decision.
 
-# Battery charge percentage below which NUT declares LB, used only when
-# ups_ignore_lb is true.
+# Battery charge percentage below which NUT declares LB.
 #
-# PROVISIONAL. This number has never been measured and cannot be derived from
-# the telemetry we have. It is a placeholder until #487 runs a real discharge
-# in a maintenance window.
+# MUST be an integer. drivers/dstate.c compares with strtol on both sides, so
+# 50.5 would silently truncate to 50.
 #
-# Why it cannot simply be the 15 from the apcsmart man page example: the pack
-# was swapped to LiFePO4 on 01/24/25, but the UPS is from 2000 and derives
-# battery.charge from pack voltage through a lead-acid capacity model. LiFePO4
-# has a famously flat discharge curve, so the pack holds roughly the same
-# voltage across most of its usable capacity and then falls off a cliff. Read
-# through a lead-acid curve that means battery.charge reads high for nearly the
-# whole discharge and then collapses through its entire range in the last
-# stretch. A threshold of 15 would very likely fire with no useful warning left,
-# or not at all before the pack is flat.
+# PROVISIONAL, and it carries no guarantee of warning time. This value is
+# derived from constraints, not from a measurement, and makes no safety claim.
+# It is a stopgap until #487 runs a real discharge in a maintenance window.
 #
-# Chosen conservatively at 50, i.e. shut down early rather than late:
-#  - Upper bound: the lowest battery.charge ever observed while on mains is 84
-#    (#536 records 100, 93 and 84-85 readings taken minutes apart on line
-#    power). Anything near that reintroduces the false positive A1 exists to
-#    remove, so the threshold has to sit clearly underneath it. 50 leaves a wide
-#    margin.
-#  - Lower bound: because the reading collapses rather than declines, we want to
-#    act on the first poll after it starts falling, not once it is nearly at the
-#    bottom. 50 is more than three times the man page's example value.
+# Why not the 15 from the apcsmart man page example: the pack was swapped to
+# LiFePO4 on 01/24/25, but the UPS is from 2000 and derives battery.charge from
+# pack voltage through a lead-acid capacity model. LiFePO4's discharge curve is
+# flat, so the pack holds roughly the same voltage across most of its usable
+# capacity and then falls off a cliff. Read through a lead-acid curve, that
+# means battery.charge reads high for nearly the whole discharge and then
+# collapses through its entire range in the last stretch.
 #
-# Revisit as soon as #487 produces a measured discharge curve.
+# 50 is what the constraints leave:
+#  - The lowest battery.charge ever observed on line power is 84 (#536 records
+#    100, 93 and 84-85 readings taken minutes apart on mains). 50 leaves 34
+#    points of headroom, so it cannot recreate the false-LB latch that A1
+#    exists to remove.
+#  - It is strictly better than 15 under every model of the distorted curve
+#    considered, because the collapse passes through 50 first.
+#
+# What it does NOT do is promise any particular number of seconds between LB
+# and a flat pack. Nobody knows that number yet. Revisit the moment #487
+# produces a measured discharge curve.
 ups_charge_low: 50
-
-# Low-battery threshold, in seconds of runtime remaining.
-# Applies only when ups_ignore_lb is false.
-# The apcsmart driver only accepts 120, 300, 420 and 600.
-#
-# Set to 120 (the minimum) because this UPS cannot be trusted to estimate its
-# own runtime. The pack was swapped to LiFePO4 on 01/24/25, but the UPS dates
-# from 2000 and derives runtime from a lead-acid capacity model that has never
-# been recalibrated (ups.test.result: NO). The resulting estimate is quantised
-# to 60s steps and swings 4x on an 8% load change, e.g. 60s at 47% load and
-# 240s at 40%.
-#
-# At the previous 300 the estimate sat permanently below the threshold, so the
-# UPS asserted LB continuously at 100% charge on line power. That armed upsmon
-# to shut pve01 down on any brief outage with no delay at all.
-#
-# This is a stopgap that buys back a usable signal, not a considered value. The
-# real number has never been measured with a stopwatch. See #487 for the
-# maintenance window that will measure it and set this properly.
-#
-# NOTE: an earlier version of this comment cited "measured runtime is ~7 min,
-# see UPS-SHUTDOWN.md". That document contains no such measurement, and the
-# figure appears to trace back to this same unreliable estimator via #460.
-ups_lowbatt_runtime: 120
 
 # User configuration
 ups_admin_user: admin

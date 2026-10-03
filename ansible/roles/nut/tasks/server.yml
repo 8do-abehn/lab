@@ -1,7 +1,7 @@
 ---
 # The ignorelb block hands the low-battery decision to NUT instead of the UPS.
-# See ups_ignore_lb and ups_charge_low in defaults/main.yml for the reasoning,
-# and `man apcsmart` under "IGNORING LB STATE".
+# See ups_charge_low in defaults/main.yml for the reasoning, and `man apcsmart`
+# under "IGNORING LB STATE".
 #
 # override.battery.runtime.low = -1 disables the runtime half of NUT's LB test,
 # because this unit's runtime estimate is the number that misfired in #492.
@@ -15,11 +15,9 @@
       driver = {{ ups_driver }}
       port = {{ ups_port }}
       desc = "{{ ups_desc }}"
-      {% if ups_ignore_lb %}
       ignorelb
       override.battery.runtime.low = -1
       override.battery.charge.low = {{ ups_charge_low }}
-      {% endif %}
   notify: Restart NUT services
 
 # `upsmon master` on the admin user is what makes FSD work. upsmon on this host
@@ -31,16 +29,21 @@
 # 2026-10-02, and HOSTSYNC burned its full timer waiting on secondaries that
 # could not be signalled. See #536 A2.
 #
-# `upsmon master` grants exactly login + master + fsd (server/user.c,
-# set_upsmon_type). It does NOT grant SET, so the `actions = SET` line below is
-# still required for upsrw. Multiple actions on one line would also work, but
-# the keyword is the documented way and keeps us honest if NUT ever adds to the
-# set a primary needs.
+# `upsmon master` grants exactly login + master + fsd in one directive
+# (server/user.c, set_upsmon_type). It does NOT grant SET, so `actions = SET`
+# below stays: the role no longer calls upsrw, but an operator still does, for
+# example to change input.sensitivity (#536 A3).
 #
-# Spelling: NUT 2.8.x prefers `primary`/`secondary` and keeps `master`/`slave`
-# as accepted aliases. We use the old spelling because upsmon.conf below and
-# client.yml both still say master/slave, and the three have to agree. Moving
-# the whole role to primary/secondary is a separate change.
+# Do not write `actions = SET FSD` instead. The parser does accept it
+# (server/user.c, parse_rest loops over the extra tokens) despite the man page
+# saying one action per line, but it would still leave LOGIN and MASTER
+# ungranted, and those are separate checks in server/netuser.c.
+#
+# Spelling: NUT 2.8.1 accepts `master` and `primary` as exact synonyms here.
+# We use `master` so upsd.users, upsmon.conf below and client.yml all agree,
+# and because the old spelling also works on pre-2.8 NUT, where `primary`
+# would log "Unknown upsmon type" and silently grant nothing. Renaming the
+# whole role to primary/secondary is worth doing as its own change.
 - name: Configure upsd.users
   ansible.builtin.copy:
     dest: /etc/nut/upsd.users
@@ -128,35 +131,43 @@
 - name: Apply pending NUT restarts
   ansible.builtin.meta: flush_handlers
 
-# Both tasks below are skipped while ups_ignore_lb is true.
-# override.battery.runtime.low marks the variable ST_FLAG_IMMUTABLE in the
-# driver, so upsc reports the override (-1) rather than what NVRAM holds and
-# upsd refuses the upsrw write. Left ungated they would report changed on every
-# run and then fail.
-- name: Read the current low-battery threshold
-  ansible.builtin.command: upsc {{ ups_name }}@localhost battery.runtime.low
-  register: ups_runtime_low
-  when: not ups_ignore_lb
+# This read-back is a trap for a silent total loss of protection.
+#
+# The driver's startup check (drivers/main.c) is satisfied if EITHER the charge
+# pair or the runtime pair is present. override.battery.runtime.low = -1
+# supplies the runtime pair, so the driver starts happily even if
+# override.battery.charge.low never took effect. battery.runtime < -1 is never
+# true, so in that state LB would simply never fire and nothing would say so.
+#
+# Skipped in check mode: the config has not been written yet, so there is
+# nothing meaningful to read back.
+- name: Read back the low-battery charge threshold from the driver
+  ansible.builtin.command: upsc {{ ups_name }}@localhost battery.charge.low
+  register: ups_charge_low_readback
+  when:
+    - nut_units_present
+    - not ansible_check_mode
   changed_when: false
   failed_when: false
   # upsd takes a moment to answer after a restart.
   retries: 5
   delay: 3
-  until: ups_runtime_low.rc | default(1) == 0
+  until: ups_charge_low_readback.rc | default(1) == 0
 
-# Sets the UPS-side LB threshold to ups_lowbatt_runtime so upsmon has time to
-# shut pve01 down and propagate FSD to the netclients. Written to UPS NVRAM, so
-# it survives reboots and only needs setting once.
-# Note: upsrw takes the password as an argument, so it is briefly visible in the
-# process list on this host. no_log keeps it out of Ansible output.
-- name: Raise the low-battery threshold on the UPS
-  ansible.builtin.command: >-
-    upsrw -s battery.runtime.low={{ ups_lowbatt_runtime }}
-    -u {{ ups_admin_user }} -p {{ ups_admin_pass }}
-    {{ ups_name }}@localhost
+- name: Assert the driver is actually enforcing the charge threshold
+  ansible.builtin.assert:
+    that:
+      - ups_charge_low_readback.rc | default(1) == 0
+      - (ups_charge_low_readback.stdout | default("") | trim | int) == (ups_charge_low | int)
+    fail_msg: >-
+      {{ ups_name }} is not enforcing battery.charge.low = {{ ups_charge_low }}
+      (upsc returned rc={{ ups_charge_low_readback.rc | default('n/a') }},
+      value {{ ups_charge_low_readback.stdout | default('') | trim | default('none', true) }}).
+      With override.battery.runtime.low = -1 in place and no working charge
+      threshold, LB can never fire and this host has no UPS shutdown protection
+      at all. Check the [{{ ups_name }}] section of /etc/nut/ups.conf and the
+      nut-driver@{{ ups_name }} journal.
+    quiet: true
   when:
-    - not ups_ignore_lb
-    - ups_runtime_low.rc | default(1) == 0
-    - (ups_runtime_low.stdout | default("") | trim | int) != (ups_lowbatt_runtime | int)
-  changed_when: true
-  no_log: true
+    - nut_units_present
+    - not ansible_check_mode

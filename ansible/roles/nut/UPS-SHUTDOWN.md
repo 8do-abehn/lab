@@ -39,18 +39,18 @@ it is not trustworthy. See the next section.
 ## Who decides "low battery"
 
 Since #536, **NUT decides, not the UPS**. The role writes this into the `[myups]`
-section of `ups.conf` whenever `ups_ignore_lb` is true (the default):
+section of `ups.conf`:
 
 ```
 ignorelb
 override.battery.runtime.low = -1
-override.battery.charge.low = {{ ups_charge_low }}
+override.battery.charge.low = <ups_charge_low>
 ```
 
 `ignorelb` makes the driver discard the UPS's own LB flag and re-derive LB on every
 poll from `battery.charge < battery.charge.low OR battery.runtime < battery.runtime.low`.
-Setting `battery.runtime.low` to -1 disables the runtime half, leaving charge as the
-only trigger. See `man apcsmart`, section "IGNORING LB STATE".
+Pinning `battery.runtime.low` to -1 makes the runtime half unsatisfiable, leaving
+charge as the only trigger. See `man apcsmart`, section "IGNORING LB STATE".
 
 Why: the pack was swapped to LiFePO4 on 01/24/25, but the UPS is from 2000 and
 models capacity for lead acid, so its runtime estimate is fiction. On 2026-10-02 the
@@ -59,23 +59,40 @@ line power, and the first momentary transfer to battery read as OB+LB and shut p
 down with mains present the whole time. Deriving LB in NUT also means LB clears again
 on the next poll instead of latching. Full writeup in #492 and #536.
 
-`ups_charge_low` is **provisional**. battery.charge is derived from pack voltage
-through a lead-acid curve, and LiFePO4's discharge curve is flat, so the reading
-stays high for most of the discharge and then collapses. The real threshold needs
-#487's measured discharge. See the comment on the variable in
-`roles/nut/defaults/main.yml` for the full reasoning behind the current value.
+`ups_charge_low` is **provisional and makes no safety claim**. `battery.charge` is
+derived from pack voltage through a lead-acid curve, and LiFePO4's curve is flat, so
+the reading stays high for most of the discharge and then collapses. The value is
+derived from constraints, not measured, and promises no particular warning time. See
+the comment on the variable in `roles/nut/defaults/main.yml`, and #487 for the
+measurement that should replace it.
 
-### When `ups_ignore_lb` is false
+### The UPS-side NVRAM threshold is gone
 
-The UPS decides LB from remaining *runtime*, not a battery percentage. It ships at
-2 minutes. The role then sets the threshold to `ups_lowbatt_runtime` via
-`upsrw -s battery.runtime.low=...`, stored in UPS NVRAM so it survives reboots. The
-apcsmart driver only accepts 120, 300, 420 and 600 seconds.
+The role used to write `battery.runtime.low` into UPS NVRAM with
+`upsrw -s battery.runtime.low=<ups_lowbatt_runtime>`. Those two tasks and the
+variable were removed with #536.
 
-The two modes are mutually exclusive: `override.battery.runtime.low` marks the
-variable immutable in the driver, so `upsc` reports the override rather than NVRAM
-and `upsrw` is refused. The role skips both NVRAM tasks while `ups_ignore_lb` is
-true.
+They are incompatible with `ignorelb`, not merely redundant. `override.*` marks a
+variable `ST_FLAG_IMMUTABLE` (`drivers/main.c`, `storeval`), the driver then never
+publishes it `RW`, and `upsd` answers any `SET` on it with `ERR READONLY`. Left in
+place the read would return `-1`, the `!= ups_lowbatt_runtime` guard would be true on
+every run, and the `upsrw` would fire and fail every deploy.
+
+The UPS's own NVRAM value still decides when the unit beeps. It no longer influences
+any shutdown decision.
+
+### Read-back check
+
+The driver's startup check (`drivers/main.c`) is satisfied if **either** the charge
+pair or the runtime pair is present. `override.battery.runtime.low = -1` supplies the
+runtime pair, so the driver starts happily even if `override.battery.charge.low`
+never took effect, and `battery.runtime < -1` is never true. That failure mode is
+silent and total: LB simply never fires.
+
+Both `roles/nut/tasks/server.yml` and `verify_nut.yml` therefore read
+`battery.charge.low` back out of the running driver and fail loudly if it is missing
+or wrong. The role-side assert is skipped in check mode, where no config has been
+written yet.
 
 ## Shutdown Timeline
 
@@ -85,10 +102,8 @@ true.
 
 ### Shutdown Trigger
 - Shutdown initiates when the UPS is on battery (OB) **and** low battery (LB)
-- With `ups_ignore_lb` true (the default), LB comes from the driver comparing
-  `battery.charge` against `ups_charge_low`, not from the UPS
-- With `ups_ignore_lb` false, LB comes from the UPS itself at `ups_lowbatt_runtime`
-  seconds of estimated remaining runtime
+- LB comes from the driver comparing `battery.charge` against `ups_charge_low`,
+  not from the UPS
 
 ### Execution Phase
 - **FINALDELAY 5** - **5 second** delay before shutdown command
@@ -107,13 +122,15 @@ true.
 
 ## Alternative: Time-Based Shutdown
 
-Raising `battery.runtime.low` was chosen over `upssched` because `upsmon` runs
-`NOTIFYCMD` as its unprivileged child, so the `upsmon -c fsd` in an upssched command
-script cannot signal the root parent that performs the shutdown. Making that work
-needs `RUN_AS_USER root` in `upsmon.conf`, which runs the network-facing upsd client
-as root on every node.
+A charge threshold was chosen over `upssched` because `upsmon` runs `NOTIFYCMD` as
+its unprivileged child, so the `upsmon -c fsd` in an upssched command script cannot
+signal the root parent that performs the shutdown. Making that work needs
+`RUN_AS_USER root` in `upsmon.conf`, which runs the network-facing upsd client as
+root on every node.
 
-If you still want shutdown keyed to time on battery rather than the UPS threshold:
+A time-on-battery watchdog would sidestep the charge-reading problem entirely, and
+#536 flags it as worth revisiting. If you want shutdown keyed to time on battery
+instead:
 
 ### Additional Configuration Required
 
