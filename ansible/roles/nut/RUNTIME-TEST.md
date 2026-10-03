@@ -92,16 +92,31 @@ The steps below are **1a**. Where 1b differs it says so.
       main LAN: pve01 reaches it there on TCP 9999 with no TP-Link login. It sits
       near the edge of Wi-Fi range where it was first tested (RSSI -76), so check the
       signal at the UPS; a dropped reading only leaves two empty cells
-- [ ] **DMM** with insulated probes, for per-unit voltages
-- [ ] Optional: **DC clamp meter** with inrush or MAX hold, for battery current and
-      the transfer surge
+- [ ] **DMM** (on hand) with insulated probes. It covers the two things the UPS and
+      the KP115 cannot see: whether the UPS's `battery.voltage` register is accurate
+      (the hard stop depends on it), and whether one battery unit is draining faster
+      than the other three (the string total hides that). Three reading sets are
+      required, about 10 readings in all: the string and each unit before (step 1),
+      and each unit at rest after (step 8). Readings during the discharge are optional
 - [ ] A **power strip on a wall outlet**, not on the UPS, for pve01 and the network gear
 - [ ] A laptop on the LAN with an SSH session to pve01, and the paper field sheet at
       the end of this file
 
 Battery voltage here is 48 to 55 V DC with tens of amps available. Probe one unit
-at a time, never bridge terminals, and skip the under-load per-unit readings if the
+at a time, never bridge terminals, and skip the optional under-load readings if the
 terminals cannot be reached without moving the pack wiring.
+
+A current clamp is not needed. The KP115 logs the true output watts, so battery
+current follows from `watts / battery.voltage / ~0.85`. A clamp would only add the
+transfer surge and the exact instant of a BMS trip, and the logger's `COLLAPSE` and
+`NODATA` flags already catch a trip. If the DMM has a clamp jaw anyway, it is only
+useful here if it reads **DC** amps (an A with the solid-and-dashed DC symbol, or
+Hall-effect in the spec). Most budget clamps are AC only and read zero on a battery
+lead. If it does read DC, close it around one battery lead (never both) and note the
+amps at a few points: it should land near the 12 to 15 A the formula predicts.
+
+With alligator clip leads, clip onto **one unit at a time**, and move the clips with
+the meter's probe end disconnected, so a slipping clip can never bridge two units.
 
 ## Picking the date
 
@@ -142,9 +157,15 @@ terminals cannot be reached without moving the pack wiring.
 ## Step 1: Morning of (cluster still running, on the UPS)
 
 - [ ] Pack is full: no on-battery event in the last 24 h. On pve01: `journalctl -u nut-monitor --since "-24h" | grep -i battery`
-- [ ] Float reading: `upsc myups@localhost battery.voltage` (expect 55.05)
-- [ ] **Per-unit float voltages with the DMM** (units 1 to 4, field sheet). Any unit
-      above 13.8 V is imbalance the string total hides (#539)
+- [ ] **Whole string with the DMM**, from the most negative to the most positive
+      terminal, and at the same moment `upsc myups@localhost battery.voltage` (expect
+      55.05). If they differ by more than 0.3 V, the UPS register is off, and the hard
+      stop has to move with it: start the logger in step 5 with
+      `STOP_V=<48.0 + (upsc - DMM)>` and `WARN_V` one volt above that. For example,
+      upsc 55.05 and DMM 55.40 means the UPS reads 0.35 V low, so `STOP_V=47.65`
+- [ ] **Each unit with the DMM** (units 1 to 4, field sheet). Any unit above 13.8 V,
+      or units more than 0.1 V apart, is imbalance the string total hides (#539).
+      Label the units 1 to 4 now so every later reading means the same unit
 - [ ] `ceph -s` is HEALTH_OK. jellyfin01's library mount is healthy (a stuck ceph-fuse
       will hang its shutdown, and can hang this check too, hence the timeout): `timeout 15 pct exec 3001 -- mountpoint /mnt/library`
 - [ ] Shut down **vm-seb (701) from inside Windows**, not `qm stop`, and any other
@@ -170,7 +191,6 @@ Run on pve01 unless noted.
 - [ ] Leave pve02 and pve03 off (their plugs can stay in the UPS)
 - [ ] Plug the **dummy load** into a UPS output **through the KP115** (UPS, KP115,
       heater), heater switched off for now, KP115 switched on
-- [ ] Clamp meter, if used, on one battery string lead, zeroed
 
 **1b:** move pve02 and pve03 to the wall strip too, and boot all three.
 
@@ -199,28 +219,30 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
       near 2200 means VA
 - [ ] **Do not use the Kasa app to switch the KP115 during the run.** Switching it off
       ends the test early; the heater's own switch is the load control
-- [ ] For notes during the run (meter readings, DMM readings, anything odd), append
-      timestamped lines from a second pane: `echo "$(date +%s) heater 702W 0.12kWh" >> /root/ups-notes.txt`
+- [ ] For notes during the run (DMM readings, anything odd), append timestamped lines
+      from a second pane: `echo "$(date +%s) U3 12.61V" >> /root/ups-notes.txt`
 
 ## Step 6: Pull mains
 
 - [ ] **Unplug the UPS input cord from the wall.** Never use the breaker: in 1b the
       cluster's wall strip may share that circuit
-- [ ] Note the time. If the clamp meter has inrush or MAX hold, record the transfer peak
+- [ ] Note the time
 - [ ] The UPS will beep on battery. That is expected
 
-The logger records watts and Wh. Every 5 minutes, write down the clamp reading if
-used, and glance at `plugW`: if it reads blank for more than a minute, write the
-watts from the Kasa app instead. Every
-10 minutes, and every 0.5 V once the string is below 51 V, take per-unit DMM readings
-if the terminals are safely reachable.
+The logger records voltage, charge, watts and Wh. Glance at `plugW` now and then: if
+it reads blank for more than a minute, note the watts from the Kasa app instead.
+
+**Optional:** every 10 minutes, and every 0.5 V once the string is below 51 V, read
+each unit with the DMM if the terminals are safely reachable. This is the only way
+to stop on a weak unit before its BMS trips, so it is worth doing in the last stretch
+even if you skip the early readings.
 
 ## Step 7: Stop conditions (any one ends the run)
 
 | Condition | Logger flag | Action |
 |---|---|---|
 | `battery.voltage` <= 48.0 V | `STOP` | Normal end. Heater off, then step 8 |
-| Any single unit <= 11.6 V on the DMM, or units more than 0.5 V apart | none, from the DMM | Weak or unbalanced unit. Heater off, then step 8 |
+| Any single unit <= 11.6 V, or units more than 0.5 V apart (optional DMM readings) | none, from the DMM | Weak or unbalanced unit. Heater off, then step 8 |
 | String drops >= 1 V in one sample after the first 15 s | `COLLAPSE` | Likely BMS trip. **Restore mains now** |
 | `upsc` fails or reports stale data | `NODATA` | UPS output may have died. **Restore mains now** |
 | 120 minutes on battery | none | Well past the expected 80. Heater off, then step 8 |
@@ -360,13 +382,15 @@ STEP 0  real load, on line, float
   quiet:      KP115 on UPS input ____ W   ups.load ____ %
   vm-seb on:  KP115 on UPS input ____ W   ups.load ____ %   (worst case)
 
-STEP 1  per-unit float (V)   U1 ____  U2 ____  U3 ____  U4 ____   string (upsc) ____
+STEP 1  string   DMM ____   upsc ____   offset (upsc - DMM) ____  -> STOP_V ____
+        per-unit float (V)   U1 ____  U2 ____  U3 ____  U4 ____
 
 STEP 5  heater on line       KP115 ____ W     ups.load ____ %   -> ____ W/(load/100)
 
-STEP 6  mains pulled at ________   transfer peak (clamp) ____ A
+STEP 6  mains pulled at ________
 
-  t(min)  clamp A  string V  U1    U2    U3    U4    notes   (watts/Wh are in the CSV)
+  optional, voltage/watts/Wh are in the CSV:
+  t(min)  string V  U1    U2    U3    U4    notes
   0
   5
   10
