@@ -10,13 +10,10 @@
 - name: Detect OS distribution
   ansible.builtin.set_fact:
     tailscale_distro: "{{ 'ubuntu' if ansible_facts['distribution'] == 'Ubuntu' else 'debian' }}"
-    # Map unsupported codenames to closest supported version
-    # trixie (Debian 13) -> bookworm until tailscale adds trixie repo
-    tailscale_codename: >-
-      {{
-        'bookworm' if ansible_facts['distribution_release'] == 'trixie'
-        else ansible_facts['distribution_release']
-      }}
+    # Tailscale publishes a trixie repo now, so the host's own codename is used.
+    # This used to map trixie -> bookworm, which on the trixie Proxmox nodes
+    # rewrote a correct tailscale.list back to bookworm (#543).
+    tailscale_codename: "{{ ansible_facts['distribution_release'] }}"
 
 - name: Ensure Tailscale GPG key is properly formatted
   ansible.builtin.shell: |

@@ -1,38 +1,77 @@
 ---
-- name: Disable Proxmox Enterprise repository
-  ansible.builtin.apt_repository:
-    repo: "deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise"
+# Proxmox VE 9 (Debian trixie) ships its apt sources as deb822 `.sources` files.
+# This role used to write one-line `.list` entries hardcoded to bookworm and
+# ceph-quincy, which on a trixie node ADDED a previous-release PVE repo and a
+# three-majors-old Ceph repo alongside the real ones (#543). So the role now
+# manages the same `.sources` files PVE 9 installs, with the same content, and
+# a run against a correctly set up node changes nothing.
+#
+# Refuse anything that isn't trixie rather than guess. When the cluster moves
+# to the next Debian release, review proxmox_ceph_release and widen this.
+- name: Refuse to manage apt sources on an unexpected Debian release
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution_release'] in proxmox_apt_supported_releases
+    fail_msg: >-
+      {{ inventory_hostname }} runs {{ ansible_facts['distribution_release'] }},
+      but roles/proxmox/tasks/repositories.yml is only written for
+      {{ proxmox_apt_supported_releases | join(', ') }}. Check the Proxmox and
+      Ceph repo names for that release before adding it. See #543.
+    quiet: true
+
+- name: Configure the Proxmox no-subscription repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/proxmox.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: http://download.proxmox.com/debian/pve
+      Suites: {{ ansible_facts['distribution_release'] }}
+      Components: pve-no-subscription
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+- name: Configure the Ceph no-subscription repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/ceph.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: http://download.proxmox.com/debian/ceph-{{ proxmox_ceph_release }}
+      Suites: {{ ansible_facts['distribution_release'] }}
+      Components: no-subscription
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+# Kept as a file with Enabled: false, the way PVE 9 ships it, rather than
+# deleted: a package upgrade would otherwise recreate it enabled.
+- name: Keep the Proxmox enterprise repository disabled
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/pve-enterprise.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: https://enterprise.proxmox.com/debian/pve
+      Suites: {{ ansible_facts['distribution_release'] }}
+      Components: pve-enterprise
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+      Enabled: false
+
+# The legacy one-line files the old version of this role wrote. None exist on
+# pve01-03 today; removing them makes sure a stale one can't come back.
+- name: Remove legacy one-line repo files
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/{{ item }}"
     state: absent
-    filename: pve-enterprise
-    update_cache: false
-
-- name: Add Proxmox no-subscription repository
-  ansible.builtin.apt_repository:
-    repo: "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription"
-    state: present
-    filename: pve-install-repo
-    update_cache: false
-
-- name: Disable Ceph Enterprise repository
-  ansible.builtin.apt_repository:
-    repo: "deb https://enterprise.proxmox.com/debian/ceph-quincy bookworm enterprise"
-    state: absent
-    filename: ceph
-    update_cache: false
-
-- name: Add Ceph Quincy no-subscription repository
-  ansible.builtin.apt_repository:
-    repo: "deb http://download.proxmox.com/debian/ceph-quincy bookworm no-subscription"
-    state: present
-    filename: ceph
-    update_cache: false
-
-- name: Ensure pvetest repository is disabled
-  ansible.builtin.apt_repository:
-    repo: "deb http://download.proxmox.com/debian/pve bookworm pvetest"
-    state: absent
-    filename: pvetest-for-beta
-    update_cache: false
+  loop:
+    - pve-install-repo.list
+    - ceph.list
+    - pve-enterprise.list
+    - pvetest-for-beta.list
 
 - name: Update apt cache
   ansible.builtin.apt:
