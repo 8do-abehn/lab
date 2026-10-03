@@ -1,0 +1,75 @@
+---
+# HandBrake x265 encoder for riplab (#548).
+#
+# Built from source because Ubuntu 24.04 only packages 1.7.2 and the stebbins
+# PPA has nothing for noble. Pinned to the Mac's version so an encode from
+# either machine comes out the same.
+handbrake_version: "1.11.2"
+handbrake_repo: https://github.com/HandBrake/HandBrake.git
+handbrake_src_dir: /root/HandBrake
+# riplab's encode_queue.sh calls this path directly.
+handbrake_cli: "{{ handbrake_src_dir }}/build/HandBrakeCLI"
+# CLI only, and software x265 only: x265 is the archive standard (riplab#13),
+# and an LXC has no GPU to hand NVENC or QSV anyway.
+handbrake_configure_flags:
+  - --disable-gtk
+  - --disable-nvenc
+  - --disable-qsv
+
+# From HandBrake's Ubuntu build docs, as installed on encode01 2026-10-03.
+handbrake_build_deps:
+  - autoconf
+  - automake
+  - build-essential
+  - clang
+  - cmake
+  - curl
+  - git
+  - libass-dev
+  - libbz2-dev
+  - libdrm-dev
+  - libfontconfig-dev
+  - libfreetype-dev
+  - libfribidi-dev
+  - libharfbuzz-dev
+  - libjansson-dev
+  - liblzma-dev
+  - libmp3lame-dev
+  - libnuma-dev
+  - libogg-dev
+  - libopus-dev
+  - libsamplerate0-dev
+  - libspeex-dev
+  - libtheora-dev
+  - libtool
+  - libtool-bin
+  - libturbojpeg0-dev
+  - libva-dev
+  - libvorbis-dev
+  - libvpx-dev
+  - libx264-dev
+  - libxml2-dev
+  - m4
+  - make
+  - meson
+  - nasm
+  - ninja-build
+  - patch
+  - pkg-config
+  - python3
+  - tar
+  - zlib1g-dev
+
+# Runtime tools riplab's scripts use alongside HandBrake (ffprobe for the
+# per-resolution tier).
+encoder_packages:
+  - ffmpeg
+
+# Container settings, applied on the Proxmox node that hosts it. cpuunits is
+# CPU weight: 10 against the default 100 means encodes yield to dns01, Ceph
+# OSDs and corosync instead of competing equally (load hit ~53 on 24 threads
+# at the default). Set both per host; the role skips this when they are unset.
+encoder_pve_node: ""
+encoder_vmid: ""
+encoder_cpuunits: 10
+encoder_onboot: true

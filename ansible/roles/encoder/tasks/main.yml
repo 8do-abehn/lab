@@ -1,0 +1,79 @@
+---
+# HandBrake x265 encoder for riplab (#548). See defaults/main.yml for why it is
+# a source build and what the container settings do.
+
+- name: Install HandBrake build dependencies and encoder tools
+  ansible.builtin.apt:
+    name: "{{ handbrake_build_deps + encoder_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# The version check gates the build: compiling HandBrake takes many minutes on
+# all cores, so it runs only when the binary is missing or the pin changed.
+- name: Check the installed HandBrakeCLI version
+  ansible.builtin.command: "{{ handbrake_cli }} --version"
+  register: handbrake_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Decide whether HandBrake needs building
+  ansible.builtin.set_fact:
+    handbrake_build_needed: >-
+      {{ handbrake_installed.rc != 0
+         or ('HandBrake ' ~ handbrake_version) not in handbrake_installed.stdout }}
+
+- name: Check out the pinned HandBrake release
+  ansible.builtin.git:
+    repo: "{{ handbrake_repo }}"
+    dest: "{{ handbrake_src_dir }}"
+    version: "{{ handbrake_version }}"
+    force: true
+  when: handbrake_build_needed | bool
+
+# --force replaces an existing build/ directory, --launch runs make after
+# configure. Encodes running at the time keep their already-loaded binary.
+- name: Build HandBrakeCLI
+  ansible.builtin.command:
+    cmd: >-
+      ./configure --force --launch
+      --launch-jobs={{ ansible_facts['processor_vcpus'] }}
+      {{ handbrake_configure_flags | join(' ') }}
+    chdir: "{{ handbrake_src_dir }}"
+  changed_when: true
+  when: handbrake_build_needed | bool
+
+- name: Confirm the built HandBrakeCLI is the pinned version
+  ansible.builtin.command: "{{ handbrake_cli }} --version"
+  register: handbrake_built
+  changed_when: false
+  failed_when: ('HandBrake ' ~ handbrake_version) not in handbrake_built.stdout
+  when:
+    - handbrake_build_needed | bool
+    - not ansible_check_mode
+
+# Container-level settings live in the node's /etc/pve config, not inside the
+# container, so these run on the Proxmox node.
+- name: Read the encoder container's Proxmox config
+  ansible.builtin.command: pct config {{ encoder_vmid }}
+  register: encoder_pct_config
+  changed_when: false
+  check_mode: false
+  delegate_to: "{{ encoder_pve_node }}"
+  when:
+    - encoder_pve_node | length > 0
+    - encoder_vmid | string | length > 0
+
+- name: Set the encoder container's CPU weight and start-on-boot
+  ansible.builtin.command: >-
+    pct set {{ encoder_vmid }}
+    --cpuunits {{ encoder_cpuunits }}
+    --onboot {{ encoder_onboot | bool | ternary(1, 0) }}
+  changed_when: true
+  delegate_to: "{{ encoder_pve_node }}"
+  when:
+    - encoder_pct_config is not skipped
+    - >-
+      ('cpuunits: ' ~ encoder_cpuunits) not in encoder_pct_config.stdout_lines
+      or ('onboot: ' ~ (encoder_onboot | bool | ternary(1, 0))) not in encoder_pct_config.stdout_lines
