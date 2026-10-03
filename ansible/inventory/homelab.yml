@@ -22,23 +22,21 @@ all:
 
         # Everything else monitors upsd on pve01 over the network.
         #
-        # pve02 and pve03 are commented out deliberately, see #487. pve01's UPS
-        # cannot be trusted to report its own runtime: the pack was swapped to
-        # LiFePO4 on 01/24/25 but the UPS dates from 2000 and models capacity
-        # for lead acid, so its estimate is quantised to 60s steps and swings
-        # 4x on an 8% load change. Enrolling netclients now would arm shutdown
-        # monitoring cluster wide against that.
+        # pve02, pve03 and the network gear are ALL on this UPS's battery
+        # outlets. That makes enrolment mandatory, not optional: since #538,
+        # FSD works and pve01's shutdown hook tells the UPS to cut its output
+        # ~20s after pve01 halts. Any host on the UPS that is not a netclient
+        # gets no warning and loses power hard, Ceph included.
         #
-        # They were left in the group but undeployed, which made any unscoped
-        # `site.yml` run enrol them silently. That is a poor thing to rely on
-        # remembering, so the state is explicit here instead.
-        #
-        # Uncomment once #487 has measured real runtime and set thresholds
-        # from it.
+        # #497 un-enrolled them because shutdown then hinged on the UPS's own
+        # runtime estimate, which is fiction for this LiFePO4 pack. #538 took
+        # that out of the decision (ignorelb; triggers are now 60s on battery
+        # or charge < 50), so that reason no longer applies. Thresholds are
+        # still provisional pending #487.
         nut_netclients:
-          hosts: {}
-          # pve02:
-          # pve03:
+          hosts:
+            pve02:
+            pve03:
 
     # Proxmox New Cluster (3-node, Proxmox 9, Ceph)
     # Management VLAN 60: 10.150.60.0/24

@@ -62,18 +62,15 @@ ups_desc: "APC SMART-UPS 2200"
 # produces a measured discharge curve.
 ups_charge_low: 50
 
-# Address upsd listens on.
+# Extra address upsd listens on, for the nut_netclients.
 #
-# Loopback, because #497 emptied nut_netclients and the listener currently
-# serves nobody. See #536 A7.
+# Loopback is always served regardless (server.yml), because this host's own
+# upsmon and the on-battery watchdog connect via localhost. Leaving this at
+# loopback means "serve this host only".
 #
-# This MUST become an address pve02/pve03 can reach the moment they are
-# re-enrolled as netclients. Their upsmon would otherwise never connect, and
-# shutdown coordination would fail silently: upsd reports nothing wrong, the
-# netclients just never learn about FSD. Override it in
-# inventory/group_vars/nut.yml, next to ups_server_ip which already records
-# the address they dial. server.yml refuses to write a loopback listener while
-# nut_netclients has members, so the mistake cannot be made quietly.
+# inventory/group_vars/nut.yml sets it to ups_server_ip, the management VLAN
+# address the netclients dial. server.yml refuses a loopback-only listener while
+# nut_netclients has members, so un-setting it there cannot be done quietly.
 ups_listen_address: 127.0.0.1
 
 # Seconds the systemd-shutdown hook waits, after commanding the UPS to cut the
