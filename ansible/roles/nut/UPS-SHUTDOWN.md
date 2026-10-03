@@ -208,13 +208,29 @@ Sleeping 15 minutes would keep a healthy node dark for no reason.
 
 ## The upsd listener
 
-`upsd.conf` is written from `ups_listen_address`, which defaults to `127.0.0.1`
-because #497 emptied `nut_netclients` and the listener serves nobody.
+`upsd.conf` always listens on `127.0.0.1`, because pve01's own upsmon and the
+on-battery watchdog connect via `localhost`. `ups_listen_address` adds a second
+`LISTEN` when it is not loopback. `inventory/group_vars/nut.yml` sets it to
+`ups_server_ip`, the management VLAN address pve02/pve03 dial.
 
-Re-enrolling pve02/pve03 means overriding it in `inventory/group_vars/nut.yml`, next
-to the `ups_server_ip` they dial. `server.yml` asserts that a loopback listener and
-a non-empty `nut_netclients` never coexist, because that combination fails silently:
-the netclients simply never connect and FSD reaches nobody.
+`server.yml` asserts that a loopback-only listener and a non-empty
+`nut_netclients` never coexist, because that combination fails silently: the
+netclients simply never connect and FSD reaches nobody.
+
+## Why pve02 and pve03 must be netclients
+
+pve02, pve03 and the network gear are all on this UPS's battery outlets. Once FSD
+works, pve01's shutdown hook tells the UPS to cut its output about 20 seconds after
+pve01 halts. A host on the UPS that is not enrolled gets no warning and loses power
+hard. With Ceph on all three nodes, that is the worst outcome available.
+
+Enrolled, they receive FSD first. pve01 waits up to `HOSTSYNC` (15s) for them to
+disconnect, then shuts down itself, and only then is the load cut. Measured clean
+shutdowns were ~46s (pve03, 2026-09-22) and ~54s (pve01, 2026-10-02), so the
+secondaries get roughly 70s+ against ~46s needed. That margin assumes a clean
+shutdown; a guest that hangs on stop (see the node reboot notes on `ct:3102` and
+`ceph-fuse`) will still be cut. `ups.delay.shutdown` is writable (020/180/300/600)
+if more margin is ever needed, but `ups_poweroff_wait` must then be raised above it.
 
 ## Key Parameters Explained
 

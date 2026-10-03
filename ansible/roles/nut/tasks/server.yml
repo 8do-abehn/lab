@@ -80,15 +80,20 @@
       address those hosts can reach. See #536 A7.
     quiet: true
 
-# Loopback by default: #497 emptied nut_netclients, so the listener serves
-# nobody. See ups_listen_address in defaults/main.yml for how to widen it again
-# when pve02/pve03 are re-enrolled.
+# Loopback is always served, because this host's own upsmon and the on-battery
+# watchdog both connect to myups@localhost. upsd binds only the addresses it is
+# told to, so replacing loopback with the netclient address would silently blind
+# both of them. ups_listen_address is added as a second LISTEN when it is not
+# loopback itself. See ups_listen_address in defaults/main.yml.
 - name: Configure the upsd listener
   ansible.builtin.copy:
     dest: /etc/nut/upsd.conf
     mode: "0640"
     content: |
+      LISTEN 127.0.0.1
+      {% if ups_listen_address not in ['127.0.0.1', '::1', 'localhost'] %}
       LISTEN {{ ups_listen_address }}
+      {% endif %}
   notify: Restart NUT services
 
 # POWEROFF_WAIT matters now that FSD actually works. Without it the

@@ -54,12 +54,12 @@ The `homelab.yml` inventory includes:
 
 ### NUT / UPS Groups
 
-- **nut_server:** empty - host the UPS plugs into directly
-- **nut_netclients:** empty - hosts monitoring the UPS over the network
+- **nut_server:** `pve01` - the UPS's serial cable plugs into it; runs the driver and upsd
+- **nut_netclients:** `pve02`, `pve03` - monitor upsd on pve01 over the management VLAN
 
-Both are intentionally empty since the legacy cluster was retired 2026-09-05.
-Populate them once the UPS is re-cabled to the new cluster, and set
-`ups_server_ip` in `group_vars/nut_netclients.yml`.
+All three nodes and the network gear are powered by this UPS, so every node on it
+must be enrolled. See `roles/nut/UPS-SHUTDOWN.md` for why. Shared settings
+(`ups_server_ip`, `ups_listen_address`) live in `group_vars/nut.yml`.
 
 ### Backup Infrastructure
 - **backup_servers:** `pi-burg` - Raspberry Pi with 8TB USB backup storage
