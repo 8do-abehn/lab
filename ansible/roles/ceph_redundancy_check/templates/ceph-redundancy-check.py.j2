@@ -22,6 +22,9 @@ HEALTH_CODES = {{ ceph_check_health_codes | to_json }}
 MIN_MGR_STANDBYS = {{ ceph_check_min_mgr_standbys }}
 REALERT = timedelta(hours={{ ceph_check_realert_hours }})
 TIMEOUT = {{ ceph_check_timeout }}
+# A "seen last run" older than this (a reboot, a stopped timer) is too old to
+# count as the previous run for the debounce.
+SEEN_MAX_AGE = timedelta(minutes=20)
 STATE_FILE = "/var/lib/ceph-redundancy-check/state.json"
 APPRISE_CONFIG = "/etc/apprise.yml"
 
@@ -61,7 +64,8 @@ def find_problems(host):
     problems = {}
     checks = (status.get("health") or {}).get("checks") or {}
     for code in HEALTH_CODES:
-        if code in checks:
+        # `ceph health mute` is a human saying "I know"; respect it.
+        if code in checks and not checks[code].get("muted"):
             message = (checks[code].get("summary") or {}).get("message", "")
             problems[code] = "{}: {}".format(code, message)
 
@@ -71,8 +75,9 @@ def find_problems(host):
         problems["MGR_STANDBY"] = "MGR_STANDBY: {} standby mgr daemon(s), want at least {}".format(
             standbys, MIN_MGR_STANDBYS)
 
-    # One node speaks for the cluster, so a single incident sends one email
-    # rather than three.
+    # One node speaks for the cluster, so an incident normally sends one email
+    # rather than three. (Around a change of reporter, two nodes can briefly
+    # both report: the old one keeps going until it has sent its all-clear.)
     quorum = sorted(status.get("quorum_names") or [])
     return problems, bool(quorum) and quorum[0] == host
 
@@ -88,6 +93,7 @@ def load_state():
 def save_state(state):
     if DRY_RUN:
         return
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     tmp = STATE_FILE + ".tmp"
     with open(tmp, "w") as fh:
         json.dump(state, fh, indent=2, sort_keys=True)
@@ -104,10 +110,15 @@ def notify(subject, body):
     if not os.path.exists(APPRISE_CONFIG):
         return False
     env = dict(os.environ, PATH="/usr/local/bin:" + os.environ.get("PATH", ""))
-    proc = subprocess.run(
-        ["apprise", "-t", subject, "--body", body, "--config", APPRISE_CONFIG],
-        check=False, capture_output=True, env=env,
-    )
+    # A stalled SMTP connection must not hang the oneshot unit, or the timer
+    # never fires again and monitoring stops without a word.
+    try:
+        proc = subprocess.run(
+            ["apprise", "-t", subject, "--body", body, "--config", APPRISE_CONFIG],
+            check=False, capture_output=True, env=env, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return proc.returncode == 0
 
 
@@ -135,6 +146,12 @@ def main():
 
     seen = state.get("seen") or {}
     alerted = set(state.get("alerted") or [])
+    try:
+        seen_at = datetime.fromisoformat(state.get("seen_at", ""))
+    except ValueError:
+        seen_at = datetime.min
+    if datetime.now() - seen_at > SEEN_MAX_AGE:
+        seen = {}
 
     # A node that has alerted stays responsible until it has sent the
     # all-clear, even if the reporter role has moved on, so no alert is ever
@@ -147,7 +164,19 @@ def main():
         if DRY_RUN:
             print("not the reporting node; nothing to do")
         return
-    confirmed = {k: v for k, v in current.items() if k in seen}
+
+    # Without a quorum every cluster-level check is invisible, not passing.
+    # Carry the last known problems forward instead of reading their absence
+    # as a recovery.
+    if "NO_QUORUM" in current:
+        current = dict(seen, **current)
+
+    # Debounce both edges: a problem is raised after two consecutive runs that
+    # see it, and cleared only after two consecutive runs that do not, so a
+    # flapping OSD does not send a lost/restored pair every ten minutes.
+    raised = {k for k in current if k in seen}
+    held = {k for k in alerted if k in current or k in seen}
+    confirmed = {k: current.get(k, seen.get(k)) for k in raised | held}
 
     subject = None
     if set(confirmed) != alerted:
@@ -167,6 +196,7 @@ def main():
 
     new_state = {
         "seen": current,
+        "seen_at": datetime.now().isoformat(timespec="seconds"),
         "alerted": sorted(alerted),
         "alerted_at": state.get("alerted_at", ""),
     }
@@ -177,7 +207,7 @@ def main():
 
     if DRY_RUN:
         print("current: {}".format(sorted(current) or "none"))
-        print("confirmed (seen last run too): {}".format(sorted(confirmed) or "none"))
+        print("confirmed (debounced): {}".format(sorted(confirmed) or "none"))
 
 
 if __name__ == "__main__":

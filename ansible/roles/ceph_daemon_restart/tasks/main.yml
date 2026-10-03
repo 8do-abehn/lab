@@ -34,7 +34,7 @@
       # A daemon still waiting on a mon quorum dies on logrotate's SIGHUP, and
       # systemd counts that as a clean exit, so force a restart on it. The start
       # limit lets a daemon that is waiting on quorum (one start per ~330s) retry
-      # indefinitely, but still stops one that crashes within ~3 minutes.
+      # indefinitely, but still stops one that crashes within ~150 seconds.
       [Unit]
       StartLimitIntervalSec={{ ceph_restart_start_limit_interval }}
       StartLimitBurst={{ ceph_restart_start_limit_burst }}
