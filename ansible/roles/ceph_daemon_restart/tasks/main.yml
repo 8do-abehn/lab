@@ -1,0 +1,58 @@
+---
+# systemd drop-in for ceph-{osd,mds,mgr}@ (#529). See defaults/main.yml for why.
+#
+# Deploying this does NOT restart any Ceph daemon. daemon-reload applies the new
+# Restart*/StartLimit* settings to the running units in place, and they only
+# matter the next time one of them exits.
+
+- name: Check whether this host runs Ceph daemons
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/ceph-osd@.service
+  register: ceph_restart_osd_unit
+
+- name: Create the Ceph unit drop-in directories
+  ansible.builtin.file:
+    path: /etc/systemd/system/ceph-{{ item }}@.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ ceph_restart_daemons }}"
+  when:
+    - ceph_restart_enabled | bool
+    - ceph_restart_osd_unit.stat.exists
+
+- name: Keep Ceph daemons retrying while there is no mon quorum
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ceph-{{ item }}@.service.d/restart-without-quorum.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/ceph_daemon_restart). See #529.
+      #
+      # A daemon still waiting on a mon quorum dies on logrotate's SIGHUP, and
+      # systemd counts that as a clean exit, so force a restart on it. The start
+      # limit lets a daemon that is waiting on quorum (one start per ~330s) retry
+      # indefinitely, but still stops one that crashes within ~150 seconds.
+      [Unit]
+      StartLimitIntervalSec={{ ceph_restart_start_limit_interval }}
+      StartLimitBurst={{ ceph_restart_start_limit_burst }}
+
+      [Service]
+      RestartForceExitStatus=SIGHUP
+      RestartSec={{ ceph_restart_sec }}
+  loop: "{{ ceph_restart_daemons }}"
+  register: ceph_restart_dropins
+  when:
+    - ceph_restart_enabled | bool
+    - ceph_restart_osd_unit.stat.exists
+
+- name: Reload systemd so running Ceph units pick up the drop-in
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - ceph_restart_enabled | bool
+    - ceph_restart_osd_unit.stat.exists
+    - ceph_restart_dropins.changed
+    - not ansible_check_mode

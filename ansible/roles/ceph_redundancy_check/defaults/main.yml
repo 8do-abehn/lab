@@ -1,0 +1,53 @@
+---
+# Alert when Ceph loses redundancy (#529).
+#
+# After the 2026-09-27 outage, pve01/pve03's mds, mgr and OSDs stayed dead until
+# someone noticed by hand. The cluster sat at HEALTH_WARN, and the one warning
+# that mattered ("insufficient standby MDS daemons available") was buried among
+# unrelated "insecure key types" warnings. HEALTH_WARN vs HEALTH_OK is
+# therefore useless as an alert signal here. This checks for specific health
+# codes instead, plus mgr standbys, which Ceph has no health check for at all.
+#
+# It runs on every Ceph node. Cluster-level findings are reported only by the
+# alphabetically-first mon in quorum, so an incident normally sends one email,
+# and reporting moves to another node on its own if that one drops out. A node
+# that has alerted keeps reporting until it has sent the all-clear, so around
+# a change of reporter two nodes can briefly both send. A node that cannot
+# reach a quorum at all reports that about itself.
+#
+# Limits: it alerts through /etc/apprise.yml (smart_monitoring), i.e. over the
+# network, so it cannot deliver anything while the node itself is cut off, as
+# all three were for most of 2026-09-27. It would have fired within minutes
+# of the switch coming back, when the dead daemons became the only problem.
+ceph_check_enabled: true
+
+ceph_check_interval: 5min
+
+# Ceph health codes that mean redundancy or availability is gone. Anything not
+# listed (clock skew, insecure keys, crash reports, nearfull...) is ignored.
+ceph_check_health_codes:
+  - MON_DOWN
+  - MGR_DOWN
+  - OSD_DOWN
+  - OSD_HOST_DOWN
+  - MDS_ALL_DOWN
+  - MDS_INSUFFICIENT_STANDBY
+  - FS_DEGRADED
+  - FS_WITH_FAILED_MDS
+  - PG_AVAILABILITY
+
+# Ceph never warns about this one itself. On 2026-09-27 there were zero.
+ceph_check_min_mgr_standbys: 1
+
+# A problem must show up on two consecutive runs before it alerts, and be gone
+# for two before it clears, so a routine OSD restart, a few seconds of peering
+# or a flapping daemon does not send a lost/restored pair every few minutes.
+# Health checks silenced with `ceph health mute` are ignored.
+# Re-alert this often while the same problems persist.
+ceph_check_realert_hours: 12
+
+# Seconds to wait on any single `ceph` command before treating the cluster as
+# unreachable from this node.
+ceph_check_timeout: 30
+
+ceph_check_script: /usr/local/sbin/ceph-redundancy-check

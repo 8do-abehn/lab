@@ -110,6 +110,21 @@
   roles:
     - lxc_mount_watchdog
 
+# On 2026-09-27 mds, mgr and six OSDs stayed dead for hours after the switch
+# outage (#524) because they died while waiting on a mon quorum and systemd
+# never retried them, and nothing alerted (#529). The first role keeps them
+# retrying; the second alerts on lost redundancy whatever the cause. Neither
+# restarts a running Ceph daemon. Runs after smart_monitoring for
+# /etc/apprise.yml.
+- name: Keep Ceph daemons recoverable and alert on lost redundancy
+  hosts: proxmox
+  become: true
+  tags:
+    - ceph
+  roles:
+    - ceph_daemon_restart
+    - ceph_redundancy_check
+
 - name: Install Netdata monitoring
   hosts: proxmox:k3s_cluster:dns_servers:media_servers:mem0_servers:minecraft_servers:immich_servers
   become: true
