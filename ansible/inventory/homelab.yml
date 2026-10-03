@@ -80,6 +80,15 @@ all:
           # bypass Tailscale SSH, which is how CI authenticates, and CI has no
           # key on any host.
 
+    # UniFi Network controller (VLAN 60). Only managed for Tailscale tagging
+    # and restic backups (#549); the controller itself is installed by hand.
+    unifi_servers:
+      hosts:
+        unifi:  # LXC 3011 on pve03, UniFi Network controller for the APs and switches
+          ansible_user: root
+          # No ansible_host, same reason as immich01: MagicDNS name, so CI goes
+          # through Tailscale SSH.
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     minecraft_servers:
@@ -231,6 +240,17 @@ all:
             - "data/querylog.json"
             - "data/querylog.json.*"
             - "data/stats.db"
+
+        # The controller's own weekly .unf autobackups are a complete restore
+        # (devices, sites, WLANs, adoption state) at ~40 KB each, so back up
+        # just those rather than the whole LXC. Restore = fresh controller +
+        # upload one .unf in the setup wizard. Until #549 the only copy was a
+        # migration-era vzdump.
+        unifi:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP, same as the other clients
+          backup_cron_minute: "15"
+          backup_paths:
+            - /var/lib/unifi/backup/autobackup
 
     # Backup Servers
     backup_servers:
