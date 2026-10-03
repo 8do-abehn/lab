@@ -32,3 +32,12 @@ proxmox_lvm_thin_autoextend_percent: 20
 # VLANs allowed on the vmbr0 uplink, applied identically to pve01-03.
 # 10 = client LAN (dropbox LXC), 65 = Ceph storage, 70 = guest
 proxmox_bridge_vids: "10 65 70"
+
+# apt sources (tasks/repositories.yml). The role writes PVE 9's deb822 .sources
+# files and refuses any Debian release not listed here (#543).
+proxmox_apt_supported_releases:
+  - trixie
+# Ceph release name in the Proxmox repo URL (download.proxmox.com/debian/ceph-<name>).
+# Must match what the cluster actually runs: `ceph --version` reported 20.2.x
+# "tentacle" on pve01-03 (2026-10-03). Never lower this; a downgrade is not supported.
+proxmox_ceph_release: tentacle
