@@ -1,12 +1,13 @@
 ---
 # Ceph redundancy alert (#529). See defaults/main.yml for what it checks and
 # why. Needs /etc/apprise.yml and apprise from smart_monitoring, so site.yml
-# runs this after that role. A no-op on hosts without the ceph CLI.
+# runs this after that role. A no-op on hosts that are not in a Ceph cluster
+# (/usr/bin/ceph alone proves nothing: PVE installs ceph-common everywhere).
 
-- name: Check whether this host has the ceph CLI
+- name: Check whether this host is a Ceph cluster member
   ansible.builtin.stat:
-    path: /usr/bin/ceph
-  register: ceph_check_cli
+    path: /etc/pve/ceph.conf
+  register: ceph_check_member
 
 - name: Deploy the Ceph redundancy check script
   ansible.builtin.template:
@@ -17,7 +18,7 @@
     mode: "0755"
   when:
     - ceph_check_enabled | bool
-    - ceph_check_cli.stat.exists
+    - ceph_check_member.stat.exists
 
 - name: Install the Ceph redundancy check service
   ansible.builtin.copy:
@@ -36,10 +37,13 @@
       ExecStart={{ ceph_check_script }}
       StateDirectory=ceph-redundancy-check
       Nice=10
+      # Belt and braces with the script's own timeouts: a hung run would
+      # otherwise block every later run of the timer.
+      TimeoutStartSec=4min
   register: ceph_check_unit
   when:
     - ceph_check_enabled | bool
-    - ceph_check_cli.stat.exists
+    - ceph_check_member.stat.exists
 
 - name: Install the Ceph redundancy check timer
   ansible.builtin.copy:
@@ -64,7 +68,7 @@
   register: ceph_check_timer
   when:
     - ceph_check_enabled | bool
-    - ceph_check_cli.stat.exists
+    - ceph_check_member.stat.exists
 
 # Skipped under --check: the copy tasks above do not write the unit files in
 # check mode, so systemd would fail with "Could not find the requested service".
@@ -76,5 +80,5 @@
     daemon_reload: "{{ (ceph_check_unit.changed or ceph_check_timer.changed) | bool }}"
   when:
     - ceph_check_enabled | bool
-    - ceph_check_cli.stat.exists
+    - ceph_check_member.stat.exists
     - not ansible_check_mode

@@ -9,9 +9,11 @@
 # codes instead, plus mgr standbys, which Ceph has no health check for at all.
 #
 # It runs on every Ceph node. Cluster-level findings are reported only by the
-# alphabetically-first mon in quorum, so one incident sends one email, and
-# reporting moves to another node on its own if that one drops out. A node
-# that cannot reach a quorum at all reports that about itself.
+# alphabetically-first mon in quorum, so an incident normally sends one email,
+# and reporting moves to another node on its own if that one drops out. A node
+# that has alerted keeps reporting until it has sent the all-clear, so around
+# a change of reporter two nodes can briefly both send. A node that cannot
+# reach a quorum at all reports that about itself.
 #
 # Limits: it alerts through /etc/apprise.yml (smart_monitoring), i.e. over the
 # network, so it cannot deliver anything while the node itself is cut off, as
@@ -37,8 +39,10 @@ ceph_check_health_codes:
 # Ceph never warns about this one itself. On 2026-09-27 there were zero.
 ceph_check_min_mgr_standbys: 1
 
-# A problem must show up on two consecutive runs before it alerts, so a routine
-# OSD restart or a few seconds of peering after one does not page.
+# A problem must show up on two consecutive runs before it alerts, and be gone
+# for two before it clears, so a routine OSD restart, a few seconds of peering
+# or a flapping daemon does not send a lost/restored pair every few minutes.
+# Health checks silenced with `ceph health mute` are ignored.
 # Re-alert this often while the same problems persist.
 ceph_check_realert_hours: 12
 
