@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""Ceph redundancy check - managed by Ansible (roles/ceph_redundancy_check).
+
+Alerts when Ceph loses redundancy: OSDs down, no MDS or mgr standby, PGs
+inactive, or this node unable to reach a mon quorum at all (#529). On
+2026-09-27 two thirds of the cluster's daemons sat dead for hours under a
+HEALTH_WARN that also listed three unrelated warnings, so this matches
+specific health codes rather than the overall status.
+
+Run with --dry-run to print what it would send without notifying or touching
+the state file.
+"""
+
+import json
+import os
+import socket
+import subprocess
+import sys
+from datetime import datetime, timedelta
+
+HEALTH_CODES = {{ ceph_check_health_codes | to_json }}
+MIN_MGR_STANDBYS = {{ ceph_check_min_mgr_standbys }}
+REALERT = timedelta(hours={{ ceph_check_realert_hours }})
+TIMEOUT = {{ ceph_check_timeout }}
+STATE_FILE = "/var/lib/ceph-redundancy-check/state.json"
+APPRISE_CONFIG = "/etc/apprise.yml"
+
+DRY_RUN = "--dry-run" in sys.argv
+
+
+def ceph(*args):
+    """Run a ceph command and return its stdout, or None if the cluster did
+    not answer in time. The CLI blocks indefinitely without a quorum, so
+    both the connect timeout and the subprocess timeout matter."""
+    try:
+        proc = subprocess.run(
+            ["ceph", "--connect-timeout", str(TIMEOUT)] + list(args),
+            capture_output=True, text=True, check=False, timeout=TIMEOUT + 10,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout
+
+
+def find_problems(host):
+    """Return (problems, is_reporter). problems maps a stable key to a
+    human-readable line. The key is what the two-run debounce compares, so
+    it must not contain counts that change from run to run."""
+    raw = ceph("status", "--format", "json")
+    try:
+        status = json.loads(raw) if raw else None
+    except ValueError:
+        status = None
+    if status is None:
+        # Every node reports this about itself. It cannot be deduplicated
+        # through the cluster, because the cluster is what is unreachable.
+        return {"NO_QUORUM": "{} cannot reach a mon quorum ({}s timeout)".format(host, TIMEOUT)}, True
+
+    problems = {}
+    checks = (status.get("health") or {}).get("checks") or {}
+    for code in HEALTH_CODES:
+        if code in checks:
+            message = (checks[code].get("summary") or {}).get("message", "")
+            problems[code] = "{}: {}".format(code, message)
+
+    mgrmap = status.get("mgrmap") or {}
+    standbys = mgrmap.get("num_standbys", 0)
+    if mgrmap.get("available") and standbys < MIN_MGR_STANDBYS:
+        problems["MGR_STANDBY"] = "MGR_STANDBY: {} standby mgr daemon(s), want at least {}".format(
+            standbys, MIN_MGR_STANDBYS)
+
+    # One node speaks for the cluster, so a single incident sends one email
+    # rather than three.
+    quorum = sorted(status.get("quorum_names") or [])
+    return problems, bool(quorum) and quorum[0] == host
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state):
+    if DRY_RUN:
+        return
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(state, fh, indent=2, sort_keys=True)
+    os.replace(tmp, STATE_FILE)
+
+
+def notify(subject, body):
+    """Return True only if the alert was actually delivered. A node cut off
+    from the network must keep retrying rather than record a send that
+    never left the box."""
+    if DRY_RUN:
+        print("--- would send: {}\n{}".format(subject, body))
+        return True
+    if not os.path.exists(APPRISE_CONFIG):
+        return False
+    env = dict(os.environ, PATH="/usr/local/bin:" + os.environ.get("PATH", ""))
+    proc = subprocess.run(
+        ["apprise", "-t", subject, "--body", body, "--config", APPRISE_CONFIG],
+        check=False, capture_output=True, env=env,
+    )
+    return proc.returncode == 0
+
+
+def build_body(host, problems):
+    lines = ["Reported by {} at {}.".format(host, datetime.now().strftime("%Y-%m-%d %H:%M"))]
+    if problems:
+        lines += ["", "Problems:"] + ["  " + problems[k] for k in sorted(problems)]
+    detail = ceph("health", "detail")
+    if detail:
+        lines += ["", "ceph health detail:", detail.rstrip()]
+    if problems:
+        lines += [
+            "",
+            "If daemons on a node are just stopped (see #529), on that node:",
+            "  systemctl list-units --all 'ceph-*@*'",
+            "  systemctl reset-failed 'ceph-*@*' && systemctl start ceph.target",
+        ]
+    return "\n".join(lines)
+
+
+def main():
+    host = socket.gethostname().split(".")[0]
+    current, is_reporter = find_problems(host)
+    state = load_state()
+
+    seen = state.get("seen") or {}
+    alerted = set(state.get("alerted") or [])
+
+    # A node that has alerted stays responsible until it has sent the
+    # all-clear, even if the reporter role has moved on, so no alert is ever
+    # left without its resolution. Otherwise forget any state from a time this
+    # node was the reporter, so taking the role back later starts a fresh
+    # debounce instead of reusing stale data.
+    if not is_reporter and not alerted:
+        if state:
+            save_state({})
+        if DRY_RUN:
+            print("not the reporting node; nothing to do")
+        return
+    confirmed = {k: v for k, v in current.items() if k in seen}
+
+    subject = None
+    if set(confirmed) != alerted:
+        if not alerted:
+            subject = "Ceph redundancy lost"
+        elif not confirmed:
+            subject = "Ceph redundancy restored"
+        else:
+            subject = "Ceph redundancy changed"
+    elif confirmed:
+        try:
+            last = datetime.fromisoformat(state.get("alerted_at", ""))
+        except ValueError:
+            last = datetime.min
+        if datetime.now() - last >= REALERT:
+            subject = "Ceph redundancy still degraded"
+
+    new_state = {
+        "seen": current,
+        "alerted": sorted(alerted),
+        "alerted_at": state.get("alerted_at", ""),
+    }
+    if subject and notify("{} ({})".format(subject, host), build_body(host, confirmed)):
+        new_state["alerted"] = sorted(confirmed)
+        new_state["alerted_at"] = datetime.now().isoformat(timespec="seconds")
+    save_state(new_state)
+
+    if DRY_RUN:
+        print("current: {}".format(sorted(current) or "none"))
+        print("confirmed (seen last run too): {}".format(sorted(confirmed) or "none"))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,41 @@
+---
+# Keep Ceph daemons retrying while their node cannot reach a mon quorum (#529).
+#
+# On 2026-09-27 the Flex-XG switch was down (#524) and pve01/pve03 booted with
+# no uplink. mds, mgr and every OSD sat inside global_init() waiting to fetch
+# their config from a mon quorum that did not exist, gave up after
+# client_mount_timeout (300s), and were restarted by systemd. Two things then
+# left them dead for good, and either one alone would have:
+#
+#   1. The stock start limit (3 starts per 30min). A fourth attempt ~15min after
+#      boot is refused, the unit goes `failed`, and nothing retries again,
+#      including after the network comes back.
+#   2. Logrotate's nightly `killall -1`. Until global_init() returns, SIGHUP
+#      still has its default action and terminates the daemon. systemd counts
+#      death by SIGHUP as a CLEAN exit, so Restart=on-failure does not fire and
+#      the unit just shows "Deactivated successfully".
+#
+# The drop-in fixes both without giving up flap protection. It sizes the start
+# limit so that a daemon waiting on quorum never hits it, but one that crashes
+# quickly still does:
+#
+#   waiting on quorum: one start per 300s timeout + restart_sec = every 330s,
+#                      so at most 3 starts in any 15min window. Never limited.
+#   crashing fast:     5 starts land inside 15min whenever a run dies within
+#                      ~195s, so the 5th is refused and the unit goes `failed`
+#                      (which ceph_redundancy_check then reports).
+#
+# If client_mount_timeout or restart_sec change, redo that arithmetic.
+ceph_restart_enabled: true
+
+# ceph-mon is deliberately absent: it starts with CINIT_FLAG_NO_MON_CONFIG, never
+# waits on a quorum, and installs its SIGHUP handler right away.
+ceph_restart_daemons:
+  - osd
+  - mds
+  - mgr
+
+# Stock values are 10s for osd/mgr and systemd's default 100ms for mds.
+ceph_restart_sec: 30
+ceph_restart_start_limit_interval: 15min
+ceph_restart_start_limit_burst: 4
