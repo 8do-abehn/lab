@@ -1,0 +1,5 @@
+---
+# The CephFS bind mount (mp0) blocks HA migration, so the container stays on
+# this node. Update both if it is ever rebuilt elsewhere.
+encoder_pve_node: pve02
+encoder_vmid: 3015

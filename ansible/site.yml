@@ -67,7 +67,7 @@
         mode: "0644"
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:encoders
   become: true
   vars_files:
     - vault.yml
@@ -146,6 +146,12 @@
     - vault.yml
   roles:
     - backup_client
+
+- name: Configure riplab encoders
+  hosts: encoders
+  become: true
+  roles:
+    - encoder
 
 - name: Setup DNS servers
   hosts: dns_servers
