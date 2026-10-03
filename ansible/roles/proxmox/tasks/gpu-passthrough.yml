@@ -26,16 +26,60 @@
     - vfio_virqfd
   notify: Update initramfs
 
-# Orphan dropped by an abandoned NVIDIA driver install: it holds "blacklist nouveau",
-# is owned by no dpkg package, and nothing in this role wrote it. While it exists,
-# blacklist-gpu.conf below is not the only thing deciding whether nouveau loads, which
-# is how pve02's 3080 Ti ended up bound to no driver at all (#536 B3): the host got no
-# /dev/dri and ollama01 fell back to software rasterisation.
+# /etc/modprobe.d/nvidia-blacklists-nouveau.conf holds "blacklist nouveau" and competes
+# with the blacklist-gpu.conf written below. That is how pve02's 3080 Ti ended up bound
+# to no driver at all (#536 B3): the host got no /dev/dri and ollama01 fell back to
+# software rasterisation.
 #
-# Removed unconditionally so blacklist-gpu.conf is the single source of truth on every
-# node. pve01 and pve03 list nouveau in proxmox_gpu_blacklist_drivers, so they stay
-# blacklisted by the managed file; pve02 omits it on purpose, so nouveau can load.
-- name: Remove unmanaged nouveau blacklist dropped by the NVIDIA driver installer
+# It looks unowned (dpkg -S finds nothing) but it is NOT a stray file. It is a slave
+# symlink of the Debian "glx" alternative:
+#
+#   /etc/modprobe.d/nvidia-blacklists-nouveau.conf
+#     -> /etc/alternatives/glx--nvidia-blacklists-nouveau.conf
+#     -> /etc/nvidia/nvidia-blacklists-nouveau.conf
+#
+# dpkg has no record because update-alternatives created it, not a package. So simply
+# deleting the file is not durable: while glx is in auto mode pointing at nvidia,
+# update-alternatives recreates the slave link on any triggering event (an nvidia or
+# glx package install or upgrade, dpkg --configure -a, a priority change), silently
+# re-blacklisting nouveau with no drift reported until the next reboot.
+#
+# The durable fix is to stop nvidia being the GLX provider, which is exactly what
+# glx-alternative-mesa exists for. Switching the alternative puts glx in manual mode
+# and makes update-alternatives remove its own nvidia slave links, this file included.
+# The card and the nvidia userland packages stay; they just stop owning GLX.
+#
+# Guarded on two separate things, because they answer different questions:
+#   intent       - nouveau absent from proxmox_gpu_blacklist_drivers, the same variable
+#                  that drives blacklist-gpu.conf, so the role keeps one source of
+#                  truth for "should nouveau be allowed to load on this host"
+#   precondition - a glx alternative is actually registered here with mesa-diverted as
+#                  a candidate. pve01 and pve03 have no glx-alternative packages at all,
+#                  and the module would fail on them rather than no-op.
+- name: Query the glx alternative
+  ansible.builtin.command: update-alternatives --query glx
+  register: proxmox_glx_alternative
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Point the glx alternative at mesa so nvidia stops owning the nouveau blacklist
+  community.general.alternatives:
+    name: glx
+    path: /usr/lib/mesa-diverted
+  when:
+    - "'nouveau' not in proxmox_gpu_blacklist_drivers"
+    - proxmox_glx_alternative.rc == 0
+    - "'Alternative: /usr/lib/mesa-diverted' in proxmox_glx_alternative.stdout"
+  notify: Update initramfs
+
+# Backstop only. The alternatives switch above removes this file as its own slave link,
+# so on a correctly converged host this is a no-op. It stays to cover the case where the
+# file is present without a glx alternative behind it, which is what a hand-deleted
+# alternatives entry or a half-removed driver install would leave. Unconditional, so
+# blacklist-gpu.conf is the single thing deciding nouveau on every node: pve01 and pve03
+# list nouveau there and stay blacklisted by the managed file, pve02 omits it on purpose.
+- name: Remove any leftover nouveau blacklist not owned by the glx alternative
   ansible.builtin.file:
     path: /etc/modprobe.d/nvidia-blacklists-nouveau.conf
     state: absent
