@@ -166,6 +166,8 @@ most once per boot and the unit does not restart on its clean exit.
 
 `ups_onbatt_shutdown_delay` is provisional and deliberately shorter than any
 plausible real runtime. #487's measurement supplies the real number.
+The procedure for that measurement, and for turning it into new values, is in
+[RUNTIME-TEST.md](RUNTIME-TEST.md).
 
 ### Why not upssched
 
