@@ -17,6 +17,18 @@ only, and a reboot or deploy re-arms them.
 | Float | 13.8 V per unit rated (55.2 V string), 55.05 V measured (#539, within spec) |
 | On the UPS | pve01, pve02, pve03 and the network gear |
 | Cut-off on FSD | UPS drops its output ~20 s after pve01 halts (`ups.delay.shutdown` 020) |
+| Input plug | **NEMA 5-15P**, swapped by a previous owner (the US SU2200 normally ships with an L5-30P twist-lock). See the note below |
+
+**The 15 A input plug caps this UPS well below its rating.** At 2200 VA it would draw
+over 18 A, which a 5-15 plug and outlet are not built for. Keep everything the UPS
+powers, including its charger, under about **1440 W** (80% of 15 A, the continuous
+limit for the plug, the outlet and a 15 A breaker). Today's ~600 to 800 W is fine.
+For this test, never have the cluster and the heater on the UPS at the same time:
+in variant 1a the cluster is off, so it cannot happen. In 1b, put the cluster's wall
+strip on a **different circuit** from the UPS: during step 5 the heater and the
+charger run from mains through the UPS, and the cluster on the same 15 A circuit
+would bring the total near 1500 W. Check the input plug and the
+wall outlet for warmth by hand during step 5.
 
 Expected if healthy (arithmetic, not measured): ~36% load is ~580 W out, ~650 to
 730 W from the battery, ~12 to 15 A, roughly **60 to 80 minutes** to 48 V. If
@@ -108,13 +120,19 @@ terminals cannot be reached without moving the pack wiring.
 
 - [ ] Immich Takeout work finished, no backup running, `ceph -s` HEALTH_OK, no recovery
       or backfill in flight
-- [ ] **Record the real load as `ups.load`**, once quiet and once with vm-seb (VMID
-      701) running and busy: `upsc myups@localhost ups.load`
-      The busy reading is the worst case for the analysis (`--worst-load-pct`).
-      It is a percentage, not watts, because a plug-in meter cannot go on the UPS
-      input if that is the SU2200's L5-30P twist-lock plug (check it). Step 5 turns
-      the percentage into watts: the heater is a known resistive load measured by the
-      KP115, so it calibrates what one percent of `ups.load` means on this unit
+- [ ] **Measure the real load in watts with the KP115 on the UPS input** (wall, KP115,
+      UPS). The input is a 5-15P, so the plug fits, and at ~6 A it is well inside
+      the KP115's 15 A rating. Read it once quiet and once with vm-seb (VMID 701)
+      running and busy, along with `upsc myups@localhost ups.load` at the same moment:
+      `python3 scripts/kp115-read.py <plug address>`
+      The busy watts are the worst case for the analysis (`--worst-watts`). The input
+      reading includes the UPS's own losses and a float-level charger, so it reads a
+      little high, which errs safe.
+      **Stay with it and keep it short (minutes, not days).** The cluster is now
+      powered through a Wi-Fi relay: if the KP115 switches off from the app, a
+      schedule or a firmware update, the cluster goes on battery, and after 60 s the
+      watchdog shuts all three nodes down. Turn off the plug's auto-update and remove
+      any schedules first, and move it out of the input path when done
 - [ ] Size the dummy load to roughly the quiet reading (36% is about 580 W if
       `ups.load` is watts), and confirm on the KP115 that it holds steady for 10
       minutes without cycling: `python3 scripts/kp115-read.py <plug address>`
@@ -260,7 +278,7 @@ move the three nodes back to the UPS, then this step.
 Run the analyzer on the Mac against the discharge CSV:
 
 ```bash
-python3 scripts/ups-discharge-analyze.py ups-discharge-YYYYMMDD-HHMMSS.csv --worst-load-pct <busy ups.load from step 0>
+python3 scripts/ups-discharge-analyze.py ups-discharge-YYYYMMDD-HHMMSS.csv --worst-watts <busy KP115 watts from step 0>
 ```
 
 The test wattage comes from the KP115 readings in the log. If they are missing,
@@ -339,8 +357,8 @@ Following the repo rules: worktree, feature branch, PR to main, deploy from main
 Date: ____________   Variant: 1a / 1b
 
 STEP 0  real load, on line, float
-  quiet:      ups.load ____ %
-  vm-seb on:  ups.load ____ %   (worst case)
+  quiet:      KP115 on UPS input ____ W   ups.load ____ %
+  vm-seb on:  KP115 on UPS input ____ W   ups.load ____ %   (worst case)
 
 STEP 1  per-unit float (V)   U1 ____  U2 ____  U3 ____  U4 ____   string (upsc) ____
 
