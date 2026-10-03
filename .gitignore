@@ -63,3 +63,6 @@ yarn-error.log*
 
 # Build artifacts
 *.tar.gz
+
+# MCP browser-automation scratch output (console logs, page dumps, .crx blobs)
+.playwright-mcp/
