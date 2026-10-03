@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+#
+# Time-on-battery watchdog for the host the UPS is cabled to.
+#
+# Requests a coordinated NUT shutdown once the UPS has been continuously on
+# battery for longer than a threshold, regardless of what the UPS claims about
+# its own charge or remaining runtime.
+#
+# Why this exists at all: every other signal this UPS offers is derived from a
+# lead-acid capacity model, and the pack has been LiFePO4 since 01/24/25. Both
+# battery.runtime and battery.charge are therefore distorted (#492, #536).
+# Elapsed time on battery is the one quantity the hardware cannot misreport.
+#
+# Why a standalone root service rather than upsmon's own machinery: upsmon runs
+# NOTIFYCMD as an unprivileged child, so an `upsmon -c fsd` launched from there
+# cannot signal the root parent that performs the shutdown. Making upssched work
+# would need RUN_AS_USER root in upsmon.conf, which runs the network-facing upsd
+# client as root on every node. This service is root-owned from the start and
+# touches none of that. See roles/nut/UPS-SHUTDOWN.md.
+#
+# Managed by Ansible (roles/nut). Edits here will be overwritten.
+
+set -euo pipefail
+
+UPS="{{ ups_name }}@localhost"
+THRESHOLD={{ ups_onbatt_shutdown_delay }}
+POLL_INTERVAL={{ ups_watchdog_poll_interval }}
+
+log() {
+	logger --tag nut-onbatt-watchdog --priority "daemon.$1" -- "$2"
+}
+
+# Echoes ups.status only when the reply is one we actually trust, and nothing
+# at all otherwise. An empty result means "unknown", never "fine".
+#
+# upsc exits non-zero when upsd is down, still starting, or the UPS name is
+# wrong, and a partial or unexpected reply must not be pattern-matched for OB.
+read_ups_status() {
+	local status
+
+	status=$(upsc "$UPS" ups.status 2>/dev/null) || return 0
+
+	# A real status is uppercase tokens: "OL", "OB LB", "OL CHRG".
+	# Anything else is treated as unreadable rather than parsed.
+	[[ "$status" =~ ^[A-Z]+([[:space:]][A-Z0-9.]+)*$ ]] || return 0
+
+	printf '%s' "$status"
+}
+
+# The one place that decides "this is a real power emergency".
+#
+# Today that is elapsed time on battery and nothing else. A battery voltage test
+# belongs here too once #487 has measured a threshold worth trusting: add it as
+# a second condition in this function and nothing else in this script changes.
+# Voltage is deliberately NOT used yet, because no trustworthy figure exists.
+ups_is_critical() {
+	local elapsed=$1
+
+	[ "$elapsed" -ge "$THRESHOLD" ]
+}
+
+on_battery_since=0
+
+while true; do
+	sleep "$POLL_INTERVAL"
+
+	status=$(read_ups_status)
+
+	if [ -z "$status" ]; then
+		# Fail safe is to do nothing. The elapsed counter is left alone rather
+		# than reset, so one dropped poll in the middle of a real outage does
+		# not hand the UPS another full threshold.
+		log warning "cannot read ups.status from ${UPS}, taking no action"
+		continue
+	fi
+
+	# Pad both sides so OB matches as a whole token and never as a substring.
+	if [[ " ${status} " != *" OB "* ]]; then
+		if [ "$on_battery_since" -ne 0 ]; then
+			log info "UPS back on line power, cancelling the shutdown timer"
+			on_battery_since=0
+		fi
+		continue
+	fi
+
+	now=$(date +%s)
+
+	if [ "$on_battery_since" -eq 0 ]; then
+		on_battery_since=$now
+		log warning "UPS on battery, shutting down in ${THRESHOLD}s unless power returns"
+		continue
+	fi
+
+	elapsed=$(( now - on_battery_since ))
+
+	if ! ups_is_critical "$elapsed"; then
+		continue
+	fi
+
+	log crit "UPS on battery for ${elapsed}s (threshold ${THRESHOLD}s), requesting FSD"
+	break
+done
+
+# One shot. Leaving the loop is the only way to reach this, and the service unit
+# does not restart on a clean exit, so FSD is requested exactly once.
+#
+# It has to be FSD rather than a bare shutdown: FSD is what sets the flag on
+# upsd, releases HOSTSYNC, runs SHUTDOWNCMD, writes POWERDOWNFLAG and lets the
+# systemd-shutdown hook tell the UPS to cut the load. A plain `shutdown` would
+# halt this host and leave the UPS powered, which is exactly the two minute
+# bounce recorded in #536.
+if upsmon -c fsd; then
+	log crit "FSD requested, upsmon is taking it from here"
+else
+	# Deliberately not retried. If upsmon is not running there is nothing to
+	# signal, and a retry loop would just hammer a host that already needs
+	# attention. Loud in the journal is the useful outcome here.
+	log err "upsmon -c fsd FAILED, no coordinated shutdown will happen"
+fi
+
+exit 0
