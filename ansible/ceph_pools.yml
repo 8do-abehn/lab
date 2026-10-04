@@ -5,6 +5,12 @@
 #
 #   ansible-playbook ceph_pools.yml --check --diff   # shows planned changes
 #   ansible-playbook ceph_pools.yml
+#
+# Runs once, on the first reachable-in-order Proxmox host. If pve01 is down the
+# play stops rather than guessing; add "-l pve02" to run it from another node.
+- name: Refuse to deploy from a stale branch
+  ansible.builtin.import_playbook: branch_guard.yml
+
 - name: Configure Ceph pools and balancer
   hosts: proxmox
   become: true
