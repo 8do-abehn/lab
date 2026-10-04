@@ -76,7 +76,7 @@ def main():
     p.add_argument("--test-watts", type=float, help="AC meter watts on the dummy load (default: mean plug_w from the log)")
     p.add_argument("--worst-watts", type=float, help="worst realistic cluster load in watts")
     p.add_argument("--worst-load-pct", type=float, help="or: worst realistic ups.load, converted via the measured basis")
-    p.add_argument("--stop-v", type=float, default=48.0)
+    p.add_argument("--stop-v", type=float, default=49.0)
     p.add_argument("--shutdown-budget", type=int, default=180, help="seconds from FSD to UPS output off, with margin")
     p.add_argument("--derate", type=float, default=0.8, help="capacity kept for ageing, temperature, one-sample error")
     p.add_argument("--delay-cap", type=int, default=300, help="policy ceiling on ups_onbatt_shutdown_delay")

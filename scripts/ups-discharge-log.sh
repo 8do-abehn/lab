@@ -18,8 +18,10 @@ set -euo pipefail
 #
 # Stopping the test is a human restoring mains, and a person watching a
 # scrolling log misses things, so it also flags the stop conditions loudly:
-#   WARN      battery.voltage <= WARN_V (default 49.0)
-#   STOP      battery.voltage <= STOP_V (default 48.0), the hard stop
+#   WARN      battery.voltage <= WARN_V (default 50.0)
+#   STOP      battery.voltage <= STOP_V (default 49.0), the hard stop. 49 rather than
+#             48 because nobody can reach the battery terminals to check the
+#             register or a weak unit; see RUNTIME-TEST.md
 #   COLLAPSE  voltage fell by >= COLLAPSE_STEP_V (default 1.0) in one sample,
 #             once SETTLE_S (default 15) seconds on battery have passed. A pack
 #             running down sags gradually; a step like this means a BMS tripped
@@ -32,8 +34,8 @@ set -euo pipefail
 UPS="${UPS:-myups@localhost}"
 INTERVAL="${1:-2}"
 OUT="${2:-/root/ups-discharge-$(date +%Y%m%d-%H%M%S).csv}"
-WARN_V="${WARN_V:-49.0}"
-STOP_V="${STOP_V:-48.0}"
+WARN_V="${WARN_V:-50.0}"
+STOP_V="${STOP_V:-49.0}"
 COLLAPSE_STEP_V="${COLLAPSE_STEP_V:-1.0}"
 SETTLE_S="${SETTLE_S:-15}"
 KP115_HOST="${KP115_HOST:-}"

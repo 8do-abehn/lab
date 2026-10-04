@@ -31,7 +31,7 @@ would bring the total near 1500 W. Check the input plug and the
 wall outlet for warmth by hand during step 5.
 
 Expected if healthy (arithmetic, not measured): ~36% load is ~580 W out, ~650 to
-730 W from the battery, ~12 to 15 A, roughly **60 to 80 minutes** to 48 V. If
+730 W from the battery, ~12 to 15 A, roughly **60 to 80 minutes** to 48 V (a little less to the 49 V stop used here). If
 `ups.load` turns out to be a percentage of VA rather than W, current is ~16 to 18 A.
 
 ## Design: why the cluster comes off the UPS
@@ -92,31 +92,26 @@ The steps below are **1a**. Where 1b differs it says so.
       main LAN: pve01 reaches it there on TCP 9999 with no TP-Link login. It sits
       near the edge of Wi-Fi range where it was first tested (RSSI -76), so check the
       signal at the UPS; a dropped reading only leaves two empty cells
-- [ ] **DMM** (on hand) with insulated probes. It covers the two things the UPS and
-      the KP115 cannot see: whether the UPS's `battery.voltage` register is accurate
-      (the hard stop depends on it), and whether one battery unit is draining faster
-      than the other three (the string total hides that). Three reading sets are
-      required, about 10 readings in all: the string and each unit before (step 1),
-      and each unit at rest after (step 8). Readings during the discharge are optional
 - [ ] A **power strip on a wall outlet**, not on the UPS, for pve01 and the network gear
 - [ ] A laptop on the LAN with an SSH session to pve01, and the paper field sheet at
       the end of this file
 
-Battery voltage here is 48 to 55 V DC with tens of amps available. Probe one unit
-at a time, never bridge terminals, and skip the optional under-load readings if the
-terminals cannot be reached without moving the pack wiring.
+No multimeter or clamp readings. The battery terminals are not reachable inside the
+case, so this test sees the pack only through the UPS's `battery.voltage` register
+and the KP115's output watts. Two consequences, both accepted:
 
-A current clamp is not needed. The KP115 logs the true output watts, so battery
-current follows from `watts / battery.voltage / ~0.85`. A clamp would only add the
-transfer surge and the exact instant of a BMS trip, and the logger's `COLLAPSE` and
-`NODATA` flags already catch a trip. If the DMM has a clamp jaw anyway, it is only
-useful here if it reads **DC** amps (an A with the solid-and-dashed DC symbol, or
-Hall-effect in the spec). Most budget clamps are AC only and read zero on a battery
-lead. If it does read DC, close it around one battery lead (never both) and note the
-amps at a few points: it should land near the 12 to 15 A the formula predicts.
+- **The register itself is unverified**, and the hard stop depends on it.
+- **A single weak unit cannot be seen**: the string total can look fine while one
+  of the four units is much lower than the rest.
 
-With alligator clip leads, clip onto **one unit at a time**, and move the clips with
-the meter's probe end disconnected, so a slipping clip can never bridge two units.
+Both are covered by stopping at **49.0 V instead of 48.0 V** (about 3.06 V per cell
+instead of 3.0). That absorbs a register error of up to about a volt and leaves a
+weaker unit room before its BMS cuts out. The cost is the last few percent of
+capacity, which the threshold arithmetic already discards through its 0.8 derate.
+Battery current, if wanted, follows from `watts / battery.voltage / ~0.85`.
+
+If the battery tray is ever out for another reason, see "Readings if the tray is
+out" near the end.
 
 ## Picking the date
 
@@ -157,15 +152,7 @@ the meter's probe end disconnected, so a slipping clip can never bridge two unit
 ## Step 1: Morning of (cluster still running, on the UPS)
 
 - [ ] Pack is full: no on-battery event in the last 24 h. On pve01: `journalctl -u nut-monitor --since "-24h" | grep -i battery`
-- [ ] **Whole string with the DMM**, from the most negative to the most positive
-      terminal, and at the same moment `upsc myups@localhost battery.voltage` (expect
-      55.05). If they differ by more than 0.3 V, the UPS register is off, and the hard
-      stop has to move with it: start the logger in step 5 with
-      `STOP_V=<48.0 + (upsc - DMM)>` and `WARN_V` one volt above that. For example,
-      upsc 55.05 and DMM 55.40 means the UPS reads 0.35 V low, so `STOP_V=47.65`
-- [ ] **Each unit with the DMM** (units 1 to 4, field sheet). Any unit above 13.8 V,
-      or units more than 0.1 V apart, is imbalance the string total hides (#539).
-      Label the units 1 to 4 now so every later reading means the same unit
+- [ ] Float reading: `upsc myups@localhost battery.voltage` (expect 55.05)
 - [ ] `ceph -s` is HEALTH_OK. jellyfin01's library mount is healthy (a stuck ceph-fuse
       will hang its shutdown, and can hang this check too, hence the timeout): `timeout 15 pct exec 3001 -- mountpoint /mnt/library`
 - [ ] Shut down **vm-seb (701) from inside Windows**, not `qm stop`, and any other
@@ -219,8 +206,8 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
       near 2200 means VA
 - [ ] **Do not use the Kasa app to switch the KP115 during the run.** Switching it off
       ends the test early; the heater's own switch is the load control
-- [ ] For notes during the run (DMM readings, anything odd), append timestamped lines
-      from a second pane: `echo "$(date +%s) U3 12.61V" >> /root/ups-notes.txt`
+- [ ] For notes during the run (anything odd: a sound, a smell, the KP115 dropping
+      off Wi-Fi), append timestamped lines from a second pane: `echo "$(date +%s) plug offline, app shows 702W" >> /root/ups-notes.txt`
 
 ## Step 6: Pull mains
 
@@ -232,42 +219,40 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
 The logger records voltage, charge, watts and Wh. Glance at `plugW` now and then: if
 it reads blank for more than a minute, note the watts from the Kasa app instead.
 
-**Optional:** every 10 minutes, and every 0.5 V once the string is below 51 V, read
-each unit with the DMM if the terminals are safely reachable. This is the only way
-to stop on a weak unit before its BMS trips, so it is worth doing in the last stretch
-even if you skip the early readings.
-
 ## Step 7: Stop conditions (any one ends the run)
 
 | Condition | Logger flag | Action |
 |---|---|---|
-| `battery.voltage` <= 48.0 V | `STOP` | Normal end. Heater off, then step 8 |
-| Any single unit <= 11.6 V, or units more than 0.5 V apart (optional DMM readings) | none, from the DMM | Weak or unbalanced unit. Heater off, then step 8 |
+| `battery.voltage` <= 49.0 V | `STOP` | Normal end. Heater off, then step 8 |
 | String drops >= 1 V in one sample after the first 15 s | `COLLAPSE` | Likely BMS trip. **Restore mains now** |
 | `upsc` fails or reports stale data | `NODATA` | UPS output may have died. **Restore mains now** |
 | 120 minutes on battery | none | Well past the expected 80. Heater off, then step 8 |
 | Heat, smell, swelling, any doubt | none | **Restore mains now** |
 
-`WARN` at <= 49.0 V is the cue to stand by the plug.
+`WARN` at <= 50.0 V is the cue to stand by the plug.
 
-**Telling a BMS trip from a UPS cut-off:** after the event, check the string and each
-unit with the DMM. A tripped BMS shows one unit near 0 V or the string missing ~13 V.
-If the UPS's own firmware cut the output instead, the pack rebounds to around 50 V and
-every unit reads roughly the same. A BMS trip ends testing for the day; record it in
-#487 and do not repeat the run.
+**Telling a BMS trip from a UPS cut-off:** restore mains and read
+`upsc myups@localhost battery.voltage` once the driver is back. If the UPS's own
+firmware cut the output, the pack rebounds to around 50 V or more. If a unit's BMS
+tripped, the string is open or one unit short: expect a reading near 0, roughly 13 V
+low (around 38 V), or the UPS reporting a battery fault. A BMS trip ends testing for
+the day; record it in #487 and do not repeat the run. A tripped unit may not wake from
+the UPS's charger, and could need a 12 V LiFePO4 charger on that unit alone, which
+means opening the case.
 
 ## Step 8: After the stop
 
 - [ ] Heater off. Leave the UPS on battery with no load for **5 minutes** so the pack
       settles (the UPS idles at a few tens of watts, negligible)
-- [ ] Rest readings: `upsc myups@localhost battery.voltage` and **per-unit DMM** (field sheet)
+- [ ] Rest reading: `upsc myups@localhost battery.voltage` (field sheet). LiFePO4 rests
+      around 50 to 51 V when nearly empty; much lower suggests a weak unit
 - [ ] **Plug the UPS input back in.** Confirm `OL` in the logger
 - [ ] Stop the logger (`Ctrl-c` in tmux) and start a slow one for the recharge curve,
       which shows how fast the charger refills the pack: `tmux new -s recharge '/root/ups-discharge-log.sh 30 /root/ups-recharge-$(date +%F).csv'`
 - [ ] Copy both CSVs and the notes file off pve01 to the Mac
 
 **Wait at least 60 minutes of charging** before any node goes back on the UPS. At
-48 V the pack has only a few minutes left, and the cluster needs ~3 minutes of
+49 V the pack has only a few minutes left, and the cluster needs ~3 minutes of
 battery to shut down cleanly if mains fails during the restore.
 
 ## Step 9: Restore the cluster
@@ -291,9 +276,8 @@ move the three nodes back to the UPS, then this step.
 ## Step 10: Next day, back on float
 
 - [ ] Stop the recharge logger once `battery.voltage` has held at float for an hour
-- [ ] **Per-unit DMM** on float again, and **the whole string** with the DMM, compared
-      against `upsc myups@localhost battery.voltage`. That settles whether the 55.05 V
-      register is accurate or just quantised
+- [ ] Note `upsc myups@localhost battery.voltage` back on float. If it returns to
+      exactly 55.05, that is more evidence the register is coarse
 
 ## Turning the log into thresholds
 
@@ -313,7 +297,7 @@ The numbers are a proposal: read them against the field sheet before believing t
 ### `ups_onbatt_shutdown_delay`
 
 ```
-T_meas    = seconds on battery until 48.0 V (or the stop) at the dummy load P_test
+T_meas    = seconds on battery until the 49.0 V stop at the dummy load P_test
 T_worst   = T_meas x P_test / P_worst       energy is fixed, so time scales with load
 T_usable  = 0.8 x T_worst                   ageing, temperature, one-sample error
 B         = 180 s                           FSD to UPS output off: HOSTSYNC 15 + slowest
@@ -373,6 +357,21 @@ Following the repo rules: worktree, feature branch, PR to main, deploy from main
       #460. Compare the delivered Wh against the ~920 Wh rating, which settles whether
       the pack has lost capacity since 01/24/25
 
+## Readings if the tray is out
+
+Not part of this test. If the battery tray is ever out for another reason, with the
+UPS off and unplugged, take these and add them to #487, which closes the open
+imbalance check from #539:
+
+- Each unit with a multimeter, labelled 1 to 4. Any unit above 13.8 V, or units more
+  than 0.1 V apart, is imbalance the string total hides
+- The whole string, and right after reinserting the tray and powering up, compare it
+  with `upsc myups@localhost battery.voltage`. More than 0.3 V apart means the
+  register is off, and the next discharge's stop should move by the difference
+
+Battery voltage is 48 to 55 V DC with tens of amps available. Probe one unit at a
+time and never bridge terminals.
+
 ## Field sheet
 
 ```
@@ -382,25 +381,18 @@ STEP 0  real load, on line, float
   quiet:      KP115 on UPS input ____ W   ups.load ____ %
   vm-seb on:  KP115 on UPS input ____ W   ups.load ____ %   (worst case)
 
-STEP 1  string   DMM ____   upsc ____   offset (upsc - DMM) ____  -> STOP_V ____
-        per-unit float (V)   U1 ____  U2 ____  U3 ____  U4 ____
+STEP 1  float string (upsc) ____
 
 STEP 5  heater on line       KP115 ____ W     ups.load ____ %   -> ____ W/(load/100)
 
 STEP 6  mains pulled at ________
 
-  optional, voltage/watts/Wh are in the CSV:
-  t(min)  string V  U1    U2    U3    U4    notes
-  0
-  5
-  10
-  ...
+  voltage, charge, watts and Wh are all in the CSV
 
-STEP 7  stopped at ________   reason: STOP / unit / COLLAPSE / NODATA / time / other
+STEP 7  stopped at ________   reason: STOP / COLLAPSE / NODATA / time / other
 
-STEP 8  rest 5 min           U1 ____  U2 ____  U3 ____  U4 ____   string (upsc) ____
+STEP 8  rest 5 min           string (upsc) ____
         mains restored at ________
 
-STEP 10 per-unit float (V)   U1 ____  U2 ____  U3 ____  U4 ____
-        string DMM ____   string upsc ____
+STEP 10 back on float        string (upsc) ____
 ```
