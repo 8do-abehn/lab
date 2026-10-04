@@ -24,3 +24,8 @@ ceph_pools_overlapping_rules:
 # osdmaptool simulation of 1 gave 18 upmaps (~151 GiB, all within a host) and
 # HDD %USE 34.6-36.9% instead of 31-41%.
 ceph_pools_balancer_upmap_max_deviation: 1
+
+# Where each run that changes something records the cluster state it started from
+# (pool details, CRUSH rules and binary crushmap, config database, osdmap, upmaps,
+# balancer score), one timestamped directory per run. A few hundred KiB each.
+ceph_pools_snapshot_root: /root/ceph-state

@@ -13,19 +13,40 @@ What it enforces:
   written.
 - `mgr/balancer/upmap_max_deviation` = 1 (Ceph default 5).
 
+## Why there is no config file to restore
+
+Everything this role changes lives in the monitors' database, replicated across
+all three mons: a pool's CRUSH rule and the balancer's upmaps are in the osdmap,
+the balancer option in the config database. `/etc/pve/ceph.conf` only holds
+bootstrap settings (fsid, networks, mon addresses) and is not touched. A live
+cluster cannot be wound back to an old osdmap either, so rollback means
+re-issuing the old values, below.
+
+What makes that mechanical is a record of where it started: before its first
+write, every run that changes something saves the cluster state to
+`/root/ceph-state/<UTC timestamp>/` on the node it ran on (~100 KiB):
+
+| file | what |
+|---|---|
+| `upmap-items.txt` | `pg_upmap_items` lines, the format the rollback below diffs and restores |
+| `pools.json` | pool details: CRUSH rule, pg_num, flags |
+| `crush-rules.json`, `crushmap.bin` | rules, and the binary map (`crushtool -d crushmap.bin`) |
+| `config-db.json` | the full config database, including the balancer option |
+| `osdmap.json`, `osd-df.txt`, `status.txt`, `balancer-eval.txt` | everything else, for comparison |
+
 ## Runbook
 
 Commands marked **pve** run as root on any Proxmox node; the rest run from
 `~/8do/lab/ansible` on main.
 
-### 1. Baseline (pve)
+### 1. Before (pve)
 
 ```
 ceph -s                                   # HEALTH_OK, all PGs active+clean
-ceph balancer eval                        # note the score
-ceph osd df | grep hdd                    # HDD %USE, 31-41% on 2026-10-04
-ceph osd dump | grep pg_upmap_items > /root/upmap-before-559.txt
 ```
+
+The playbook snapshots the rest (score, %USE, upmaps) itself and prints the
+directory, e.g. `Pre-change state saved to /root/ceph-state/20261004T205320Z`.
 
 ### 2. Apply
 
@@ -59,6 +80,8 @@ ceph balancer eval        # lower than the baseline
 ceph osd df | grep hdd    # HDD %USE within ~34.6-36.9%
 ```
 
+Compare with `$snap/balancer-eval.txt` and `$snap/osd-df.txt`.
+
 ### Pause
 
 ```
@@ -80,14 +103,15 @@ balancer created stay. Undo them explicitly:
 ```
 ceph balancer off
 ceph config set mgr mgr/balancer/upmap_max_deviation 5
-diff /root/upmap-before-559.txt <(ceph osd dump | grep pg_upmap_items)
+snap=/root/ceph-state/<timestamp>        # printed by the run, on the node it ran on
+diff $snap/upmap-items.txt <(ceph osd dump | grep pg_upmap_items)
 ceph osd rm-pg-upmap-items <pgid>        # for each pgid with a ">" line
 ceph balancer on
 ```
 
 `rm-pg-upmap-items` drops **every** mapping of that PG. If a pgid also has a "<"
 line (the balancer changed or dropped a mapping that existed before), restore
-its original entry from the baseline file afterwards:
+its original entry from `$snap/upmap-items.txt` afterwards:
 
 ```
 # baseline line:  pg_upmap_items 6.8 [3,8]

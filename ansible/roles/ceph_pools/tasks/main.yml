@@ -89,6 +89,40 @@
           crush_rule: "{{ ceph_pools_rule_changes | map(attribute='name') | zip(ceph_pools_rule_changes | map(attribute='crush_rule')) | list }}"
           upmap_max_deviation: "{{ ceph_pools_deviation_raw.stdout | trim }} -> {{ ceph_pools_balancer_upmap_max_deviation }}"
 
+    # These settings live in the monitors' database, not in any file, so there is
+    # no config file to restore: rolling back means re-issuing the old values.
+    # Record them, and the upmaps the balancer is about to add to, before the first
+    # write. Only when something will change, so a no-op rerun leaves no clutter.
+    - name: Snapshot cluster state before changing it
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          dir="{{ ceph_pools_snapshot_root }}/$(date -u +%Y%m%dT%H%M%SZ)"
+          mkdir -p -m 0700 "$dir"
+          cd "$dir"
+          ceph -s > status.txt
+          ceph osd df > osd-df.txt
+          ceph osd pool ls detail -f json-pretty > pools.json
+          ceph osd crush rule dump -f json-pretty > crush-rules.json
+          ceph osd getcrushmap -o crushmap.bin
+          ceph config dump -f json-pretty > config-db.json
+          ceph osd dump -f json-pretty > osdmap.json
+          # Same format the runbook diffs against and restores from
+          ceph osd dump | grep pg_upmap_items > upmap-items.txt || true
+          ceph balancer eval > balancer-eval.txt
+          echo "$dir"
+        executable: /bin/bash
+      register: ceph_pools_snapshot
+      changed_when: true
+      when: >-
+        ceph_pools_rule_changes | length > 0 or
+        (ceph_pools_deviation_raw.stdout | trim | int) != ceph_pools_balancer_upmap_max_deviation
+
+    - name: Show where the snapshot was written
+      ansible.builtin.debug:
+        msg: "Pre-change state saved to {{ ceph_pools_snapshot.stdout }} on {{ inventory_hostname }}"
+      when: ceph_pools_snapshot.stdout | default('') | length > 0
+
     # Removing the overlapping root re-enables the autoscaler for every pool. It
     # changes no pg_num today: its built-in 32 PG floor and 3x threshold keep the
     # SSD pools where they are, and the bulk HDD pools come out at 128, below the
