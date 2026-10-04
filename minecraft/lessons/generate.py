@@ -228,7 +228,7 @@ class Lesson:
                     except json.JSONDecodeError as e:
                         print(f"{path}: bad text component ({e}): {ln}", file=sys.stderr)
                         ok = False
-                if "—" in ln:
+                if "\u2014" in ln:
                     print(f"{path}: em dash in text", file=sys.stderr)
                     ok = False
         return ok
