@@ -7,9 +7,9 @@ proxmox_gpu_passthrough_enabled: true
 # node -- see the jellyfin-gpu-pin HA rule (live on the cluster, not tracked in this repo).
 #
 # 2026-09-28: 3080 Ti removed from VFIO/blacklist entirely -- it's now permanently LXC-only
-# (ollama01/3014, nouveau + Mesa NVK Vulkan, no proprietary driver). Migrating vm-awb (703)
-# to pve01, to share vm-rtb's card there instead, is still PENDING: as of 2026-10-02, 703
-# is on pve02 and this node no longer offers it a VFIO card. Tracked in #532.
+# (ollama01/3014, nouveau + Mesa NVK Vulkan, no proprietary driver).
+# 2026-10-04: vm-awb (703) moved to pve01, where it shares vm-rtb's 3080 (#532). No VM on
+# this node passes the 3080 Ti through anymore.
 proxmox_gpu_vfio_ids: "1002:67df,1002:aaf0"
 proxmox_gpu_blacklist_drivers:
   - amdgpu
