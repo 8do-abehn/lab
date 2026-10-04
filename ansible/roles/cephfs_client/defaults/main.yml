@@ -44,6 +44,11 @@ cephfs_client_watchdog_interval: 5min
 # mount, which is exactly when it needs to run.
 cephfs_client_watchdog_probe_timeout: 10
 
+# While the mount stays down, re-alert at most this often (seconds). The first
+# failure and the recovery always alert. Before this existed, the 2026-10-04
+# outage sent 94 identical emails overnight, one per probe.
+cephfs_client_watchdog_alert_repeat: 21600
+
 cephfs_client_watchdog_log: /var/log/cephfs-watchdog.log
 cephfs_client_watchdog_script: /usr/local/bin/cephfs-watchdog.sh
 
