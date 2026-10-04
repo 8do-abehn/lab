@@ -1,10 +1,12 @@
 ---
 # Ceph pool and balancer settings (#559). Split out of site.yml on purpose:
-# the balancer change moves ~100-150 GiB on the HDD tier, so it runs when chosen,
+# the balancer change moves ~151 GiB on the HDD tier, so it runs when chosen,
 # not as a side effect of an unrelated deploy.
 #
+# Runbook (baseline, expected states, pause, rollback): roles/ceph_pools/README.md
+#
 #   ansible-playbook ceph_pools.yml --check --diff   # shows planned changes
-#   ansible-playbook ceph_pools.yml
+#   gh workflow run ansible-deploy.yml -f playbook=ceph_pools.yml   # records it for deploy-drift
 #
 # Runs once, on the first reachable-in-order Proxmox host. If pve01 is down the
 # play stops rather than guessing; add "-l pve02" to run it from another node.
@@ -15,5 +17,6 @@
   hosts: proxmox
   become: true
   gather_facts: false
+  tags: [ceph]
   roles:
     - ceph_pools

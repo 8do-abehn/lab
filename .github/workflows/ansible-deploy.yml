@@ -14,12 +14,13 @@ on:
           - backup-setup.yml
           - netdata_install.yml
           - verify_nut.yml
+          - ceph_pools.yml
       limit:
         description: 'Limit to specific hosts (optional)'
         required: false
         type: string
       tags:
-        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, backup, cephfs, cloudflare, minecraft, timezone, resolv'
+        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, backup, cephfs, cloudflare, minecraft, timezone, resolv, ceph, pve_config'
         required: false
         type: string
       verbose:

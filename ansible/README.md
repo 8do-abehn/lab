@@ -28,7 +28,9 @@ ansible-playbook -i inventory/homelab.yml --ask-vault-pass backup-setup.yml
 
 # Ceph pool CRUSH rules and balancer (#559). Not in site.yml: it can start HDD
 # backfill, so run it deliberately. Fails if any pool sits on replicated_rule,
-# which silently disables the PG autoscaler for every pool.
+# which silently disables the PG autoscaler for every pool. Runbook with pause and
+# rollback: roles/ceph_pools/README.md. Deploy via ansible-deploy.yml so
+# deploy-drift records it.
 ansible-playbook -i inventory/homelab.yml ceph_pools.yml --check --diff
 ```
 
