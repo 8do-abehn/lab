@@ -1,5 +1,9 @@
 ---
 proxmox_gpu_passthrough_enabled: true
+# RTX 3080 (0b:00.0/.1) is shared by vm-rtb (702) and vm-awb (703), one VM at a time.
+# Both attach it through the cluster PCI mapping rtx3080-pve01 (/etc/pve/mapping/pci.cfg,
+# not managed here), which checks vendor/subsystem IDs so an address drift after a BIOS
+# change refuses to start the VM instead of passing the wrong device (#532).
 proxmox_gpu_vfio_ids: "10de:2206,10de:1aef"
 proxmox_gpu_blacklist_drivers:
   - nouveau
