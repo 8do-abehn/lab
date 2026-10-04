@@ -78,7 +78,8 @@ def ceph_json(*args):
 
 
 def find_problems(host):
-    """Return (problems, is_reporter, noout). problems maps a stable key to a
+    """Return (problems, is_reporter, noout). noout is None when it could not
+    be read, so the caller keeps its previous noout clock. problems maps a stable key to a
     human-readable line. The key is what the debounce compares, so it must
     not contain counts that change from run to run."""
     status = ceph_json("status")
@@ -86,7 +87,7 @@ def find_problems(host):
         # Every node reports this about itself. It cannot be deduplicated
         # through the cluster, because the cluster is what is unreachable.
         return {"NO_QUORUM": "NO_QUORUM: {} cannot reach a mon quorum ({}s timeout)".format(
-            host, TIMEOUT)}, True, False
+            host, TIMEOUT)}, True, None
 
     problems = {}
     checks = (status.get("health") or {}).get("checks") or {}
@@ -102,8 +103,8 @@ def find_problems(host):
         problems["MGR_STANDBY"] = "MGR_STANDBY: {} standby mgr daemon(s), want at least {}".format(
             standbys, MIN_MGR_STANDBYS)
 
-    osdmap = ceph_json("osd", "dump") or {}
-    noout = "noout" in (osdmap.get("flags") or "").split(",")
+    osdmap = ceph_json("osd", "dump")
+    noout = None if osdmap is None else "noout" in (osdmap.get("flags") or "").split(",")
     if noout:
         for code in MAINTENANCE_CODES:
             problems.pop(code, None)
@@ -184,11 +185,12 @@ def build_body(host, problems, noout):
     if problems:
         stuck = stuck_units()
         if stuck:
-            lines += ["", "Units systemd has given up on, on {}:".format(host)]
+            lines += ["", "Units systemd has given up on, on {} only (the reporting node;".format(host),
+                      "check the others too, on 2026-09-27 the dead daemons were elsewhere):"]
             lines += ["  " + unit for unit in stuck]
         lines += [
             "",
-            "To find stuck daemons on a node (see #529):",
+            "To find stuck daemons, on EVERY Ceph node (see #529):",
             "  systemctl list-units --all --state=failed,inactive 'ceph-osd@*' 'ceph-mds@*' 'ceph-mgr@*'",
             "Restart only the ones that should be running:",
             "  systemctl reset-failed <unit> && systemctl start <unit>",
@@ -236,9 +238,14 @@ def main():
 
     # Forgetting to unset noout after maintenance silently disables the
     # per-node alerts, so a noout left on is itself a problem.
-    noout_since = state.get("noout_since") if noout else None
-    if noout and not noout_since:
-        noout_since = now().isoformat(timespec="seconds")
+    # A failed read (no quorum, osd dump timed out) keeps the old clock,
+    # rather than restarting the 8h count from zero.
+    if noout is None:
+        noout_since = state.get("noout_since")
+    elif noout:
+        noout_since = state.get("noout_since") or now().isoformat(timespec="seconds")
+    else:
+        noout_since = None
     if noout and now() - parse_time(noout_since) >= NOOUT_MAX:
         current["NOOUT"] = ("NOOUT: noout has been set for over {} hours. Run "
                             "`ceph osd unset noout` once maintenance is done.").format(

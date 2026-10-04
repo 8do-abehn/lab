@@ -20,8 +20,8 @@ is any check muted with `ceph health mute`.
 
 - **One email per incident.** Only the alphabetically-first mon in quorum reports
   cluster problems. Around a change of reporter, two nodes can briefly both send.
-- **Debounced on both edges.** A problem must show on two consecutive runs (about
-  10 minutes) to alert, and be gone for two to clear. While it lasts, it
+- **Debounced on both edges.** A problem must show on two consecutive runs to
+  alert (so about 5 minutes after it is first seen), and be gone for two to clear. While it lasts, it
   re-alerts every 12 hours.
 
 ## Not covered
