@@ -1,0 +1,26 @@
+---
+# Ceph pool and balancer settings for the Proxmox-managed cluster (#559).
+# Pool changes go through pveceph so Proxmox stays the source of truth.
+
+# Pools whose CRUSH rule must change. .mgr was the only pool left on
+# replicated_rule, which spans both device classes (root "default"). That root
+# overlaps the default~hdd / default~ssd shadow roots every other pool uses, and
+# while ANY pool overlaps, the PG autoscaler skips EVERY pool:
+#   [pg_autoscaler WARNING] pool 4 contains an overlapping root -9... skipping scaling
+ceph_pools_crush_rules:
+  - name: .mgr
+    crush_rule: ssd_rule
+
+# Rules that span both device classes. No pool may use one, or the autoscaler
+# switches off again. Proxmox creates new pools on replicated_rule by default,
+# so this is checked on every run, not just once.
+ceph_pools_overlapping_rules:
+  - replicated_rule
+
+# Max PGs per OSD (per pool) the upmap balancer tolerates before acting. The
+# default of 5 left cephfs_hdd at 27-37 PGs per HDD OSD (ideal 32) while the
+# balancer reported "perfect"; at ~19 GiB per PG that is ~190 GiB of spread, and
+# the fullest OSD sets the usable capacity of the whole tier. An offline
+# osdmaptool simulation of 1 gave 18 upmaps (~151 GiB, all within a host) and
+# HDD %USE 34.6-36.9% instead of 31-41%.
+ceph_pools_balancer_upmap_max_deviation: 1
