@@ -23,12 +23,11 @@ only, and a reboot or deploy re-arms them.
 over 18 A, which a 5-15 plug and outlet are not built for. Keep everything the UPS
 powers, including its charger, under about **1440 W** (80% of 15 A, the continuous
 limit for the plug, the outlet and a 15 A breaker). Today's ~600 to 800 W is fine.
-For this test, never have the cluster and the heater on the UPS at the same time:
-in variant 1a the cluster is off, so it cannot happen. In 1b, put the cluster's wall
-strip on a **different circuit** from the UPS: during step 5 the heater and the
-charger run from mains through the UPS, and the cluster on the same 15 A circuit
-would bring the total near 1500 W. Check the input plug and the
-wall outlet for warmth by hand during step 5.
+For this test, never have the cluster and the heater on the UPS at the same time,
+and put the cluster's wall strip on a **different circuit** from the UPS: during
+step 5 the heater and the charger run from mains through the UPS, and the cluster on
+the same 15 A circuit would bring the total near 1500 W. Check the input plug and
+the wall outlet for warmth by hand during step 5.
 
 Expected if healthy (arithmetic, not measured): ~36% load is ~580 W out, ~650 to
 730 W from the battery, ~12 to 15 A, roughly **60 to 80 minutes** to 48 V (a little less to the 49 V stop used here). If
@@ -64,19 +63,26 @@ reverts to armed on the next boot or deploy, which is the safe direction to fail
 
 ### Variants
 
-| | 1a: cluster off (recommended) | 1b: cluster up on wall power | 3: real load, cluster on UPS |
+| | 1a: cluster off | **1b: cluster up on wall power (chosen)** | 3: real load, cluster on UPS |
 |---|---|---|---|
-| Service outage | ~3 to 4 h (one cold cycle) | two short cold cycles, ~20 min each | none |
+| Service outage | ~3 to 4 h (one cold cycle) | two short cold cycles, ~20 to 30 min each | none |
 | Ceph nodes exposed to a BMS trip | no | no | **yes, all three** |
-| Exposed to a real grid outage during the window | pve01 only, Ceph already down | **all three, unprotected for ~3 to 4 h** | protected |
+| Exposed to a real grid outage during the window | pve01 only, Ceph already down | **all three, unprotected for ~3 h** | protected |
 | Steps | fewest | twice the plug moves | fewest, but... |
-| Verdict | do this | if a long outage is unacceptable | **rejected** for a full discharge |
+| Verdict | | **chosen 2026-10-03**: services stay up | **rejected** for a full discharge |
 
 Variant 3 is only defensible as a short (10 minute) real-load characterisation
 with a human acting as the watchdog, and it still carries a small risk of a hard
 cut to all three nodes. Not part of this runbook.
 
-The steps below are **1a**. Where 1b differs it says so.
+The steps below are **1b**. For 1a instead: in step 3 move only pve01 and the
+network gear, leave pve02 and pve03 off, boot pve01 alone in step 4 (no quorum is
+expected), skip restoring services, and fold the second cold cycle into a single
+boot at step 9.
+
+A rolling re-plug (drain one node at a time) would avoid both outages, but the
+network gear cannot move while the cluster runs: the switch rebooting takes corosync
+quorum away from every node long enough for HA to self-fence them.
 
 ## What you need
 
@@ -118,13 +124,12 @@ out" near the end.
 - [ ] **Not** 2026-10-16 or 2026-10-30 around 18:15: the UPS's 14-day self-test fires
       then (`ups.test.interval` 1209600)
 - [ ] Not across midnight or 02:00: the B2 and restic backup jobs run then
-- [ ] Daytime, with ~5 hours clear: ~1 h shutdown and setup, up to ~1.5 h discharge,
-      ~1 h minimum recharge, ~0.5 h restore and checks
-- [ ] Household warned: **DNS is down while the cluster is off**, because dns01 and
-      dns02 both live on it. Either accept that or temporarily point the router's DHCP
-      DNS at a public resolver first
-- [ ] No storms forecast. In 1a a real outage only takes pve01 down; in 1b it hard-cuts
-      the whole cluster
+- [ ] Daytime, with ~5 hours clear: ~0.5 h cold cycle 1, ~0.5 h setup, up to ~1.5 h
+      discharge, ~1 h minimum recharge, ~0.5 h cold cycle 2 and checks
+- [ ] Household warned about **two outages of ~20 to 30 minutes** (steps 2 to 4 and
+      step 9). DNS goes with them, because dns01 and dns02 both live on the cluster
+- [ ] No storms forecast. Between the cold cycles the cluster runs on wall power with
+      no UPS, so a real outage hard-cuts all three Ceph nodes
 
 ## Step 0: Days before (safe, no change to anything)
 
@@ -146,6 +151,10 @@ out" near the end.
 - [ ] Size the dummy load to roughly the quiet reading (36% is about 580 W if
       `ups.load` is watts), and confirm on the KP115 that it holds steady for 10
       minutes without cycling: `python3 scripts/kp115-read.py <plug address>`
+- [ ] **Find a second circuit** for the cluster's wall strip: a different breaker from
+      the outlet the UPS is plugged into. Confirm by switching that breaker off with
+      nothing important on it, or with a plug-in tester. It has to carry the three
+      nodes and the network gear, ~600 to 800 W
 - [ ] Copy the scripts to pve01 from a checkout of main: `scp scripts/ups-discharge-log.sh scripts/ups-discharge-analyze.py scripts/kp115-read.py root@pve01:/root/`
 - [ ] Check tmux is on pve01: `command -v tmux || apt-get install -y tmux`
 
@@ -158,11 +167,11 @@ out" near the end.
 - [ ] Shut down **vm-seb (701) from inside Windows**, not `qm stop`, and any other
       passthrough VM the same way
 
-## Step 2: Stop the cluster
+## Step 2: Cold cycle 1, stop the cluster
 
-Run on pve01 unless noted.
+Run on pve01 unless noted. Step 9 repeats this exact procedure.
 
-- [ ] Record which HA resources are running, so step 9 restarts exactly those: `ha-manager status | awk '$1=="service" && /started/ {print $2}' > /root/ha-started-$(date +%F).txt && cat /root/ha-started-$(date +%F).txt`
+- [ ] Record which HA resources are running, so they can be restarted exactly: `ha-manager status | awk '$1=="service" && /started/ {print $2}' > /root/ha-started-$(date +%F).txt && cat /root/ha-started-$(date +%F).txt`
 - [ ] Stop them, so no node tries to fail them over as the others go down: `xargs -a /root/ha-started-$(date +%F).txt -I{} ha-manager set {} --state stopped`
 - [ ] Watch until they all read `stopped`: `watch -n5 'ha-manager status'`
 - [ ] Stop any non-HA guests still running. Check each node with `qm list; pct list`
@@ -172,28 +181,37 @@ Run on pve01 unless noted.
       stop-hook hang from the node reboot notes: from a session still on that node,
       `systemctl kill -s SIGKILL pve-ha-lrm`
 
-## Step 3: Re-cable
+## Step 3: Re-cable onto wall power
 
-- [ ] Move **pve01** and the **network gear** to the wall power strip
-- [ ] Leave pve02 and pve03 off (their plugs can stay in the UPS)
+- [ ] Move **pve01, pve02, pve03 and the network gear** to the wall power strip, on
+      the **other circuit** found in step 0
+- [ ] The network gear is not optional here. Left on the UPS, a BMS trip would drop
+      the switch, corosync would lose quorum on every node, and HA would self-fence
+      all three: a power cut by another name
 - [ ] Plug the **dummy load** into a UPS output **through the KP115** (UPS, KP115,
       heater), heater switched off for now, KP115 switched on
 
-**1b:** move pve02 and pve03 to the wall strip too, and boot all three.
+## Step 4: Boot the cluster on wall power, disarm NUT, restore services
 
-## Step 4: Boot pve01 alone, disarm NUT
+- [ ] Power on the network gear, wait for it to come up, then power on pve01, pve02
+      and pve03 together
+- [ ] Quorum and Ceph: `pvecm status && ceph -s` (HEALTH_WARN for the flags is expected)
+- [ ] NUT armed itself at boot on all three. **Disarm it before anything else.** On
+      pve01, watchdog first because its unit `Wants=` nut-monitor: `systemctl stop nut-onbatt-watchdog && systemctl stop nut-monitor`
+- [ ] On pve02 and pve03: `systemctl stop nut-monitor`. A netclient on its own shuts
+      its host down on OB+LB, and LB fires at charge < 50
+- [ ] Verify on pve01, expecting `inactive inactive active active` and `OL`: `systemctl is-active nut-onbatt-watchdog nut-monitor nut-driver@myups nut-server; upsc myups@localhost ups.status`
+- [ ] Verify on pve02 and pve03, expecting `inactive`: `systemctl is-active nut-monitor`
+- [ ] Clear the flags: `for f in noout norebalance nobackfill norecover; do ceph osd unset $f; done`
+- [ ] Restart the HA resources that were running: `xargs -a /root/ha-started-$(date +%F).txt -I{} ha-manager set {} --state started`
+- [ ] Start non-HA guests as wanted. Services are back; the outage is over until step 9
+- [ ] No Ansible deploy may run against any node during the window: `server.yml` and
+      `client.yml` would restart the NUT services
 
-pve01 boots without quorum. That is expected: NUT works locally, nothing else matters today.
-
-- [ ] Boot pve01 and SSH in
-- [ ] NUT armed itself at boot. **Disarm it**, watchdog first because its unit `Wants=` nut-monitor: `systemctl stop nut-onbatt-watchdog && systemctl stop nut-monitor`
-- [ ] Verify both are inactive and the driver and upsd are still serving: `systemctl is-active nut-onbatt-watchdog nut-monitor nut-driver@myups nut-server; upsc myups@localhost ups.status`
-      Expect `inactive inactive active active` and `OL`
-- [ ] No Ansible deploy may run against pve01 during the window: `server.yml` would
-      restart both services
-
-**1b:** also run `systemctl stop nut-monitor` on pve02 and pve03. A netclient on its
-own shuts its host down on OB+LB, and LB fires at charge < 50.
+**From here until step 9 the cluster has no UPS protection.** A real grid outage
+hard-cuts all three Ceph nodes. That is the accepted cost of 1b, so keep the window
+moving: the discharge, the recharge wait and step 9 should follow each other without
+gaps.
 
 ## Step 5: Start logging, check on line power
 
@@ -204,6 +222,7 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
       hold steady. Record it and the logged `ups.load` (field sheet). This is the
       calibration: `plugW / (ups.load / 100)` near 1600 means `ups.load` is watts,
       near 2200 means VA
+- [ ] Feel the UPS input plug and its wall outlet: warm is a reason to stop here
 - [ ] **Do not use the Kasa app to switch the KP115 during the run.** Switching it off
       ends the test early; the heater's own switch is the load control
 - [ ] For notes during the run (anything odd: a sound, a smell, the KP115 dropping
@@ -211,8 +230,8 @@ own shuts its host down on OB+LB, and LB fires at charge < 50.
 
 ## Step 6: Pull mains
 
-- [ ] **Unplug the UPS input cord from the wall.** Never use the breaker: in 1b the
-      cluster's wall strip may share that circuit
+- [ ] **Unplug the UPS input cord from the wall.** Never use a breaker: that is how
+      the cluster's circuit gets switched off by mistake
 - [ ] Note the time
 - [ ] The UPS will beep on battery. That is expected
 
@@ -255,23 +274,25 @@ means opening the case.
 49 V the pack has only a few minutes left, and the cluster needs ~3 minutes of
 battery to shut down cleanly if mains fails during the restore.
 
-## Step 9: Restore the cluster
+## Step 9: Cold cycle 2, back onto the UPS
 
-- [ ] Shut pve01 down: `shutdown -h now`
-- [ ] Move pve01 and the network gear back to the UPS. Heater, KP115 and wall strip out
-- [ ] Power on pve01, pve02 and pve03 together
+After at least 60 minutes of charging (step 8).
+
+- [ ] **Re-arm check comes last, not first:** NUT stays disarmed while the nodes are on
+      wall power, because an armed watchdog on pve01 would still act on the UPS
+- [ ] Repeat **step 2** exactly, including recording the HA resources again (services
+      may have moved since the morning, and the file is simply overwritten)
+- [ ] With everything off, move **pve01, pve02, pve03 and the network gear** back to
+      the UPS. Heater, KP115 and wall strip out
+- [ ] Power on the network gear, wait for it, then pve01, pve02 and pve03 together
 - [ ] Quorum and Ceph: `pvecm status && ceph -s`
 - [ ] Clear the flags: `for f in noout norebalance nobackfill norecover; do ceph osd unset $f; done`
-- [ ] Restart exactly the HA resources that were running: `xargs -a /root/ha-started-<date>.txt -I{} ha-manager set {} --state started`
+- [ ] Restart the HA resources: `xargs -a /root/ha-started-$(date +%F).txt -I{} ha-manager set {} --state started`
 - [ ] Start vm-seb and any non-HA guests by hand, and confirm the GPU passthrough
       devices came back (#487 prerequisite)
 - [ ] **Confirm NUT re-armed itself at boot.** pve01: `systemctl is-active nut-driver@myups nut-server nut-monitor nut-onbatt-watchdog; upsc myups@localhost battery.charge.low`
       Expect four `active` and `50`. pve02 and pve03: `systemctl is-active nut-monitor`
 - [ ] Full check from the Mac, in `ansible/` of a main checkout: `ansible-playbook verify_nut.yml --vault-password-file ~/.ansible/vault-pass-bw.sh`
-- [ ] Router DNS back, if it was changed
-
-**1b:** the cluster is already running. Do a second planned cold cycle (step 2) to
-move the three nodes back to the UPS, then this step.
 
 ## Step 10: Next day, back on float
 
@@ -375,7 +396,7 @@ time and never bridge terminals.
 ## Field sheet
 
 ```
-Date: ____________   Variant: 1a / 1b
+Date: ____________   Variant: 1b
 
 STEP 0  real load, on line, float
   quiet:      KP115 on UPS input ____ W   ups.load ____ %
@@ -385,6 +406,8 @@ STEP 1  float string (upsc) ____
 
 STEP 5  heater on line       KP115 ____ W     ups.load ____ %   -> ____ W/(load/100)
 
+STEP 4  services back at ________  (outage 1: ____ min)
+
 STEP 6  mains pulled at ________
 
   voltage, charge, watts and Wh are all in the CSV
@@ -393,6 +416,8 @@ STEP 7  stopped at ________   reason: STOP / COLLAPSE / NODATA / time / other
 
 STEP 8  rest 5 min           string (upsc) ____
         mains restored at ________
+
+STEP 9  services back at ________  (outage 2: ____ min)   NUT re-armed: yes / no
 
 STEP 10 back on float        string (upsc) ____
 ```
