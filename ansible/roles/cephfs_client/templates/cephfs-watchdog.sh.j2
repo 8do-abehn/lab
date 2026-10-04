@@ -1,7 +1,7 @@
 #!/bin/bash
 # CephFS mount watchdog - managed by Ansible. See #456.
 #
-# Recovers {{ cephfs_client_mount_path }} from the two ways it has actually
+# Recovers {{ cephfs_client_mount_path }} from the ways it has actually
 # broken, which need different detection:
 #
 #   2026-09-06  The container booted before the Ceph MDS was ready. ceph-fuse
@@ -12,7 +12,15 @@
 #               FUSE mount. Offline 27 hours. NOT detected by mountpoint -q,
 #               which still returns true; the mount only fails on I/O.
 #
-# Hence the health check below is an actual read, not just a mountpoint test.
+#   2026-10-04  ceph-fuse hung on readdir and then exited, leaving the mount
+#               "Transport endpoint is not connected". Offline 8 hours, and
+#               this script mailed every 5 minutes without fixing it: on a
+#               dead FUSE mount mountpoint -q FAILS (it cannot stat the path),
+#               so the stale-mount branch was skipped, systemd still showed the
+#               unit active, and "systemctl start" was a no-op.
+#
+# Hence the health check is an actual read, and "is something mounted here"
+# comes from the kernel's mount table, never from stat-ing the path.
 set -uo pipefail
 
 # Cron's PATH omits /usr/local/bin, where pipx puts apprise.
@@ -22,6 +30,13 @@ MOUNT_PATH="{{ cephfs_client_mount_path }}"
 MOUNT_UNIT="{{ cephfs_client_mount_unit }}"
 LOGFILE="{{ cephfs_client_watchdog_log }}"
 PROBE_TIMEOUT={{ cephfs_client_watchdog_probe_timeout }}
+# While the mount stays down, re-alert at most this often (seconds). The first
+# failure and the recovery always alert; everything in between is log-only, so
+# an overnight outage is a handful of messages instead of one every probe.
+ALERT_REPEAT={{ cephfs_client_watchdog_alert_repeat }}
+# Outage bookkeeping. /run is tmpfs, so a reboot starts clean, which is fine:
+# a reboot is itself a fresh attempt and a still-broken mount re-alerts.
+STATE_FILE="/run/cephfs-watchdog.state"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"; }
 
@@ -31,8 +46,8 @@ notify() {
     apprise -t "$1" --body "$2" --config /etc/apprise.yml >/dev/null 2>&1 || true
 }
 
-# Healthy means readable, not merely mounted. A stale FUSE mount passes
-# mountpoint -q and then blocks or errors on the first read, so the read is
+# Healthy means readable, not merely mounted. A stale FUSE mount can pass
+# mountpoint -q and then block or error on the first read, so the read is
 # wrapped in a timeout: without it this script would hang exactly when the
 # mount is broken, which is when it most needs to run.
 healthy() {
@@ -41,7 +56,26 @@ healthy() {
     return 0
 }
 
+# True if the kernel still has a mount at MOUNT_PATH, dead or alive. Reads
+# /proc/self/mounts instead of stat-ing the path, which is what fails with
+# ENOTCONN on a dead FUSE mount.
+in_mount_table() {
+    awk -v p="$MOUNT_PATH" '$2 == p { found = 1 } END { exit !found }' /proc/self/mounts
+}
+
+# State file holds "<outage start epoch> <last alert epoch>".
+outage_start() { [ -f "$STATE_FILE" ] && awk '{print $1}' "$STATE_FILE"; }
+
 if healthy; then
+    # Recovered by something other than this script (a manual remount, or a
+    # transient blip): close out the outage so the next one alerts afresh.
+    if [ -f "$STATE_FILE" ]; then
+        start=$(outage_start)
+        mins=$(( ($(date +%s) - start) / 60 ))
+        rm -f "$STATE_FILE"
+        log "RECOVERED: $MOUNT_PATH is readable again (outage ${mins}m)"
+        notify "CephFS mount recovered on $(hostname)" "$MOUNT_PATH is readable again after about ${mins} minutes down."
+    fi
     exit 0
 fi
 
@@ -50,10 +84,14 @@ log "UNHEALTHY: $MOUNT_PATH failed its read probe, attempting recovery"
 # A stale mount must be cleared before remounting, or the new mount lands on
 # top of a broken one. Lazy unmount is the fallback: a hung FUSE mount will
 # refuse a normal umount because processes still hold references to it.
-if mountpoint -q "$MOUNT_PATH"; then
+if in_mount_table; then
     log "clearing stale mount"
     umount "$MOUNT_PATH" 2>/dev/null || umount -l "$MOUNT_PATH" 2>/dev/null || true
 fi
+
+# Stop the unit explicitly so systemd's view matches the kernel's. Without
+# this, a unit systemd still believes is active makes the start below a no-op.
+systemctl stop "$MOUNT_UNIT" 2>/dev/null || true
 
 # Essential: a unit left in failed state refuses to start again. This is
 # precisely why the 2026-09-06 failure persisted for two days rather than
@@ -64,10 +102,29 @@ log "starting $MOUNT_UNIT"
 systemctl start "$MOUNT_UNIT" 2>&1 | tee -a "$LOGFILE"
 sleep 5
 
+now=$(date +%s)
 if healthy; then
-    log "RECOVERED: $MOUNT_PATH is readable again"
-    notify "CephFS mount recovered on $(hostname)" "$MOUNT_PATH failed its health probe at $(date) and was remounted successfully. Worth checking why: a boot race, or ceph-fuse being OOM-killed, look different in the journal."
-else
-    log "FAILED: $MOUNT_PATH still unreadable after remount"
-    notify "CephFS mount DOWN on $(hostname)" "$MOUNT_PATH failed its health probe at $(date) and could NOT be remounted. Anything reading it is broken until this is fixed. Check Ceph health and the MDS first."
+    if [ -f "$STATE_FILE" ]; then
+        mins=$(( (now - $(outage_start)) / 60 ))
+        rm -f "$STATE_FILE"
+        log "RECOVERED: $MOUNT_PATH is readable again after remount (outage ${mins}m)"
+        notify "CephFS mount recovered on $(hostname)" "$MOUNT_PATH was down for about ${mins} minutes and is readable again after a remount."
+    else
+        log "RECOVERED: $MOUNT_PATH is readable again"
+        notify "CephFS mount recovered on $(hostname)" "$MOUNT_PATH failed its health probe at $(date) and was remounted successfully. Worth checking why: a boot race, ceph-fuse being OOM-killed, or ceph-fuse hanging look different in the journal."
+    fi
+    exit 0
 fi
+
+log "FAILED: $MOUNT_PATH still unreadable after remount"
+if [ ! -f "$STATE_FILE" ]; then
+    echo "$now $now" > "$STATE_FILE"
+    notify "CephFS mount DOWN on $(hostname)" "$MOUNT_PATH failed its health probe at $(date) and could NOT be remounted. Anything reading it is broken until this is fixed. Check Ceph health and the MDS first. Further alerts are suppressed for $((ALERT_REPEAT / 3600))h unless it recovers."
+else
+    read -r start last < "$STATE_FILE"
+    if (( now - last >= ALERT_REPEAT )); then
+        echo "$start $now" > "$STATE_FILE"
+        notify "CephFS mount STILL DOWN on $(hostname)" "$MOUNT_PATH has been down for $(( (now - start) / 60 )) minutes and every remount attempt has failed."
+    fi
+fi
+exit 1
