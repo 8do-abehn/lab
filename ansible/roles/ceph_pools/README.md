@@ -66,6 +66,9 @@ ceph osd set norebalance      # pause backfill of PGs that are only misplaced
 ceph osd unset norebalance    # resume
 ```
 
+Health shows **HEALTH_WARN** (OSDMAP_FLAGS) while the flag is set. That is the
+flag, not a problem.
+
 `ceph balancer off` only stops the balancer creating more upmaps; data for the
 upmaps it already made keeps moving unless `norebalance` is set.
 
@@ -77,10 +80,21 @@ balancer created stay. Undo them explicitly:
 ```
 ceph balancer off
 ceph config set mgr mgr/balancer/upmap_max_deviation 5
-diff /root/upmap-before-559.txt <(ceph osd dump | grep pg_upmap_items)   # new upmaps
-ceph osd rm-pg-upmap-items <pgid>        # for each NEW pgid in the diff
+diff /root/upmap-before-559.txt <(ceph osd dump | grep pg_upmap_items)
+ceph osd rm-pg-upmap-items <pgid>        # for each pgid with a ">" line
 ceph balancer on
 ```
+
+`rm-pg-upmap-items` drops **every** mapping of that PG. If a pgid also has a "<"
+line (the balancer changed or dropped a mapping that existed before), restore
+its original entry from the baseline file afterwards:
+
+```
+# baseline line:  pg_upmap_items 6.8 [3,8]
+ceph osd pg-upmap-items 6.8 3 8
+```
+
+Then re-run the diff; it should be empty.
 
 Moving `.mgr` back (`pveceph pool set .mgr --crush_rule replicated_rule`) disables
 the autoscaler for every pool again, and this role will then fail on every run.
