@@ -22,6 +22,7 @@
     - ceph_restart_enabled | bool
     - ceph_restart_osd_unit.stat.exists
 
+# false takes the drop-in out again, returning the units to stock behaviour.
 - name: Keep Ceph daemons retrying while there is no mon quorum
   ansible.builtin.copy:
     dest: /etc/systemd/system/ceph-{{ item }}@.service.d/restart-without-quorum.conf
@@ -48,11 +49,27 @@
     - ceph_restart_enabled | bool
     - ceph_restart_osd_unit.stat.exists
 
-- name: Reload systemd so running Ceph units pick up the drop-in
+- name: Remove the Ceph restart drop-in
+  ansible.builtin.file:
+    path: /etc/systemd/system/ceph-{{ item }}@.service.d/restart-without-quorum.conf
+    state: absent
+  loop: "{{ ceph_restart_daemons }}"
+  register: ceph_restart_removed
+  when: not (ceph_restart_enabled | bool)
+
+# Keyed off systemd's own view as well as `changed`, so a run that wrote the
+# drop-in but was interrupted before reloading still gets reloaded next time.
+- name: Check whether any Ceph unit is waiting for a daemon-reload
+  ansible.builtin.command: systemctl show -p NeedDaemonReload ceph-osd@* ceph-mds@* ceph-mgr@*
+  register: ceph_restart_need_reload
+  changed_when: false
+  when: ceph_restart_osd_unit.stat.exists
+
+- name: Reload systemd so running Ceph units pick up the change
   ansible.builtin.systemd:
     daemon_reload: true
   when:
-    - ceph_restart_enabled | bool
     - ceph_restart_osd_unit.stat.exists
-    - ceph_restart_dropins.changed
     - not ansible_check_mode
+    - ceph_restart_dropins.changed or ceph_restart_removed.changed
+      or 'NeedDaemonReload=yes' in ceph_restart_need_reload.stdout

@@ -7,8 +7,11 @@ inactive, or this node unable to reach a mon quorum at all (#529). On
 HEALTH_WARN that also listed three unrelated warnings, so this matches
 specific health codes rather than the overall status.
 
+See the role README for the runbook (maintenance, muting, testing).
+
 Run with --dry-run to print what it would send without notifying or touching
-the state file.
+the state file, or --test to send one real test alert through apprise
+(also without touching state) to prove the whole path works.
 """
 
 import json
@@ -16,11 +19,16 @@ import os
 import socket
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 HEALTH_CODES = {{ ceph_check_health_codes | to_json }}
+# What a planned single-node outage produces. Suppressed while `noout` is set;
+# everything else (inactive PGs, no MDS at all, no quorum) still alerts,
+# because that means data or service is actually unavailable.
+MAINTENANCE_CODES = {{ ceph_check_maintenance_codes | to_json }}
 MIN_MGR_STANDBYS = {{ ceph_check_min_mgr_standbys }}
 REALERT = timedelta(hours={{ ceph_check_realert_hours }})
+NOOUT_MAX = timedelta(hours={{ ceph_check_noout_max_hours }})
 TIMEOUT = {{ ceph_check_timeout }}
 # A "seen last run" older than this (a reboot, a stopped timer) is too old to
 # count as the previous run for the debounce.
@@ -29,6 +37,20 @@ STATE_FILE = "/var/lib/ceph-redundancy-check/state.json"
 APPRISE_CONFIG = "/etc/apprise.yml"
 
 DRY_RUN = "--dry-run" in sys.argv
+EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def now():
+    # UTC, so a DST change cannot shift the re-alert or noout clocks.
+    return datetime.now(timezone.utc)
+
+
+def parse_time(value):
+    try:
+        parsed = datetime.fromisoformat(value or "")
+    except ValueError:
+        return EPOCH
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def ceph(*args):
@@ -47,19 +69,24 @@ def ceph(*args):
     return proc.stdout
 
 
-def find_problems(host):
-    """Return (problems, is_reporter). problems maps a stable key to a
-    human-readable line. The key is what the two-run debounce compares, so
-    it must not contain counts that change from run to run."""
-    raw = ceph("status", "--format", "json")
+def ceph_json(*args):
+    raw = ceph(*args, "--format", "json")
     try:
-        status = json.loads(raw) if raw else None
+        return json.loads(raw) if raw else None
     except ValueError:
-        status = None
+        return None
+
+
+def find_problems(host):
+    """Return (problems, is_reporter, noout). problems maps a stable key to a
+    human-readable line. The key is what the debounce compares, so it must
+    not contain counts that change from run to run."""
+    status = ceph_json("status")
     if status is None:
         # Every node reports this about itself. It cannot be deduplicated
         # through the cluster, because the cluster is what is unreachable.
-        return {"NO_QUORUM": "{} cannot reach a mon quorum ({}s timeout)".format(host, TIMEOUT)}, True
+        return {"NO_QUORUM": "NO_QUORUM: {} cannot reach a mon quorum ({}s timeout)".format(
+            host, TIMEOUT)}, True, False
 
     problems = {}
     checks = (status.get("health") or {}).get("checks") or {}
@@ -75,11 +102,34 @@ def find_problems(host):
         problems["MGR_STANDBY"] = "MGR_STANDBY: {} standby mgr daemon(s), want at least {}".format(
             standbys, MIN_MGR_STANDBYS)
 
+    osdmap = ceph_json("osd", "dump") or {}
+    noout = "noout" in (osdmap.get("flags") or "").split(",")
+    if noout:
+        for code in MAINTENANCE_CODES:
+            problems.pop(code, None)
+
     # One node speaks for the cluster, so an incident normally sends one email
     # rather than three. (Around a change of reporter, two nodes can briefly
     # both report: the old one keeps going until it has sent its all-clear.)
     quorum = sorted(status.get("quorum_names") or [])
-    return problems, bool(quorum) and quorum[0] == host
+    return problems, bool(quorum) and quorum[0] == host, noout
+
+
+def stuck_units():
+    """Ceph daemon units on THIS node that systemd has given up on. Only
+    these are safe to name in the hint: an inactive unit may have been
+    stopped on purpose."""
+    proc = subprocess.run(
+        ["systemctl", "show", "-p", "Id,ActiveState,Result",
+         "ceph-osd@*", "ceph-mds@*", "ceph-mgr@*"],
+        capture_output=True, text=True, check=False,
+    )
+    stuck = []
+    for block in proc.stdout.strip().split("\n\n"):
+        props = dict(line.split("=", 1) for line in block.splitlines() if "=" in line)
+        if props.get("ActiveState") == "failed":
+            stuck.append("{} ({})".format(props.get("Id"), props.get("Result")))
+    return stuck
 
 
 def load_state():
@@ -122,35 +172,46 @@ def notify(subject, body):
     return proc.returncode == 0
 
 
-def build_body(host, problems):
-    lines = ["Reported by {} at {}.".format(host, datetime.now().strftime("%Y-%m-%d %H:%M"))]
+def build_body(host, problems, noout):
+    lines = ["Reported by {} at {:%Y-%m-%d %H:%M} UTC.".format(host, now())]
     if problems:
         lines += ["", "Problems:"] + ["  " + problems[k] for k in sorted(problems)]
+    if noout:
+        lines += ["", "noout is set, so per-node outages (OSD/MON down, standbys) are not alerted."]
     detail = ceph("health", "detail")
     if detail:
         lines += ["", "ceph health detail:", detail.rstrip()]
     if problems:
+        stuck = stuck_units()
+        if stuck:
+            lines += ["", "Units systemd has given up on, on {}:".format(host)]
+            lines += ["  " + unit for unit in stuck]
         lines += [
             "",
-            "If daemons on a node are just stopped (see #529), on that node:",
-            "  systemctl list-units --all 'ceph-*@*'",
-            "  systemctl reset-failed 'ceph-*@*' && systemctl start ceph.target",
+            "To find stuck daemons on a node (see #529):",
+            "  systemctl list-units --all --state=failed,inactive 'ceph-osd@*' 'ceph-mds@*' 'ceph-mgr@*'",
+            "Restart only the ones that should be running:",
+            "  systemctl reset-failed <unit> && systemctl start <unit>",
+            "Not `systemctl start ceph.target`: that also starts daemons stopped on purpose.",
         ]
     return "\n".join(lines)
 
 
 def main():
     host = socket.gethostname().split(".")[0]
-    current, is_reporter = find_problems(host)
+    if "--test" in sys.argv:
+        # --dry-run only proves the logic; this proves apprise, the config and
+        # the mail path, which is what fails silently in practice.
+        sent = notify("Ceph redundancy check test ({})".format(host), build_body(
+            host, {"TEST": "TEST: end-to-end test of the alert path, ignore"}, False))
+        print("delivered" if sent else "NOT delivered (check /etc/apprise.yml and apprise)")
+        sys.exit(0 if sent else 1)
+    current, is_reporter, noout = find_problems(host)
     state = load_state()
 
-    seen = state.get("seen") or {}
     alerted = set(state.get("alerted") or [])
-    try:
-        seen_at = datetime.fromisoformat(state.get("seen_at", ""))
-    except ValueError:
-        seen_at = datetime.min
-    if datetime.now() - seen_at > SEEN_MAX_AGE:
+    seen = state.get("seen") or {}
+    if now() - parse_time(state.get("seen_at")) > SEEN_MAX_AGE:
         seen = {}
 
     # A node that has alerted stays responsible until it has sent the
@@ -166,17 +227,33 @@ def main():
         return
 
     # Without a quorum every cluster-level check is invisible, not passing.
-    # Carry the last known problems forward instead of reading their absence
-    # as a recovery.
+    # Keep what was already alerted open instead of reading its absence as a
+    # recovery. Only alerted keys: a problem seen on one real run before
+    # quorum went must not get confirmed by this.
     if "NO_QUORUM" in current:
-        current = dict(seen, **current)
+        carried = {k: seen.get(k, k) for k in alerted if k != "NO_QUORUM"}
+        current = dict(carried, **current)
+
+    # Forgetting to unset noout after maintenance silently disables the
+    # per-node alerts, so a noout left on is itself a problem.
+    noout_since = state.get("noout_since") if noout else None
+    if noout and not noout_since:
+        noout_since = now().isoformat(timespec="seconds")
+    if noout and now() - parse_time(noout_since) >= NOOUT_MAX:
+        current["NOOUT"] = ("NOOUT: noout has been set for over {} hours. Run "
+                            "`ceph osd unset noout` once maintenance is done.").format(
+                                int(NOOUT_MAX.total_seconds() // 3600))
 
     # Debounce both edges: a problem is raised after two consecutive runs that
     # see it, and cleared only after two consecutive runs that do not, so a
     # flapping OSD does not send a lost/restored pair every ten minutes.
     raised = {k for k in current if k in seen}
     held = {k for k in alerted if k in current or k in seen}
-    confirmed = {k: current.get(k, seen.get(k)) for k in raised | held}
+    # A node that is not the reporter only closes out what it already sent.
+    # Picking up new problems is the reporter's job; doing it here too would
+    # double every alert for the rest of the incident.
+    keys = (raised | held) if is_reporter else held
+    confirmed = {k: current.get(k, seen.get(k, k)) for k in keys}
 
     subject = None
     if set(confirmed) != alerted:
@@ -186,26 +263,24 @@ def main():
             subject = "Ceph redundancy restored"
         else:
             subject = "Ceph redundancy changed"
-    elif confirmed:
-        try:
-            last = datetime.fromisoformat(state.get("alerted_at", ""))
-        except ValueError:
-            last = datetime.min
-        if datetime.now() - last >= REALERT:
+    elif confirmed and is_reporter:
+        if now() - parse_time(state.get("alerted_at")) >= REALERT:
             subject = "Ceph redundancy still degraded"
 
     new_state = {
         "seen": current,
-        "seen_at": datetime.now().isoformat(timespec="seconds"),
+        "seen_at": now().isoformat(timespec="seconds"),
         "alerted": sorted(alerted),
         "alerted_at": state.get("alerted_at", ""),
+        "noout_since": noout_since,
     }
-    if subject and notify("{} ({})".format(subject, host), build_body(host, confirmed)):
+    if subject and notify("{} ({})".format(subject, host), build_body(host, confirmed, noout)):
         new_state["alerted"] = sorted(confirmed)
-        new_state["alerted_at"] = datetime.now().isoformat(timespec="seconds")
+        new_state["alerted_at"] = now().isoformat(timespec="seconds")
     save_state(new_state)
 
     if DRY_RUN:
+        print("noout: {}".format(noout))
         print("current: {}".format(sorted(current) or "none"))
         print("confirmed (debounced): {}".format(sorted(confirmed) or "none"))
 

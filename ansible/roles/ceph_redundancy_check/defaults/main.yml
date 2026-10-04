@@ -19,6 +19,12 @@
 # network, so it cannot deliver anything while the node itself is cut off, as
 # all three were for most of 2026-09-27. It would have fired within minutes
 # of the switch coming back, when the dead daemons became the only problem.
+#
+# Deliberately not covered: losing one of two standbys is silent (only zero
+# standbys alerts), and if the reporting node itself cannot send, nobody else
+# takes over the send. See README.md for the runbook.
+#
+# false removes the script, units and state, rather than just skipping them.
 ceph_check_enabled: true
 
 ceph_check_interval: 5min
@@ -36,6 +42,21 @@ ceph_check_health_codes:
   - FS_WITH_FAILED_MDS
   - PG_AVAILABILITY
 
+# While the `noout` flag is set (the Proxmox way to say "planned maintenance"),
+# skip what a single node going down for a reboot produces. Everything else in
+# ceph_check_health_codes, plus NO_QUORUM, still alerts: those mean data or a
+# service is actually unavailable, maintenance or not.
+ceph_check_maintenance_codes:
+  - OSD_DOWN
+  - OSD_HOST_DOWN
+  - MON_DOWN
+  - MDS_INSUFFICIENT_STANDBY
+  - MGR_STANDBY
+
+# noout left set after maintenance silently mutes the codes above, so alert
+# when it has been on for longer than this.
+ceph_check_noout_max_hours: 8
+
 # Ceph never warns about this one itself. On 2026-09-27 there were zero.
 ceph_check_min_mgr_standbys: 1
 
@@ -43,6 +64,7 @@ ceph_check_min_mgr_standbys: 1
 # for two before it clears, so a routine OSD restart, a few seconds of peering
 # or a flapping daemon does not send a lost/restored pair every few minutes.
 # Health checks silenced with `ceph health mute` are ignored.
+
 # Re-alert this often while the same problems persist.
 ceph_check_realert_hours: 12
 

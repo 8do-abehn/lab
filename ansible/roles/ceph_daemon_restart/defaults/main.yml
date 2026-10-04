@@ -37,6 +37,8 @@
 # which is the more likely failure here.
 #
 # If client_mount_timeout or restart_sec change, redo that arithmetic.
+#
+# false removes the drop-in again (stock unit behaviour); no daemon restarts.
 ceph_restart_enabled: true
 
 # ceph-mon is deliberately absent: it starts with CINIT_FLAG_NO_MON_CONFIG, never

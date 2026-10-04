@@ -82,3 +82,40 @@
     - ceph_check_enabled | bool
     - ceph_check_member.stat.exists
     - not ansible_check_mode
+
+# ceph_check_enabled: false takes it all out again, rather than leaving the
+# last-deployed timer running on its own.
+- name: Check for an installed Ceph redundancy check timer
+  ansible.builtin.stat:
+    path: /etc/systemd/system/ceph-redundancy-check.timer
+  register: ceph_check_timer_file
+  when: not (ceph_check_enabled | bool)
+
+- name: Stop and disable the Ceph redundancy check timer
+  ansible.builtin.systemd:
+    name: ceph-redundancy-check.timer
+    enabled: false
+    state: stopped
+  when:
+    - not (ceph_check_enabled | bool)
+    - ceph_check_timer_file.stat.exists
+
+- name: Remove the Ceph redundancy check
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/ceph-redundancy-check.timer
+    - /etc/systemd/system/ceph-redundancy-check.service
+    - "{{ ceph_check_script }}"
+    - /var/lib/ceph-redundancy-check
+  register: ceph_check_removed
+  when: not (ceph_check_enabled | bool)
+
+- name: Reload systemd after removing the Ceph redundancy check
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - not (ceph_check_enabled | bool)
+    - ceph_check_removed.changed
+    - not ansible_check_mode
