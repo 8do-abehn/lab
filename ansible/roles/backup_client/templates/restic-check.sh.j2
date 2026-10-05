@@ -52,7 +52,9 @@ if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     exit 1
 fi
 
-CHECK_OUTPUT=$(restic check "${RESTIC_LIMITS[@]}" 2>&1) && CHECK_RC=0 || CHECK_RC=$?
+# --retry-lock: check locks the repo every client shares; wait out another
+# host's job instead of failing (see backup_restic_retry_lock).
+CHECK_OUTPUT=$(restic check "${RESTIC_LIMITS[@]}" --retry-lock {{ backup_restic_retry_lock }} 2>&1) && CHECK_RC=0 || CHECK_RC=$?
 echo "$CHECK_OUTPUT" >> "$LOGFILE"
 
 if [ $CHECK_RC -eq 0 ]; then

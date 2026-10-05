@@ -50,8 +50,17 @@ backup_keep_monthly: 6
 backup_prune_inline: false
 backup_prune_enabled: false
 
-# Weekly prune schedule. Sunday 9am keeps it clear of every backup window (2-3am)
-# and every repository check (6-7am), so the locks never overlap.
+# How long forget, check and prune wait for another client's repo lock before
+# giving up (restic --retry-lock, needs restic >= 0.16). The per-host flock in
+# _restic_lock.sh.j2 can't see other clients, and a backup that overruns its
+# window (2026-10-05: jellyfin01 re-uploading a day missed during a mount
+# outage, still running at 03:27) otherwise fails the next client's forget
+# with "repository is already locked". The snapshot itself is never affected.
+backup_restic_retry_lock: 2h
+
+# Weekly prune schedule. Sunday 9am normally clears every backup window (2-3am)
+# and every repository check (6-7am). When a run overruns anyway, prune waits for
+# the lock via backup_restic_retry_lock instead of failing.
 backup_prune_cron_hour: "9"
 backup_prune_cron_minute: "0"
 backup_prune_cron_weekday: "0"

@@ -78,7 +78,9 @@ if [ -n "$LOCK_OUTPUT" ]; then
     fi
 fi
 
-PRUNE_OUTPUT=$(restic prune "${RESTIC_LIMITS[@]}" 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
+# --retry-lock: prune needs an exclusive lock on the repo every client shares,
+# and a long backup on another host would otherwise fail it outright.
+PRUNE_OUTPUT=$(restic prune "${RESTIC_LIMITS[@]}" --retry-lock {{ backup_restic_retry_lock }} 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
 echo "$PRUNE_OUTPUT" >> "$LOGFILE"
 
 PRUNE_END=$(date +%s)

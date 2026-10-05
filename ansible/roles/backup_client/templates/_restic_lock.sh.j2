@@ -1,8 +1,10 @@
-{# Shared mutex for every restic job touching this repo. Included by
+{# Per-HOST mutex for the restic jobs on this machine. Included by
    backup.sh.j2, restic-check.sh.j2 and restic-prune.sh.j2. Expects
    log_message() to already be defined, and notify() when notifications
    are enabled. #}
-# Serialize every restic job against this repo (#479). Cron fires on a fixed
+# Serialize this host's restic jobs (#479). This is a local flock, so it does
+# NOT coordinate with other clients sharing the repo; restic's own repo locks
+# do that, and the exclusive-lock commands wait via --retry-lock. Cron fires on a fixed
 # schedule no matter how long the last run took: a 14h backup, or a multi-day
 # initial seed, would otherwise have tonight's run stack on top of it. One
 # shared lock rather than one per script, because forget and prune take

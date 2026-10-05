@@ -146,7 +146,13 @@ rm -f "$BACKUP_STDERR"
 # lock, so it is opt-in here and normally left to the weekly job on the designated
 # prune host instead of running on every client every night.
 log_message "Applying retention policy"
+# --retry-lock: forget needs an EXCLUSIVE repo lock, and the flock above only
+# serializes jobs on this host. Every client shares one repo, so another
+# client's backup still running (each takes a shared lock) used to fail this
+# step outright even though tonight's snapshot was already saved. Waiting is
+# safe: nothing here is time-critical once the snapshot exists.
 if restic forget "${RESTIC_LIMITS[@]}" \
+    --retry-lock {{ backup_restic_retry_lock }} \
     --keep-daily {{ backup_keep_daily }} \
     --keep-weekly {{ backup_keep_weekly }} \
     --keep-monthly {{ backup_keep_monthly }} \
