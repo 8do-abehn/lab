@@ -47,6 +47,7 @@ The guest may have migrated since that commit, and its disks, snapshots or
 point the guest at disks that no longer exist.
 
 ```
+cd /var/lib/pve-config-history
 find /etc/pve/nodes -name <vmid>.conf               # where it lives NOW
 git show <commit>:etc-pve/nodes/<host>/qemu-server/<vmid>.conf > /tmp/<vmid>.conf
 diff /tmp/<vmid>.conf /etc/pve/nodes/<now-host>/qemu-server/<vmid>.conf
@@ -54,18 +55,23 @@ qm shutdown <vmid>                                  # or pct shutdown for an LXC
 cp /tmp/<vmid>.conf /etc/pve/nodes/<now-host>/qemu-server/<vmid>.conf
 ```
 
+For a container use `lxc/` in place of `qemu-server/` and `pct` in place of `qm`.
+
 Write it to the node the guest lives on now. pmxcfs refuses writes without
 quorum; do this once the cluster is quorate.
 
 ### Put back a node-local file
 
-`git show` writes symlinks out as plain text and drops file modes (e.g.
-`/etc/ceph/ceph.conf` is a symlink to `/etc/pve/ceph.conf`). Extract with
-`git archive` instead, which keeps both, and diff before overwriting:
+`git show` writes symlinks out as plain text (e.g. `/etc/ceph/ceph.conf` is a
+symlink to `/etc/pve/ceph.conf`). Extract with `git archive` instead, which keeps
+symlinks and the executable bit. Git does **not** keep other modes: everything
+comes back 0644/0755, so reset the mode of anything private (keys, keyrings)
+after copying. Diff before overwriting:
 
 ```
+cd /var/lib/pve-config-history
 mkdir -p /tmp/restore
-git archive <commit> node-local/etc/network/interfaces | tar -x -C /tmp/restore
+git -c tar.umask=022 archive <commit> node-local/etc/network/interfaces | tar -x -C /tmp/restore
 diff /tmp/restore/node-local/etc/network/interfaces /etc/network/interfaces
 cp -a /tmp/restore/node-local/etc/network/interfaces /etc/network/interfaces
 ifreload -a
@@ -81,18 +87,21 @@ the "Recovery" section of the Proxmox cluster file system docs first). It is a
 last resort: if any node still runs, restore from that instead.
 
 Reinstall Proxmox on the node with its **old hostname and IP**, then attach the
-old root disk read-only (here at `/mnt/old`), and:
+old root disk read-only (here at `/mnt/old`). Its LVM volume group is also named
+`pve`, the same as the fresh install's, so rename it on import first
+(`vgimportclone` the old PV, or `vgrename <old-vg-uuid> pve_old`). Then:
 
 ```
 old=/mnt/old/var/lib
 mkdir -p /tmp/restore
-systemctl stop pve-config-history.timer pve-cluster corosync
+systemctl stop pve-cluster corosync
 rm -f /var/lib/pve-cluster/config.db-wal /var/lib/pve-cluster/config.db-shm
 install -m 0600 $old/pve-config-history-db/config.db /var/lib/pve-cluster/config.db
 cd $old/pve-config-history
-git archive HEAD node-local/etc/corosync node-local/etc/hosts node-local/etc/hostname \
+git -c tar.umask=022 archive HEAD node-local/etc/corosync node-local/etc/hosts node-local/etc/hostname \
   | tar -x -C /tmp/restore
 cp -a /tmp/restore/node-local/etc/corosync/. /etc/corosync/
+chmod 0755 /etc/corosync && chmod 0400 /etc/corosync/authkey    # git does not keep these
 cp -a /tmp/restore/node-local/etc/hosts /tmp/restore/node-local/etc/hostname /etc/
 reboot
 ```
