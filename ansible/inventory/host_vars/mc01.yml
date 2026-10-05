@@ -1,26 +1,26 @@
 ---
-# Minecraft servers on mc01 (LXC 3004 on pve03, 32GB RAM)
+# Minecraft servers on mc01 (LXC 3004 on pve01, 32GB RAM)
 minecraft_servers:
   - name: survival
     port: 25565
     memory: "6G"
-    version: "26.2"
+    version: "26.3"
     motd: "Survival Server"
 
   - name: creative
     port: 25566
     memory: "4G"
-    version: "26.2"
+    version: "26.3"
     gamemode: creative
     motd: "Creative Server"
 
   # Switched from standard-skyblock + sky-void-additions to Skyblock
-  # Infinite, which is the only maintained SkyBlock datapack with a 26.2
+  # Infinite, which is the only maintained SkyBlock datapack with a 26.3
   # build. See the note in mc02.yml about LEVEL and the old worlds.
   - name: oneblock
     port: 25567
     memory: "4G"
-    version: "26.2"
+    version: "26.3"
     motd: "SkyBlock"
     extra_env:
       MODRINTH_PROJECTS: "datapack:skyblock-infinite"

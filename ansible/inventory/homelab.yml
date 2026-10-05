@@ -99,13 +99,14 @@ all:
 
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
+    # Node placement is HA-managed and drifts; these are as of 2026-10-04.
     minecraft_servers:
       hosts:
-        mc01:  # LXC 3004 on pve03, 32GB RAM -- survival, creative, oneblock
+        mc01:  # LXC 3004 on pve01, 32GB RAM -- survival, creative, oneblock
           ansible_user: root
-        mc02:  # LXC 3005 on pve01, 32GB RAM -- sawyer-skyblock, riley-skyblock
+        mc02:  # LXC 3005 on pve02, 32GB RAM -- sawyer-skyblock, riley-skyblock
           ansible_user: root
-        # mc03:  # LXC 3006 on pve02, 32GB RAM -- cobblemon
+        # mc03:  # LXC 3006 on pve03, 32GB RAM -- cobblemon
         #   ansible_user: root
 
     # SLURM Cluster (archived - VMs deleted 2026-01-30)
