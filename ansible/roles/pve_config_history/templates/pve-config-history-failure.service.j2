@@ -1,0 +1,13 @@
+# Managed by Ansible (roles/pve_config_history, #434)
+# Started by OnFailure= of pve-config-history.service, so a broken snapshot does
+# not go unnoticed until the day the history is needed.
+[Unit]
+Description=Alert that the /etc/pve history snapshot failed
+ConditionPathExists={{ pve_config_history_apprise_config }}
+
+[Service]
+Type=oneshot
+ExecStart={{ pve_config_history_apprise_bin }} -c {{ pve_config_history_apprise_config }} \
+    -t "/etc/pve history snapshot failed on %H" \
+    -b "pve-config-history.service failed on %H. Last log: journalctl -u pve-config-history.service -n 50. Restore runbook: ansible/roles/pve_config_history/README.md (#434)."
+TimeoutStartSec=2min

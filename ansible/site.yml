@@ -97,6 +97,16 @@
   roles:
     - smart_monitoring
 
+# Hourly git history of /etc/pve and each node's rebuild files (#434). After
+# smart_monitoring so /etc/apprise.yml exists for its failure alert.
+- name: Keep /etc/pve version history
+  hosts: proxmox
+  become: true
+  tags:
+    - pve_config
+  roles:
+    - pve_config_history
+
 # Host-level counterpart to the in-container cephfs_client watchdog (#456):
 # catches D-state FUSE hangs (#516) that a probe running inside the container
 # can never detect, because it would hang inside its own health check too.

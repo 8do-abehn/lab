@@ -1,0 +1,61 @@
+#!/bin/bash
+# Managed by Ansible (roles/pve_config_history, #434)
+#
+# Snapshot /etc/pve and this node's rebuild files into a git repo, committing only
+# when something changed, and keep consistent copies of the pmxcfs database.
+set -euo pipefail
+
+REPO={{ pve_config_history_repo | quote }}
+DB_DIR={{ pve_config_history_db_dir | quote }}
+DB_KEEP={{ pve_config_history_db_keep_daily | int }}
+NODE_PATHS=({% for p in pve_config_history_node_paths %}{{ p | quote }} {% endfor %})
+EXCLUDES=({% for e in pve_config_history_excludes %}--exclude={{ e | quote }} {% endfor %})
+
+umask 077
+
+# /etc/pve is a FUSE mount. With pve-cluster stopped it is an empty directory,
+# and syncing that with --delete would commit "every config deleted". Losing
+# quorum is fine: pmxcfs stays mounted and readable, only writes are refused.
+if ! mountpoint -q /etc/pve || [[ ! -f /etc/pve/corosync.conf ]]; then
+    echo "/etc/pve is not mounted or has no corosync.conf (pve-cluster down?); not snapshotting" >&2
+    exit 1
+fi
+
+install -d -m 0700 "$REPO" "$DB_DIR"
+cd "$REPO"
+if [[ ! -d .git ]]; then
+    git init -q
+    git config user.name "pve-config-history"
+    git config user.email "root@$(hostname -f)"
+fi
+
+rsync -a --delete --delete-excluded "${EXCLUDES[@]}" /etc/pve/ etc-pve/
+
+# Rebuilt from scratch every run so a file removed from the node also leaves the
+# snapshot. -R keeps each path's full directory layout under node-local/.
+present=()
+for p in "${NODE_PATHS[@]}"; do
+    [[ -e "$p" || -L "$p" ]] && present+=("$p")
+done
+rm -rf node-local.new
+mkdir node-local.new
+if [[ -n "${present[*]:-}" ]]; then
+    rsync -aR "${present[@]}" node-local.new/
+fi
+rm -rf node-local
+mv node-local.new node-local
+
+git add -A
+if ! git diff --cached --quiet; then
+    count=$(git diff --cached --name-only | wc -l)
+    git commit -q -m "$(hostname -s): ${count} file(s) changed" \
+        -m "$(git diff --cached --name-status | head -50)"
+fi
+
+# The live database is in WAL mode, so a plain copy can be torn. .backup takes a
+# consistent snapshot through SQLite itself.
+sqlite3 /var/lib/pve-cluster/config.db ".backup '$DB_DIR/config.db.tmp'"
+mv -f "$DB_DIR/config.db.tmp" "$DB_DIR/config.db"
+today="$DB_DIR/config.db.$(date -u +%F)"
+[[ -e "$today" ]] || cp -p "$DB_DIR/config.db" "$today"
+ls -1 "$DB_DIR"/config.db.20??-??-?? 2>/dev/null | sort | head -n "-$DB_KEEP" | xargs -r rm -f
