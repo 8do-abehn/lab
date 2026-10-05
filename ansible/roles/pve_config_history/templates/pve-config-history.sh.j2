@@ -8,21 +8,38 @@ set -euo pipefail
 REPO={{ pve_config_history_repo | quote }}
 DB_DIR={{ pve_config_history_db_dir | quote }}
 DB_KEEP={{ pve_config_history_db_keep_daily | int }}
+PMXCFS_DB=/var/lib/pve-cluster/config.db
 NODE_PATHS=({% for p in pve_config_history_node_paths %}{{ p | quote }} {% endfor %})
 EXCLUDES=({% for e in pve_config_history_excludes %}--exclude={{ e | quote }} {% endfor %})
 
 umask 077
 
 # First, and independent of everything below: config.db is the full-cluster
-# recovery point and is readable even with pve-cluster stopped, so a git or rsync
-# problem must never also stop these copies. The live database is in WAL mode,
-# so a plain copy can be torn; .backup takes a consistent snapshot through SQLite.
-install -d -m 0700 "$DB_DIR"
-sqlite3 /var/lib/pve-cluster/config.db ".backup '$DB_DIR/config.db.tmp'"
-mv -f "$DB_DIR/config.db.tmp" "$DB_DIR/config.db"
-today="$DB_DIR/config.db.$(date -u +%F)"
-[[ -e "$today" ]] || cp -p "$DB_DIR/config.db" "$today"
-ls -1 "$DB_DIR"/config.db.20??-??-?? 2>/dev/null | sort | head -n "-$DB_KEEP" | xargs -r rm -f
+# recovery point and is readable even with pve-cluster stopped, so neither half
+# may stop the other. The live database is in WAL mode, so a plain copy can be
+# torn; .backup takes a consistent snapshot through SQLite. A failure here is
+# reported at the end (the unit fails and alerts) after the git snapshot ran.
+# (set -e does not apply inside a function called from "if", hence the returns.)
+backup_db() {
+    install -d -m 0700 "$DB_DIR" || return 1
+    # sqlite3 exits 0 even when the source is missing, writing a valid but EMPTY
+    # backup that would replace the good one. Check both ends before replacing.
+    [[ -s "$PMXCFS_DB" ]] || { echo "$PMXCFS_DB missing or empty" >&2; return 1; }
+    rm -f "$DB_DIR/config.db.tmp"
+    sqlite3 "$PMXCFS_DB" ".backup '$DB_DIR/config.db.tmp'" || return 1
+    [[ "$(sqlite3 "$DB_DIR/config.db.tmp" 'PRAGMA quick_check;')" == ok ]] || { echo "backup failed quick_check" >&2; return 1; }
+    (( $(sqlite3 "$DB_DIR/config.db.tmp" 'SELECT count(*) FROM tree;') > 0 )) || { echo "backup has no entries" >&2; return 1; }
+    mv -f "$DB_DIR/config.db.tmp" "$DB_DIR/config.db" || return 1
+    local today
+    today="$DB_DIR/config.db.$(date -u +%F)"
+    [[ -e "$today" ]] || cp -p "$DB_DIR/config.db" "$today" || return 1
+    ls -1 "$DB_DIR"/config.db.20??-??-?? 2>/dev/null | sort | head -n "-$DB_KEEP" | xargs -r rm -f
+}
+db_failed=0
+if ! backup_db; then
+    echo "config.db copy failed; continuing with the git snapshot" >&2
+    db_failed=1
+fi
 
 # /etc/pve is a FUSE mount. With pve-cluster stopped it is an empty directory,
 # and syncing that with --delete would commit "every config deleted". Losing
@@ -66,4 +83,8 @@ if ! git diff --cached --quiet; then
     count=$(git diff --cached --name-only | wc -l)
     git commit -q -m "$(hostname -s): ${count} file(s) changed" \
         -m "$(git diff --cached --name-status | head -50)"
+fi
+
+if (( db_failed )); then
+    exit 1
 fi

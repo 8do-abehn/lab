@@ -12,16 +12,19 @@ node (#434). Off-cluster copy: #568.
 
 - Commits only when something changed; each commit message lists the changed paths.
 - Both directories are `0700 root`: they hold `/etc/pve/priv` (cluster CA key,
-  ceph keyrings) and `/etc/corosync/authkey`, the same secrets `/etc/pve` already
-  holds on the node. Do not copy them anywhere unencrypted.
-- Not kept: pmxcfs status/stat entries that change on their own (`.rrd`,
-  `.version`, `.members`, `.clusterlog`, `.vmlist`, `ha/manager_status`,
-  `nodes/*/lrm_status`, `priv/lock`) and the ticket-signing keys
-  (`priv/authkey.key`, `authkey.pub*`) that Proxmox rotates daily and regenerates.
+  ceph keyrings), `/etc/ceph` and `/etc/corosync/authkey`, the same secrets the
+  node already holds. **Git keeps every old version forever**: rotating a key does
+  not remove the old one from history. Never copy these directories to Ceph/CephFS,
+  a synced folder or anywhere unencrypted (the encrypted off-cluster copy is #568).
+- Not kept: pmxcfs entries that change on their own (`.rrd`, `.version`,
+  `.members`, `.clusterlog`, `.vmlist`, `.debug`, `ha/manager_status`,
+  `ha/crm_commands`, `nodes/*/lrm_status`, `priv/lock`) and the ticket-signing keys
+  Proxmox rotates daily and regenerates (`priv/authkey.key`, `authkey.pub*`).
+- Each run copies `config.db` first, then takes the git snapshot. Either half
+  failing does not stop the other; the run still fails, and
+  `pve-config-history-failure.service` alerts through `/etc/apprise.yml`.
 - Three copies, one per node disk: survives accidental edits, pmxcfs/corosync
   trouble and losing a node. Not the whole cluster; that is #568.
-- If the snapshot fails, `pve-config-history-failure.service` alerts through
-  `/etc/apprise.yml`.
 
 ## Restore
 
@@ -37,44 +40,85 @@ git log -p -- etc-pve/nodes/pve01/qemu-server/101.conf
 git log -p -- node-local/etc/network/interfaces
 ```
 
-### Put back one guest config (cluster quorate)
+### Put back one guest config
+
+The guest may have migrated since that commit, and its disks, snapshots or
+`lock:` line may have changed. Restoring blindly can create a duplicate VMID or
+point the guest at disks that no longer exist.
 
 ```
+find /etc/pve/nodes -name <vmid>.conf               # where it lives NOW
 git show <commit>:etc-pve/nodes/<host>/qemu-server/<vmid>.conf > /tmp/<vmid>.conf
-diff /tmp/<vmid>.conf /etc/pve/nodes/<host>/qemu-server/<vmid>.conf
-cp /tmp/<vmid>.conf /etc/pve/nodes/<host>/qemu-server/<vmid>.conf
+diff /tmp/<vmid>.conf /etc/pve/nodes/<now-host>/qemu-server/<vmid>.conf
+qm shutdown <vmid>                                  # or pct shutdown for an LXC
+cp /tmp/<vmid>.conf /etc/pve/nodes/<now-host>/qemu-server/<vmid>.conf
 ```
 
-pmxcfs refuses writes without quorum; restore once the cluster is quorate.
+Write it to the node the guest lives on now. pmxcfs refuses writes without
+quorum; do this once the cluster is quorate.
 
 ### Put back a node-local file
 
-```
-git show <commit>:node-local/etc/network/interfaces > /etc/network/interfaces
-```
-
-### Whole cluster lost, rebuild from a surviving disk
-
-`config.db` is the pmxcfs database itself. The Proxmox procedure for recovering a
-cluster from it, on a reinstalled node with the same hostname and IP:
+`git show` writes symlinks out as plain text and drops file modes (e.g.
+`/etc/ceph/ceph.conf` is a symlink to `/etc/pve/ceph.conf`). Extract with
+`git archive` instead, which keeps both, and diff before overwriting:
 
 ```
-systemctl stop pve-cluster corosync
-cp /var/lib/pve-config-history-db/config.db /var/lib/pve-cluster/config.db
-cp -r <history>/node-local/etc/corosync/* /etc/corosync/
-systemctl start corosync pve-cluster
+mkdir -p /tmp/restore
+git archive <commit> node-local/etc/network/interfaces | tar -x -C /tmp/restore
+diff /tmp/restore/node-local/etc/network/interfaces /etc/network/interfaces
+cp -a /tmp/restore/node-local/etc/network/interfaces /etc/network/interfaces
+ifreload -a
 ```
 
-Read the Proxmox "Recovery" section of the cluster manager docs before doing this
-for real; it is a last resort, not a routine step.
+A bad `interfaces` cuts the node off the network: have console access before
+`ifreload`.
+
+### Whole cluster lost: rebuild from a surviving disk
+
+**Untested here.** This follows the Proxmox recovery approach for pmxcfs (read
+the "Recovery" section of the Proxmox cluster file system docs first). It is a
+last resort: if any node still runs, restore from that instead.
+
+Reinstall Proxmox on the node with its **old hostname and IP**, then attach the
+old root disk read-only (here at `/mnt/old`), and:
+
+```
+old=/mnt/old/var/lib
+mkdir -p /tmp/restore
+systemctl stop pve-config-history.timer pve-cluster corosync
+rm -f /var/lib/pve-cluster/config.db-wal /var/lib/pve-cluster/config.db-shm
+install -m 0600 $old/pve-config-history-db/config.db /var/lib/pve-cluster/config.db
+cd $old/pve-config-history
+git archive HEAD node-local/etc/corosync node-local/etc/hosts node-local/etc/hostname \
+  | tar -x -C /tmp/restore
+cp -a /tmp/restore/node-local/etc/corosync/. /etc/corosync/
+cp -a /tmp/restore/node-local/etc/hosts /tmp/restore/node-local/etc/hostname /etc/
+reboot
+```
+
+After the reboot, a node alone in a 3-node `corosync.conf` has no quorum and
+`/etc/pve` stays read-only until you run `pvecm expected 1`. Check
+`ls /etc/pve/nodes/*/qemu-server` before touching any guest. The leftover
+`-wal`/`-shm` removal matters: pairing an old WAL with the restored database
+corrupts it.
 
 ## Check it is working
 
+A commit only appears when something changed, so `git log` says nothing about
+whether snapshots are still running. Check freshness instead:
+
 ```
-systemctl list-timers pve-config-history.timer
-journalctl -u pve-config-history.service -n 20
-git -C /var/lib/pve-config-history log -1
+systemctl list-timers pve-config-history.timer         # LAST should be < ~70 min ago
+systemctl status pve-config-history.service             # last run's result
+ls -l /var/lib/pve-config-history-db/config.db          # mtime refreshed every run
 ```
+
+The first snapshot happens at the next hourly run. To take it right after
+deploying: `systemctl start pve-config-history.service`.
+
+If the timer itself is disabled or removed, nothing runs and nothing alerts; the
+failure alert also stays silent if `/etc/apprise.yml` is missing.
 
 ## Turn it off
 
