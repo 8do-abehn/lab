@@ -73,4 +73,3 @@ sidecars, not Minecraft itself.
 | Issue | Description |
 |-------|-------------|
 | [#316](https://github.com/8do-abehn/lab/issues/316) | Enhancement spike: Velocity proxy, web maps, Prometheus metrics |
-| [#326](https://github.com/8do-abehn/lab/issues/326) | CI slowdown from `check_mode: false` docker compose pull |
