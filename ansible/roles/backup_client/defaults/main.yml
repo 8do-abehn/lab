@@ -92,3 +92,9 @@ backup_password_file: /etc/restic/password
 backup_check_cron_hour: "6"
 backup_check_cron_minute: "0"
 backup_check_cron_weekday: "0"
+
+# How long restic waits for another host's repo lock before giving up. Every
+# client shares the pi-burg repo, so a slow night on one host (jellyfin01
+# uploading a batch of new movies) used to fail the others' retention step
+# outright with "repository is already locked". Needs restic >= 0.16.
+backup_lock_wait: "30m"

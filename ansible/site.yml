@@ -40,6 +40,47 @@
         - deploy_branch.stdout | default('') not in ['main', 'HEAD']
         - not (allow_branch_deploy | default(false) | bool)
 
+# One timezone everywhere. Until 2026-10-05 half the hosts were on UTC and half
+# on America/Chicago, so the same cron time meant two different real times and
+# backup schedules that looked staggered were not. cron only reads the zone at
+# startup, so it is restarted when the zone actually changes.
+- name: Set the timezone on every host
+  hosts: all
+  become: true
+  tags: timezone
+  vars:
+    host_timezone: America/Chicago
+  tasks:
+    - name: Check the zoneinfo file exists
+      ansible.builtin.stat:
+        path: "/usr/share/zoneinfo/{{ host_timezone }}"
+      register: zoneinfo
+
+    - name: Fail if tzdata is missing
+      ansible.builtin.assert:
+        that: zoneinfo.stat.exists
+        fail_msg: "/usr/share/zoneinfo/{{ host_timezone }} is missing. Install tzdata first."
+
+    - name: Point /etc/localtime at the zone
+      ansible.builtin.file:
+        src: "/usr/share/zoneinfo/{{ host_timezone }}"
+        dest: /etc/localtime
+        state: link
+        force: true
+      register: localtime
+
+    - name: Write /etc/timezone
+      ansible.builtin.copy:
+        content: "{{ host_timezone }}\n"
+        dest: /etc/timezone
+        mode: "0644"
+
+    - name: Restart cron so jobs follow the new zone
+      ansible.builtin.service:
+        name: cron
+        state: restarted
+      when: localtime.changed
+
 # Main site playbook - applies roles to all infrastructure
 - name: Configure base Proxmox settings
   hosts: proxmox

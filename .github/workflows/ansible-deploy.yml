@@ -19,7 +19,7 @@ on:
         required: false
         type: string
       tags:
-        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, backup, cephfs, cloudflare, minecraft'
+        description: 'Only run plays/tasks with these tags, comma separated (optional). Currently defined: smart, backup, cephfs, cloudflare, minecraft, timezone'
         required: false
         type: string
       verbose:
