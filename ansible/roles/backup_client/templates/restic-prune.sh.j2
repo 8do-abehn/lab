@@ -78,7 +78,7 @@ if [ -n "$LOCK_OUTPUT" ]; then
     fi
 fi
 
-PRUNE_OUTPUT=$(restic prune "${RESTIC_LIMITS[@]}" 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
+PRUNE_OUTPUT=$(restic prune "${RESTIC_LIMITS[@]}" --retry-lock {{ backup_lock_wait }} 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
 echo "$PRUNE_OUTPUT" >> "$LOGFILE"
 
 PRUNE_END=$(date +%s)

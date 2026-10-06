@@ -52,7 +52,7 @@ if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     exit 1
 fi
 
-CHECK_OUTPUT=$(restic check "${RESTIC_LIMITS[@]}" 2>&1) && CHECK_RC=0 || CHECK_RC=$?
+CHECK_OUTPUT=$(restic check "${RESTIC_LIMITS[@]}" --retry-lock {{ backup_lock_wait }} 2>&1) && CHECK_RC=0 || CHECK_RC=$?
 echo "$CHECK_OUTPUT" >> "$LOGFILE"
 
 if [ $CHECK_RC -eq 0 ]; then
