@@ -41,6 +41,9 @@
     job: "/usr/local/bin/mnt_library_backup.sh"
     user: root
     state: present
+    # Commented out, not removed, while B2 is retired (#403): see
+    # jellyfin_backup_b2_enabled in defaults.
+    disabled: "{{ not (jellyfin_backup_b2_enabled | bool) }}"
 
 - name: Deploy logrotate config
   ansible.builtin.template:
