@@ -17,7 +17,7 @@ The user reviews and merges; deploys are run by the user from `main`.
    no `ansible-playbook` without `--check`, no `-e allow_branch_deploy=true`.
 4. **No secrets.** Never run `ansible-vault`, never edit `vault.yml`, never print or commit
    credentials. If the work needs a vault change, list it in the PR as a manual step for the user.
-5. **No commits during HPE business hours** (Mon-Fri 08:00-17:00 America/Chicago) unless the
+5. **No commits during HPE business hours** (Mon-Fri 07:00-17:30 America/Chicago) unless the
    user explicitly said so in this task. Check `date` first. If inside the window, do the work,
    leave it uncommitted in the worktree, and report.
 6. **Nothing destructive on hosts.** Read-only SSH checks are fine (`systemctl status`, `cat`,
