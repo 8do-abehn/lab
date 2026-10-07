@@ -97,3 +97,9 @@
 - Build: `cd site && hugo --minify`
 - Hugo is installed via Homebrew
 - Theme is a git submodule at site/themes/PaperMod
+
+## Backlog Agent
+- `/groom [focus]` - oldest-first triage; proposes closes/merges/rewrites/labels, applies only after approval
+- `/work-issue <N...> | next [count]` - hands `agent:ready` issues to the `backlog-worker` subagent
+- `backlog-worker` (`.claude/agents/`) - one issue, own locked worktree, stops at an open PR; never merges, deploys, or touches vault
+- `agent:ready` = repo-only change verifiable by lint/`--check`/hugo; `needs:human` = hardware, secrets, purchase, live host change, or user decision

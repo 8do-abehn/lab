@@ -39,8 +39,11 @@ known_hosts
 *~
 .DS_Store
 
-# Claude Code project-local settings
-.claude/
+# Claude Code project-local settings and worktrees stay local;
+# shared agents and slash commands are committed
+.claude/*
+!.claude/agents/
+!.claude/commands/
 
 # Backup files
 *.backup
