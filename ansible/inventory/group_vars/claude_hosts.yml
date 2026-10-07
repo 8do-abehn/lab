@@ -1,0 +1,9 @@
+---
+# Registered by hand with `tailscale up --ssh --advertise-tags=tag:claude` and
+# the interactive login URL, so the tailscale role only re-asserts the tag and
+# --ssh. The vault key is a fallback for a rebuild.
+tailscale_auth_key: "{{ vault_tailscale_claude_auth_key | default('') }}"
+tailscale_tags: "tag:claude"
+# Phase 1 has no outbound SSH, so it needs nothing on the tailnet by name, and
+# MagicDNS leaks into LXC resolv.conf. Revisit if it ever drives other hosts.
+tailscale_accept_dns: false
