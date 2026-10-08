@@ -71,12 +71,14 @@ node per day) and `systemctl status pvecfg-prune.service`. On a node:
 ## Restore (and the yearly drill)
 
 On a machine with `age` and one private key; never copy a key onto the cluster.
-The decrypted files hold the cluster's secrets: work in a private temporary
-directory and remove it afterwards.
+The key files were deleted after setup, so first recreate one in a private place
+from Bitwarden or the paper copy, e.g. `~/pve-config.key` (mode 0600), and delete
+it again afterwards. The decrypted files hold the cluster's secrets too: work in a
+private temporary directory and remove it afterwards.
 
 ```
 d=$(mktemp -d) && cd "$d"
-age -d -i pve-config.key -o payload.tar /path/to/pve01-20261008T033012Z.tar.age \
+age -d -i ~/pve-config.key -o payload.tar /path/to/pve01-20261008T033012Z.tar.age \
   && tar -xf payload.tar \
   && git clone -q history.bundle history \
   && git -C history fsck --no-dangling \
@@ -87,7 +89,7 @@ git -C history log -3 --stat                      # recent, and what you expect?
 Decrypting to a file first means a damaged or truncated copy fails before
 anything is extracted (the partial `payload.tar` stays in the temporary directory). For a real restore, continue with
 roles/pve_config_history/README.md ("Whole cluster lost"), using `history/` and
-`config.db` from here. For a drill, finish with `cd / && rm -rf "$d"`.
+`config.db` from here. For a drill, finish with `cd / && rm -rf "$d"` and delete `~/pve-config.key`.
 
 Do the drill once a year, with each key.
 

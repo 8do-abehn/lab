@@ -44,9 +44,13 @@
            'key': (hostvars[item].pve_config_offsite_pubkey | default(pve_config_receiver_existing[item] | default(''))).split()[:2] | join(' ')
          }] }}
   loop: "{{ groups[pve_config_receiver_clients_group] | default([]) }}"
-  when: >-
-    hostvars[item].pve_config_offsite_pubkey is defined or
-    item in pve_config_receiver_existing
+  # Only nodes that push here: enabled (recipients set) and targeting this host.
+  # A node switched off or pointed elsewhere is neither authorized nor expected,
+  # so it cannot cause daily "never pushed" alerts on a receiver it never uses.
+  when:
+    - (hostvars[item].pve_config_offsite_recipients | default([])) | length > 0
+    - (hostvars[item].pve_config_offsite_target | default('')) == inventory_hostname
+    - hostvars[item].pve_config_offsite_pubkey is defined or item in pve_config_receiver_existing
 
 - name: Refuse anything but a single ssh-ed25519 key per node
   ansible.builtin.assert:

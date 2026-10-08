@@ -4,10 +4,15 @@
 - name: Create and publish the push key
   when: pve_config_offsite_recipients | length > 0
   block:
+    - name: Require a list of recipients
+      ansible.builtin.assert:
+        that: pve_config_offsite_recipients is not string and pve_config_offsite_recipients is iterable
+        fail_msg: pve_config_offsite_recipients must be a list of age public keys, e.g. [age1..., age1...].
+        quiet: true
+
     - name: Refuse anything that is not an age public key
       ansible.builtin.assert:
         that:
-          - pve_config_offsite_recipients is not string
           - item is match('^age1[02-9ac-hj-np-z]{58}$')
         fail_msg: pve_config_offsite_recipients must be a list of age public keys (age1...), never a private key.
         quiet: true
