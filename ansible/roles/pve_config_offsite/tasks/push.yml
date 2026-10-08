@@ -1,6 +1,6 @@
 ---
 - name: Install the encrypted push
-  when: pve_config_offsite_recipient | length > 0
+  when: pve_config_offsite_recipients | length > 0
   block:
     - name: Require the receiver's host key from this run
       ansible.builtin.assert:
@@ -53,7 +53,7 @@
       when: not ansible_check_mode
 
 - name: Remove the encrypted push (recipient unset; the key is kept)
-  when: pve_config_offsite_recipient | length == 0
+  when: pve_config_offsite_recipients | length == 0
   block:
     - name: Stop and disable the push timer
       ansible.builtin.systemd:

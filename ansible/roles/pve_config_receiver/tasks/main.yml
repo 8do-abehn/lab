@@ -8,12 +8,19 @@
 #   - every key must be exactly one ssh-ed25519 key, and only its first two
 #     fields are ever written. A node's key file is under that node's control:
 #     a second line in it must never become an unrestricted login here.
-- name: Decide whether the receiver is enabled (from inventory, not this run)
+# Enabled only on the host the clients actually target: #512 keeps pi-burg and
+# pve006 in backup_servers together until cutover, and the other one must not
+# expect pushes (it would alert "never pushed" every day).
+- name: Decide whether this host is the active receiver (from inventory, not this run)
   ansible.builtin.set_fact:
     pve_config_receiver_enabled: >-
       {{ groups[pve_config_receiver_clients_group] | default([])
-         | map('extract', hostvars, 'pve_config_offsite_recipient')
-         | select('defined') | select('truthy') | list | length > 0 }}
+         | map('extract', hostvars)
+         | selectattr('pve_config_offsite_recipients', 'defined')
+         | selectattr('pve_config_offsite_recipients')
+         | selectattr('pve_config_offsite_target', 'defined')
+         | selectattr('pve_config_offsite_target', 'equalto', inventory_hostname)
+         | list | length > 0 }}
 
 - name: Read the keys already authorized here
   ansible.builtin.slurp:

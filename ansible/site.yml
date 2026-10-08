@@ -126,7 +126,7 @@
 # three steps because each side needs something from the other in the same run:
 # node push keys -> receiver authorizes them and publishes its host key -> nodes
 # pin that host key and install the push. Disabled until
-# pve_config_offsite_recipient (an age public key) is set; see the role README.
+# pve_config_offsite_recipients (age public keys) is set; see the role README.
 - name: Prepare /etc/pve off-cluster push keys
   hosts: proxmox
   become: true
