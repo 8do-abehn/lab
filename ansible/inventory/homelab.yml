@@ -164,16 +164,20 @@ all:
         # #483's flock only serializes restic jobs on ONE host; it does not stop
         # immich01 and jellyfin01 overlapping on the shared repo. restic's own
         # repo locks plus --retry-lock handle that, and the schedule keeps them
-        # apart: immich01 at 03:00, jellyfin01 at 04:00.
+        # apart: immich01 at 02:45, jellyfin01 at 04:00.
         immich01:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
 
           # Immich dumps its own Postgres database to upload/backups nightly at
-          # 02:30 (3 retained, ~18 MB each), so no pre-backup hook is needed.
+          # 02:30 (3 retained, ~375 MB each, done by about 02:31), so no
+          # pre-backup hook is needed.
           # But run AFTER that, or each snapshot carries the previous night's
           # dump and the metadata trails the photos by a day. Photos without
           # albums, faces and metadata are not a restore.
-          backup_cron_hour: "3"
+          # 02:45: fifteen minutes after the dump starts, which has finished in
+          # under a minute every night checked (02:30:00 to 02:30:49).
+          backup_cron_hour: "2"
+          backup_cron_minute: "45"
 
           backup_paths:
             - /opt/immich/upload
