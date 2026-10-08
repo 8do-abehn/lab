@@ -25,6 +25,13 @@ ansible-playbook -i inventory/homelab.yml k3s_setup_tools.yml
 
 # Setup Pi backup server and Jellyfin backup client
 ansible-playbook -i inventory/homelab.yml --ask-vault-pass backup-setup.yml
+
+# Ceph pool CRUSH rules and balancer (#559). Not in site.yml: it can start HDD
+# backfill, so run it deliberately. Fails if any pool sits on replicated_rule,
+# which silently disables the PG autoscaler for every pool. Runbook with pause and
+# rollback: roles/ceph_pools/README.md. Deploy via ansible-deploy.yml so
+# deploy-drift records it.
+ansible-playbook -i inventory/homelab.yml ceph_pools.yml --check --diff
 ```
 
 ## Structure
@@ -37,6 +44,7 @@ ansible/
 ├── site.yml              # Main playbook (runs all roles)
 ├── nut_setup.yml         # NUT UPS configuration playbook (NUT play from site.yml)
 ├── verify_nut.yml        # NUT UPS verification playbook
+├── ceph_pools.yml        # Ceph pool CRUSH rules + balancer (run deliberately, #559)
 ├── vault.yml             # Encrypted secrets (Tailscale keys, etc.)
 ├── roles/
 │   ├── proxmox/          # Base Proxmox configuration

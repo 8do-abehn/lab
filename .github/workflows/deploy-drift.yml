@@ -93,6 +93,8 @@ jobs:
             echo ""
             echo '```'
             echo 'gh workflow run ansible-deploy.yml -f playbook=site.yml -f tags=<tag>'
+            echo '# ceph_pools role or playbook changed? It is not in site.yml (#559):'
+            echo 'gh workflow run ansible-deploy.yml -f playbook=ceph_pools.yml'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

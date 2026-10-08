@@ -1,0 +1,144 @@
+---
+# Cluster-wide settings: one node speaks for the whole cluster, so everything runs
+# once. Every change is gated on a fresh read of the current value, so a rerun is a
+# no-op, and "Report planned changes" shows what --check would do (command tasks
+# are skipped in check mode, so they cannot report it themselves).
+
+- name: Apply Ceph pool and balancer settings
+  run_once: true
+  block:
+    - name: Read pool details
+      ansible.builtin.command: ceph osd pool ls detail -f json
+      register: ceph_pools_detail_raw
+      changed_when: false
+      check_mode: false
+
+    - name: Read CRUSH rules
+      ansible.builtin.command: ceph osd crush rule dump -f json
+      register: ceph_pools_rules_raw
+      changed_when: false
+      check_mode: false
+
+    - name: Read balancer upmap_max_deviation
+      ansible.builtin.command: ceph config get mgr mgr/balancer/upmap_max_deviation
+      register: ceph_pools_deviation_raw
+      changed_when: false
+      check_mode: false
+
+    - name: Index pools and rules by name
+      ansible.builtin.set_fact:
+        ceph_pools_current: >-
+          {{ dict(ceph_pools_detail_raw.stdout | from_json | map(attribute='pool_name')
+                  | zip(ceph_pools_detail_raw.stdout | from_json)) }}
+        ceph_pools_rule_names: >-
+          {{ dict(ceph_pools_rules_raw.stdout | from_json | map(attribute='rule_id')
+                  | zip(ceph_pools_rules_raw.stdout | from_json | map(attribute='rule_name'))) }}
+
+    - name: Refuse unknown pools or rules
+      ansible.builtin.assert:
+        that:
+          - item.name in ceph_pools_current
+          - item.crush_rule in ceph_pools_rule_names.values()
+          - item.crush_rule not in ceph_pools_overlapping_rules
+        fail_msg: "{{ item.name }}: pool missing, or crush_rule {{ item.crush_rule }} unknown or overlapping."
+        quiet: true
+      loop: "{{ ceph_pools_crush_rules }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Start with no pending rule changes
+      ansible.builtin.set_fact:
+        ceph_pools_rule_changes: []
+
+    - name: Collect CRUSH rule changes
+      ansible.builtin.set_fact:
+        ceph_pools_rule_changes: "{{ ceph_pools_rule_changes + [item] }}"
+      loop: "{{ ceph_pools_crush_rules }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: ceph_pools_rule_names[ceph_pools_current[item.name].crush_rule] != item.crush_rule
+
+    # Any pool on a both-classes rule switches the autoscaler off for ALL pools,
+    # silently. New pools from the Proxmox GUI land on replicated_rule by default,
+    # so check every pool, not only the ones listed above. Runs before any write
+    # (and in --check) against the state read above, minus the moves this run is
+    # about to make, so a stray pool stops the run instead of surfacing after the
+    # balancer has already started moving data.
+    - name: Fail if any pool still uses a rule that spans both device classes
+      ansible.builtin.assert:
+        that: ceph_pools_still_overlapping | length == 0
+        fail_msg: >-
+          Pools on an overlapping rule: {{ ceph_pools_still_overlapping | join(', ') }}.
+          The PG autoscaler skips every pool while this is true. Move them with
+          pveceph pool set <pool> --crush_rule ssd_rule|hdd_rule, or add them to
+          ceph_pools_crush_rules.
+        quiet: true
+      vars:
+        ceph_pools_still_overlapping: >-
+          {{ ceph_pools_current | dict2items
+             | rejectattr('key', 'in', ceph_pools_rule_changes | map(attribute='name') | list)
+             | selectattr('value.crush_rule', 'in',
+                 ceph_pools_rule_names | dict2items
+                 | selectattr('value', 'in', ceph_pools_overlapping_rules)
+                 | map(attribute='key') | list)
+             | map(attribute='key') | list }}
+
+    - name: Report planned changes
+      ansible.builtin.debug:
+        msg:
+          crush_rule: "{{ ceph_pools_rule_changes | map(attribute='name') | zip(ceph_pools_rule_changes | map(attribute='crush_rule')) | list }}"
+          upmap_max_deviation: "{{ ceph_pools_deviation_raw.stdout | trim }} -> {{ ceph_pools_balancer_upmap_max_deviation }}"
+
+    # These settings live in the monitors' database, not in any file, so there is
+    # no config file to restore: rolling back means re-issuing the old values.
+    # Record them, and the upmaps the balancer is about to add to, before the first
+    # write. Only when something will change, so a no-op rerun leaves no clutter.
+    - name: Snapshot cluster state before changing it
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          dir="{{ ceph_pools_snapshot_root }}/$(date -u +%Y%m%dT%H%M%SZ)"
+          mkdir -p -m 0700 "$dir"
+          cd "$dir"
+          ceph -s > status.txt
+          ceph osd df > osd-df.txt
+          ceph osd pool ls detail -f json-pretty > pools.json
+          ceph osd crush rule dump -f json-pretty > crush-rules.json
+          ceph osd getcrushmap -o crushmap.bin
+          ceph config dump -f json-pretty > config-db.json
+          ceph osd dump -f json-pretty > osdmap.json
+          # Same format the runbook diffs against and restores from
+          ceph osd dump | grep pg_upmap_items > upmap-items.txt || true
+          ceph balancer eval > balancer-eval.txt
+          echo "$dir"
+        executable: /bin/bash
+      register: ceph_pools_snapshot
+      changed_when: true
+      when: >-
+        ceph_pools_rule_changes | length > 0 or
+        (ceph_pools_deviation_raw.stdout | trim | int) != ceph_pools_balancer_upmap_max_deviation
+
+    - name: Show where the snapshot was written
+      ansible.builtin.debug:
+        msg: "Pre-change state saved to {{ ceph_pools_snapshot.stdout }} on {{ inventory_hostname }}"
+      when: ceph_pools_snapshot.stdout | default('') | length > 0
+
+    # Removing the overlapping root re-enables the autoscaler for every pool. It
+    # changes no pg_num today: its built-in 32 PG floor and 3x threshold keep the
+    # SSD pools where they are, and the bulk HDD pools come out at 128, below the
+    # 3 x 64 needed to act.
+    - name: Move pools to a device-class CRUSH rule
+      ansible.builtin.command: >-
+        pveceph pool set {{ item.name }} --crush_rule {{ item.crush_rule }}
+      loop: "{{ ceph_pools_rule_changes }}"
+      loop_control:
+        label: "{{ item.name }} -> {{ item.crush_rule }}"
+      changed_when: true
+
+    # Last, so its upmaps are not mixed up with anything the rule change moves.
+    - name: Tighten the upmap balancer's tolerated PG spread
+      ansible.builtin.command: >-
+        ceph config set mgr mgr/balancer/upmap_max_deviation
+        {{ ceph_pools_balancer_upmap_max_deviation }}
+      when: (ceph_pools_deviation_raw.stdout | trim | int) != ceph_pools_balancer_upmap_max_deviation
+      changed_when: true
