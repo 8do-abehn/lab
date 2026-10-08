@@ -1,0 +1,37 @@
+---
+# Node roots are small LVs (37-39G) and the Ceph mons live on them, so caches
+# that grow on their own eat into MON_DISK_LOW headroom (#551). Stock journald
+# keeps up to 10% of the filesystem (capped at 4G) and apt never cleans its
+# downloaded .debs.
+
+- name: Create the journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: "0755"
+
+- name: Cap journald disk usage
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/size.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (proxmox role, #551)
+      [Journal]
+      SystemMaxUse={{ proxmox_journald_max_use }}
+  register: proxmox_journald_size
+
+# journald only reads its config at startup. A restart vacuums down to the new
+# cap straight away and does not interrupt logging.
+- name: Restart journald so the cap applies  # noqa: no-handler
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+  when: proxmox_journald_size.changed
+
+# apt-get clean runs even under --check (the apt module does not skip it), so
+# keep CI check runs read-only. It only removes downloaded .deb files.
+- name: Clean the apt package cache
+  ansible.builtin.apt:
+    clean: true
+  changed_when: false
+  when: not ansible_check_mode
