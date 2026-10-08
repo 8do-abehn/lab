@@ -52,6 +52,25 @@ cephfs_client_watchdog_alert_repeat: 21600
 cephfs_client_watchdog_log: /var/log/cephfs-watchdog.log
 cephfs_client_watchdog_script: /usr/local/bin/cephfs-watchdog.sh
 
+# Client-side evidence for #579. ceph-fuse went unresponsive and was evicted by
+# the MDS three times in eleven days with no trigger found, because the client
+# had no logging at all: no log_file, and no /var/log/ceph in the container.
+#
+# debug_client is "<file level>/<memory level>". Level 1 keeps the log file
+# quiet in normal running; the in-memory ring (log_max_recent, 10000 entries)
+# keeps level 5 detail, and the watchdog dumps that ring to the file through
+# the admin socket when a hang is detected. Raise the second number to 10 for
+# more detail per request, at some CPU cost on every filesystem operation.
+cephfs_client_log_dir: /var/log/ceph
+cephfs_client_debug_client: "1/5"
+
+# On the first failed probe of an outage, before clearing the mount, the
+# watchdog snapshots the hung ceph-fuse (admin socket queries, thread states,
+# the dumped debug ring) into a timestamped directory here.
+cephfs_client_diag_dir: /var/log/cephfs-watchdog-diag
+cephfs_client_diag_keep: 10
+cephfs_client_asok_tool: /usr/local/bin/ceph-asok
+
 # Ceph upstream apt repo (#515). Ubuntu 24.04 ships ceph-fuse 18.2.7, which
 # predates aes256k cephx support (Squid 19.2.6 / Tentacle 20.2.4) and blocks
 # rotating client.lxc-media off the deprecated aes cipher (CVE-2025-30156).
