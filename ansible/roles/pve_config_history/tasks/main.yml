@@ -4,6 +4,15 @@
 - name: Install pve-config-history
   when: pve_config_history_enabled | bool
   block:
+    - name: Refuse a retention that would delete each copy as it is made
+      ansible.builtin.assert:
+        that:
+          - pve_config_history_db_keep_daily | int >= 1
+          - pve_config_history_db_keep_weekly | int >= 1
+          - pve_config_history_db_keep_monthly | int >= 1
+        fail_msg: config.db retention counts must be at least 1.
+        quiet: true
+
     - name: Ensure git, rsync and sqlite3 are installed
       ansible.builtin.apt:
         name:

@@ -132,14 +132,16 @@ failure alert also stays silent if `/etc/apprise.yml` is missing.
 
 ## Limits
 
-Checked at the start of every run; a breach fails the run, so the failure alert
-fires. Today's use is ~3.5 MiB per node.
+Checked at the start of every run. Today's use is ~3.5 MiB per node.
 
 | limit | default | when hit |
 |---|---|---|
 | free space on the history's filesystem (the root disk) | 2 GiB (`pve_config_history_min_free_mb`) | writes nothing this run: this job can never be what fills the disk |
-| history + `config.db` copies | 1 GiB (`pve_config_history_max_mb`) | stops writing until a human looks |
-| early warning | 200 MiB (`pve_config_history_warn_mb`) | keeps working, alerts at most once a day |
+| history + `config.db` copies | 1 GiB (`pve_config_history_max_mb`) | stops committing to git until a human looks; `config.db` copies keep refreshing |
+| early warning | 200 MiB (`pve_config_history_warn_mb`) | keeps working |
+
+Each limit alerts at most once a day; in between, the run only logs it
+(`journalctl -u pve-config-history.service`).
 
 **Why retention is by time, and the git history is never pruned.** Keeping "the
 last N changes" is the wrong limit for a backup: a script loop or a busy evening
@@ -153,11 +155,11 @@ do to a backup. If it ever does approach the cap, a human decides:
 
 ```
 cd /var/lib
-systemctl stop pve-config-history.timer
+systemctl stop pve-config-history.timer pve-config-history.service   # and any run in progress
 du -sh pve-config-history                       # confirm it is the history that grew
 git -C pve-config-history log --stat -20        # and what grew it (a file to exclude?)
-tar -czf /root/pve-config-history-$(hostname -s)-$(date -u +%F).tgz pve-config-history
-chmod 0600 /root/pve-config-history-*.tgz       # holds the same secrets as the repo
+(umask 077; tar -czf /root/pve-config-history-$(hostname -s)-$(date -u +%F).tgz pve-config-history)
+                                                # 0600 from the start: same secrets as the repo
 rm -rf pve-config-history/.git
 systemctl start pve-config-history.service      # re-initialises with one baseline commit
 systemctl start pve-config-history.timer
