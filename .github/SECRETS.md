@@ -25,18 +25,14 @@ Add these GitHub repository secrets:
 
 **Note:** The GitHub Actions runner will register as an ephemeral node on your Tailscale network with the `tag:ci` tag. It will automatically be removed when the workflow completes.
 
-### 2. SSH Private Key
+### 2. No SSH Private Key
 
-Add your SSH private key that has access to your infrastructure:
+CI does not need an SSH key. The runner joins the tailnet as `tag:ci` and
+reaches hosts through Tailscale SSH, which authenticates by tailnet identity
+and ACLs, not by a key in `authorized_keys`.
 
-- **`SSH_PRIVATE_KEY`** - Contents of `~/.ssh/id_ed25519_behner`
-
-```bash
-# Get the private key
-cat ~/.ssh/id_ed25519_behner
-```
-
-**Security:** Ensure this key only has access to the hosts Ansible manages. Consider creating a dedicated CI/CD key pair.
+This only holds for hosts addressed by MagicDNS name or Tailscale IP. A host
+whose `ansible_host` is a LAN IP bypasses Tailscale SSH and CI cannot reach it.
 
 ### 3. Ansible Vault Password
 
@@ -88,7 +84,7 @@ This allows CI runners to access your infrastructure hosts.
 ## Security Notes
 
 - CI runners connect as **ephemeral nodes** - automatically removed after workflow
-- SSH keys and secrets are stored securely in GitHub encrypted secrets
+- Secrets are stored in GitHub encrypted secrets; no SSH key is stored at all
 - Vault password is never logged or exposed in workflow output
 - Credentials are cleaned up at the end of each workflow run
 - Use `--check` mode in CI for safety testing
