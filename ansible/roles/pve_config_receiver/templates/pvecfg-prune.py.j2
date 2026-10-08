@@ -58,10 +58,15 @@ def main():
         files = []
         for entry in os.listdir(d):
             path = os.path.join(d, entry)
-            if entry.startswith(".incoming.") and time.time() - os.path.getmtime(path) > 3600:
-                print("removing abandoned partial upload %s" % path)
-                if not DRY_RUN:
-                    os.remove(path)
+            if entry.startswith(".incoming."):
+                # An upload can finish (rename) between listdir and here.
+                try:
+                    if time.time() - os.lstat(path).st_mtime > 3600:
+                        print("removing abandoned partial upload %s" % path)
+                        if not DRY_RUN:
+                            os.remove(path)
+                except FileNotFoundError:
+                    pass
                 continue
             m = NAME.match(entry)
             if m and m.group("node") == node:

@@ -23,7 +23,7 @@ umask 077
 work=$(mktemp -d /run/pve-config-offsite.XXXXXX)
 trap 'rm -rf "$work"' EXIT
 
-git -C "$REPO" bundle create "$work/history.bundle" --all 2>/dev/null
+git -C "$REPO" bundle create -q "$work/history.bundle" --all
 git -C "$REPO" bundle verify --quiet "$work/history.bundle"
 # config.db is swapped in with mv by pve-config-history, so a plain copy is whole.
 cp "$DB" "$work/config.db"

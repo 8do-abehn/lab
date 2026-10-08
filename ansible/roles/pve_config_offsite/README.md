@@ -72,5 +72,18 @@ Do a restore drill once a year: decrypt the newest copy, `git clone` it, and che
 
 ## Turn it off
 
-Set `pve_config_offsite_recipient: ""`: the nodes stop pushing and their units are
-removed (the ssh key is kept). The receiver and stored copies are left in place.
+Set `pve_config_offsite_recipient: ""` and run `site.yml --tags pve_config`. The
+nodes stop pushing and their units are removed (the ssh key is kept); the backup
+host stops accepting pushes (its authorized keys file is removed) and stops the
+daily stale-copy check, so a switched-off feature does not alert. Stored copies
+are left in place.
+
+## Safety notes
+
+- A node's push key is under that node's control, so the receiver only ever
+  authorizes the first two fields of a single `ssh-ed25519` key and refuses
+  anything else: an extra line in a node's key file can never become an
+  unrestricted login on the backup host.
+- On/off and the node list come from inventory, and each node's key is this run's
+  or the one already authorized, so `--limit` or an unreachable node never cuts
+  the other nodes off.

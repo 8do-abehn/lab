@@ -1,13 +1,56 @@
 ---
-# Only when this run carries at least one client key (from pve_config_offsite's
-# keys.yml earlier in site.yml). With --limit to this host alone, or before any
-# recipient is set, there are none, and the receiver is left exactly as it is
-# rather than having its authorized keys emptied.
-- name: Collect the push keys from this run
+# Which nodes push here, and with which key, must not depend on which hosts
+# happen to be in this run: a --limit or an unreachable node would otherwise
+# rewrite authorized_keys without the others and silently cut them off. So:
+#   - on/off comes from inventory (any client with a recipient set), not runtime;
+#   - each node's key is this run's fact if present, else the key already
+#     authorized here, so a partial run never drops anyone;
+#   - every key must be exactly one ssh-ed25519 key, and only its first two
+#     fields are ever written. A node's key file is under that node's control:
+#     a second line in it must never become an unrestricted login here.
+- name: Decide whether the receiver is enabled (from inventory, not this run)
   ansible.builtin.set_fact:
-    pve_config_receiver_clients: "{{ pve_config_receiver_clients | default([]) + [{'name': item, 'key': hostvars[item].pve_config_offsite_pubkey}] }}"
+    pve_config_receiver_enabled: >-
+      {{ groups[pve_config_receiver_clients_group] | default([])
+         | map('extract', hostvars, 'pve_config_offsite_recipient')
+         | select('defined') | select('truthy') | list | length > 0 }}
+
+- name: Read the keys already authorized here
+  ansible.builtin.slurp:
+    src: "/etc/ssh/authorized_keys.d/{{ pve_config_receiver_user }}"
+  register: pve_config_receiver_existing_raw
+  failed_when: false
+
+- name: Index the already-authorized keys by node
+  ansible.builtin.set_fact:
+    pve_config_receiver_existing: >-
+      {{ dict((pve_config_receiver_existing_raw.content | default('') | b64decode).splitlines()
+              | select('search', 'pvecfg-receive [a-z0-9-]+" ssh-ed25519 ')
+              | map('regex_replace', '^.*pvecfg-receive ([a-z0-9-]+)" (ssh-ed25519 [A-Za-z0-9+/=]+).*$', '\1 \2')
+              | map('split', ' ', 1) | list) }}
+
+- name: Choose each node's key (this run's, else the one already authorized)
+  ansible.builtin.set_fact:
+    pve_config_receiver_clients: >-
+      {{ (pve_config_receiver_clients | default([])) + [{
+           'name': item,
+           'key': (hostvars[item].pve_config_offsite_pubkey | default(pve_config_receiver_existing[item] | default(''))).split()[:2] | join(' ')
+         }] }}
   loop: "{{ groups[pve_config_receiver_clients_group] | default([]) }}"
-  when: hostvars[item].pve_config_offsite_pubkey is defined
+  when: >-
+    hostvars[item].pve_config_offsite_pubkey is defined or
+    item in pve_config_receiver_existing
+
+- name: Refuse anything but a single ssh-ed25519 key per node
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-z0-9][a-z0-9-]{0,62}$')
+      - item.key is match('^ssh-ed25519 [A-Za-z0-9+/]+={0,2}$')
+    fail_msg: "Push key for {{ item.name }} is not a single ssh-ed25519 key; refusing to authorize it."
+    quiet: true
+  loop: "{{ pve_config_receiver_clients | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Publish this host's ssh host key for the clients to pin
   block:
@@ -21,7 +64,9 @@
         pve_config_receiver_hostkey: "{{ (pve_config_receiver_hostkey_raw.content | b64decode).split()[:2] | join(' ') }}"
 
 - name: Install the receiver
-  when: (pve_config_receiver_clients | default([])) | length > 0
+  when:
+    - pve_config_receiver_enabled | bool
+    - (pve_config_receiver_clients | default([])) | length > 0
   vars:
     pve_config_receiver_nodes: "{{ pve_config_receiver_clients | map(attribute='name') | list }}"
   block:
@@ -48,13 +93,15 @@
         password: "!"
         password_lock: true
 
+    # Root-owned and traverse-only for pvecfg: it can write in its node
+    # directories but never remove or rename them.
     - name: Create the storage root
       ansible.builtin.file:
         path: "{{ pve_config_receiver_root }}"
         state: directory
-        owner: "{{ pve_config_receiver_user }}"
+        owner: root
         group: "{{ pve_config_receiver_user }}"
-        mode: "0700"
+        mode: "0710"
 
     - name: Create a directory per node
       ansible.builtin.file:
@@ -161,3 +208,21 @@
         enabled: true
         daemon_reload: "{{ pve_config_receiver_units.changed }}"
       when: not ansible_check_mode
+
+# Off (no client has a recipient): stop accepting pushes and stop the stale-copy
+# checks, so a switched-off feature does not alert daily forever. Stored copies,
+# the user and the scripts are left in place.
+- name: Disable the receiver
+  when: not (pve_config_receiver_enabled | bool)
+  block:
+    - name: Stop accepting pushes
+      ansible.builtin.file:
+        path: "/etc/ssh/authorized_keys.d/{{ pve_config_receiver_user }}"
+        state: absent
+
+    - name: Stop the daily prune and stale-copy check
+      ansible.builtin.systemd:
+        name: pvecfg-prune.timer
+        state: stopped
+        enabled: false
+      failed_when: false
