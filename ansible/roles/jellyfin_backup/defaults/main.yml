@@ -1,4 +1,17 @@
 ---
+# Master switch for the nightly B2 library sync (#403). Off: B2 is being
+# retired. It cost $15/month, the media is re-rippable, and restic to pi-burg
+# is the offsite copy. The sync also never converged. The deployed script
+# predated #506, so it ran at 1 MiB/s and timed out every night about 14 GiB
+# into a ~950 GiB backlog, while adding hours of ceph-fuse load (the
+# 2026-10-04 outage started mid-sync).
+#
+# Off DISABLES the cron job (it stays commented out under its marker) rather
+# than removing it. The bucket, the rclone config and the script are kept for
+# #403's 30-day soak, so a restore from B2 is still possible until the bucket
+# is deleted. Phase 2 of #403 removes the role.
+jellyfin_backup_b2_enabled: false
+
 # rclone throughput settings for the Backblaze B2 backup.
 #
 # These were hardcoded at 1M with a single transfer, tuned for a 20 Mbit/s
