@@ -10,7 +10,7 @@ This directory contains CI/CD workflows for managing the infrastructure with Ans
 Runs automatically when you create a PR that modifies Ansible files. Provides safety validation before merging changes.
 
 **Jobs:**
-1. **Lint** - Validates Ansible code quality with `ansible-lint` (strict mode, so warnings fail too)
+1. **Lint** - Validates Ansible code quality with `ansible-lint`
 2. **Syntax Check** - Syntax-checks every playbook with the vault password, covering what `ansible-lint` skips as `internal-error`
 3. **Vault Decrypts** - Confirms `vault.yml` decrypts with the repo secret
 4. **Test Infrastructure** - Connects via Tailscale and runs playbook in `--check` mode

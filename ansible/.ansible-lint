@@ -34,5 +34,8 @@ warn_list:
 # Use ansible-core for syntax checking
 offline: false
 
-# Warnings fail the run too, so nothing on the warn_list can pile up unseen.
-strict: true
+# Lint reports 0 warnings today, but strict stays off for now: the CI image
+# ships ansible-lint 26.3.0, which counts the skipped internal-error matches
+# toward strict and fails with "0 failure(s), 0 warning(s)". Turn it on once
+# the image has ansible-lint >= 26.9 (#589).
+strict: false
