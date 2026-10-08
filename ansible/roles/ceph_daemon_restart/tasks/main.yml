@@ -59,7 +59,8 @@
 
 # Keyed off systemd's own view as well as `changed`, so a run that wrote the
 # drop-in but was interrupted before reloading still gets reloaded next time.
-- name: Check whether any Ceph unit is waiting for a daemon-reload
+# command-instead-of-module: systemctl show takes unit globs; the systemd module takes one unit.
+- name: Check whether any Ceph unit is waiting for a daemon-reload  # noqa: command-instead-of-module
   ansible.builtin.command: systemctl show -p NeedDaemonReload ceph-osd@* ceph-mds@* ceph-mgr@*
   register: ceph_restart_need_reload
   changed_when: false

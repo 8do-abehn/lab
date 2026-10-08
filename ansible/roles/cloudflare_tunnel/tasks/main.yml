@@ -148,7 +148,8 @@
   check_mode: false
   when: not ansible_check_mode
 
-- name: Check if tunnel service is installed
+# command-instead-of-module: a read-only is-enabled probe whose rc gates the install below.
+- name: Check if tunnel service is installed  # noqa: command-instead-of-module
   ansible.builtin.command: systemctl is-enabled cloudflared
   register: cloudflared_service_check
   failed_when: false

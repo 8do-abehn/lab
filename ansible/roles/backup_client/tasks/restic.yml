@@ -135,7 +135,8 @@
 # "ok: [immich01]" while cron was already failing, so the role reported a
 # working backup schedule on a host where nothing would ever run. A backup
 # that is silently never scheduled is worse than one that fails loudly.
-- name: Verify cron actually stayed up
+# command-instead-of-module: a read-only is-active probe polled with until, not a state change.
+- name: Verify cron actually stayed up  # noqa: command-instead-of-module
   ansible.builtin.command: systemctl is-active cron
   register: backup_cron_active
   changed_when: false
@@ -153,7 +154,8 @@
 # "ok: [immich01]" while cron was already failing, so the role reported a
 # working backup schedule on a host where nothing would ever run. A backup
 # that is silently never scheduled is worse than one that fails loudly.
-- name: Verify cron actually stayed up
+# command-instead-of-module: a read-only is-active probe polled with until, not a state change.
+- name: Verify cron actually stayed up  # noqa: command-instead-of-module
   ansible.builtin.command: systemctl is-active cron
   register: backup_cron_active
   changed_when: false
