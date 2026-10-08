@@ -8,6 +8,24 @@
     update_cache: true
     cache_valid_time: 3600
 
+# restic comes from each distro's own repo, so versions differ per host:
+# Debian 12 (unifi) ships 0.14.0, which predates --retry-lock (0.16). Passing
+# it unconditionally made every unifi backup fail with "unknown flag:
+# --retry-lock" from the #571 deploy until this check existed. Hosts below
+# 0.16 simply run without the wait, as they did before #571.
+- name: Check the installed restic version
+  ansible.builtin.command: restic version
+  register: backup_restic_version
+  changed_when: false
+  check_mode: false
+
+- name: Use --retry-lock only where restic supports it
+  ansible.builtin.set_fact:
+    backup_retry_lock_flag: >-
+      {{ ('--retry-lock ' ~ backup_lock_wait)
+         if (backup_restic_version.stdout.split()[1] is version('0.16.0', '>='))
+         else '' }}
+
 - name: Install pipx for Python package management
   ansible.builtin.apt:
     name: pipx

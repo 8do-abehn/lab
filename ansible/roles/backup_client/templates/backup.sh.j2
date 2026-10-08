@@ -107,7 +107,7 @@ fi
 # Run backup
 log_message "Backing up: {{ backup_paths | join(', ') }}"
 BACKUP_STDERR=$(mktemp)
-BACKUP_OUTPUT=$(restic backup "${RESTIC_LIMITS[@]}" --retry-lock {{ backup_lock_wait }} \
+BACKUP_OUTPUT=$(restic backup "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} \
 {% for path in backup_paths %}
     "{{ path }}" \
 {% endfor %}
@@ -146,7 +146,7 @@ rm -f "$BACKUP_STDERR"
 # lock, so it is opt-in here and normally left to the weekly job on the designated
 # prune host instead of running on every client every night.
 log_message "Applying retention policy"
-if restic forget "${RESTIC_LIMITS[@]}" --retry-lock {{ backup_lock_wait }} \
+if restic forget "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} \
     --keep-daily {{ backup_keep_daily }} \
     --keep-weekly {{ backup_keep_weekly }} \
     --keep-monthly {{ backup_keep_monthly }} \
