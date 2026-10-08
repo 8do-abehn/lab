@@ -7,12 +7,40 @@ set -euo pipefail
 
 REPO={{ pve_config_history_repo | quote }}
 DB_DIR={{ pve_config_history_db_dir | quote }}
-DB_KEEP={{ pve_config_history_db_keep_daily | int }}
+KEEP_DAILY={{ pve_config_history_db_keep_daily | int }}
+KEEP_WEEKLY={{ pve_config_history_db_keep_weekly | int }}
+KEEP_MONTHLY={{ pve_config_history_db_keep_monthly | int }}
 PMXCFS_DB=/var/lib/pve-cluster/config.db
+MIN_FREE_MB={{ pve_config_history_min_free_mb | int }}
+MAX_MB={{ pve_config_history_max_mb | int }}
+WARN_MB={{ pve_config_history_warn_mb | int }}
 NODE_PATHS=({% for p in pve_config_history_node_paths %}{{ p | quote }} {% endfor %})
 EXCLUDES=({% for e in pve_config_history_excludes %}--exclude={{ e | quote }} {% endfor %})
 
 umask 077
+
+# Limits come first: nothing below may write once one of these is hit.
+# The history's own filesystem (normally the root disk) must keep a free floor.
+install -d -m 0700 "$REPO" "$DB_DIR"
+free_mb=$(df -Pm "$REPO" | awk 'NR==2 {print $4}')
+if (( free_mb < MIN_FREE_MB )); then
+    echo "only ${free_mb} MiB free on $(df -P "$REPO" | awk 'NR==2 {print $6}') (floor ${MIN_FREE_MB}); not writing" >&2
+    exit 1
+fi
+used_mb=$(du -smc "$REPO" "$DB_DIR" | awk 'END {print $1}')
+if (( used_mb >= MAX_MB )); then
+    echo "history uses ${used_mb} MiB, at or over the ${MAX_MB} MiB cap; not writing. See the README (Limits)." >&2
+    exit 1
+fi
+# Above the warning size: keep working, but fail the run (so the alert fires) at
+# most once a day, tracked by the mtime of a marker file.
+size_warn=0
+warn_marker="$DB_DIR/.size-warned"
+if (( used_mb >= WARN_MB )) && [[ -z "$(find "$warn_marker" -mmin -1440 2>/dev/null)" ]]; then
+    echo "history uses ${used_mb} MiB, over the ${WARN_MB} MiB warning size (cap ${MAX_MB})" >&2
+    touch "$warn_marker"
+    size_warn=1
+fi
 
 # First, and independent of everything below: config.db is the full-cluster
 # recovery point and is readable even with pve-cluster stopped, so neither half
@@ -30,10 +58,20 @@ backup_db() {
     [[ "$(sqlite3 "$DB_DIR/config.db.tmp" 'PRAGMA quick_check;')" == ok ]] || { echo "backup failed quick_check" >&2; return 1; }
     (( $(sqlite3 "$DB_DIR/config.db.tmp" 'SELECT count(*) FROM tree;') > 0 )) || { echo "backup has no entries" >&2; return 1; }
     mv -f "$DB_DIR/config.db.tmp" "$DB_DIR/config.db" || return 1
-    local today
-    today="$DB_DIR/config.db.$(date -u +%F)"
-    [[ -e "$today" ]] || cp -p "$DB_DIR/config.db" "$today" || return 1
-    ls -1 "$DB_DIR"/config.db.20??-??-?? 2>/dev/null | sort | head -n "-$DB_KEEP" | xargs -r rm -f
+    # One copy per UTC day, ISO week and month, each tier pruned by age order.
+    # Names sort chronologically: daily.2026-10-07, weekly.2026-W41, monthly.2026-10.
+    local tier fmt keep f
+    for tier in daily weekly monthly; do
+        case $tier in
+            daily)   fmt=%F;      keep=$KEEP_DAILY ;;
+            weekly)  fmt=%G-W%V;  keep=$KEEP_WEEKLY ;;
+            monthly) fmt=%Y-%m;   keep=$KEEP_MONTHLY ;;
+        esac
+        f="$DB_DIR/config.db.$tier.$(date -u +"$fmt")"
+        [[ -e "$f" ]] || cp -p "$DB_DIR/config.db" "$f" || return 1
+        find "$DB_DIR" -maxdepth 1 -name "config.db.$tier.*" -printf '%f\n' \
+            | sort | head -n "-$keep" | sed "s#^#$DB_DIR/#" | xargs -r rm -f || return 1
+    done
 }
 db_failed=0
 if ! backup_db; then
@@ -85,6 +123,6 @@ if ! git diff --cached --quiet; then
         -m "$(git diff --cached --name-status | head -50)"
 fi
 
-if (( db_failed )); then
+if (( db_failed || size_warn )); then
     exit 1
 fi

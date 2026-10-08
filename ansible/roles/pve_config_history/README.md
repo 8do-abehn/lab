@@ -8,7 +8,7 @@ node (#434). Off-cluster copy: #568.
 | | path (on every node) | covers |
 |---|---|---|
 | git history | `/var/lib/pve-config-history` | `etc-pve/`: all of `/etc/pve`, so every node's guest configs, storage, HA, firewall, users, ceph; `node-local/`: this node's network, hosts, fstab, grub, modprobe/sysctl/udev, corosync, `/etc/ceph`, apt sources, systemd units |
-| pmxcfs database | `/var/lib/pve-config-history-db` | `config.db` (latest, hourly) and `config.db.YYYY-MM-DD` (7 dailies, UTC) |
+| pmxcfs database | `/var/lib/pve-config-history-db` | `config.db` (latest, refreshed hourly) plus `config.db.daily.YYYY-MM-DD` (7), `config.db.weekly.YYYY-Www` (4) and `config.db.monthly.YYYY-MM` (12), all UTC |
 
 - Commits only when something changed; each commit message lists the changed paths.
 - Both directories are `0700 root`: they hold `/etc/pve/priv` (cluster CA key,
@@ -96,6 +96,7 @@ old=/mnt/old/var/lib
 mkdir -p /tmp/restore
 systemctl stop pve-cluster corosync
 rm -f /var/lib/pve-cluster/config.db-wal /var/lib/pve-cluster/config.db-shm
+ls $old/pve-config-history-db/       # latest, or a daily/weekly/monthly copy from before the problem
 install -m 0600 $old/pve-config-history-db/config.db /var/lib/pve-cluster/config.db
 cd $old/pve-config-history
 git -c tar.umask=022 archive HEAD node-local/etc/corosync node-local/etc/hosts node-local/etc/hostname \
@@ -128,6 +129,43 @@ deploying: `systemctl start pve-config-history.service`.
 
 If the timer itself is disabled or removed, nothing runs and nothing alerts; the
 failure alert also stays silent if `/etc/apprise.yml` is missing.
+
+## Limits
+
+Checked at the start of every run; a breach fails the run, so the failure alert
+fires. Today's use is ~3.5 MiB per node.
+
+| limit | default | when hit |
+|---|---|---|
+| free space on the history's filesystem (the root disk) | 2 GiB (`pve_config_history_min_free_mb`) | writes nothing this run: this job can never be what fills the disk |
+| history + `config.db` copies | 1 GiB (`pve_config_history_max_mb`) | stops writing until a human looks |
+| early warning | 200 MiB (`pve_config_history_warn_mb`) | keeps working, alerts at most once a day |
+
+**Why retention is by time, and the git history is never pruned.** Keeping "the
+last N changes" is the wrong limit for a backup: a script loop or a busy evening
+of edits would push out exactly the history you need when you notice a problem
+weeks later. `config.db` copies are kept 7 daily / 4 weekly / 12 monthly (at
+most ~3 MiB). The git history keeps everything: text diffs of config files are
+a few MB a year, and rewriting history to prune it is the riskiest thing you can
+do to a backup. If it ever does approach the cap, a human decides:
+
+### Squash: start a fresh history, keeping the old one
+
+```
+cd /var/lib
+systemctl stop pve-config-history.timer
+du -sh pve-config-history                       # confirm it is the history that grew
+git -C pve-config-history log --stat -20        # and what grew it (a file to exclude?)
+tar -czf /root/pve-config-history-$(hostname -s)-$(date -u +%F).tgz pve-config-history
+chmod 0600 /root/pve-config-history-*.tgz       # holds the same secrets as the repo
+rm -rf pve-config-history/.git
+systemctl start pve-config-history.service      # re-initialises with one baseline commit
+systemctl start pve-config-history.timer
+```
+
+Move the archive off the node (encrypted, see #568) or delete it once you are
+sure you will not need the old history. If something unexpected was growing it,
+add it to `pve_config_history_excludes` first.
 
 ## Turn it off
 

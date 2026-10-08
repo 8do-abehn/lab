@@ -12,7 +12,15 @@ pve_config_history_repo: /var/lib/pve-config-history
 # Consistent copies of the pmxcfs database, kept OUTSIDE git: it changes every
 # few seconds, so hourly commits of a binary would grow without bound.
 pve_config_history_db_dir: /var/lib/pve-config-history-db
+# Time-based (grandfather-father-son) retention, never count-based: a burst of
+# changes must not push good restore points out. "latest" is refreshed hourly;
+# on top of it, one copy per UTC day, ISO week and month is kept. At ~140 KiB a
+# copy that is at most 23 files, ~3 MiB, and any day this week, week this month
+# or month this year can be restored. The git history is never pruned; see
+# README "Limits" for why, and for the manual squash procedure.
 pve_config_history_db_keep_daily: 7
+pve_config_history_db_keep_weekly: 4
+pve_config_history_db_keep_monthly: 12
 
 pve_config_history_schedule: hourly
 
@@ -59,3 +67,15 @@ pve_config_history_node_paths:
 # Failure alerts go through the Apprise config smart_monitoring deploys.
 pve_config_history_apprise_config: /etc/apprise.yml
 pve_config_history_apprise_bin: /usr/local/bin/apprise
+
+# Safety limits, checked every run. Any breach fails the run, so the OnFailure
+# alert fires. Today's use is ~3.5 MiB per node (history + config.db copies).
+#
+# Free-space floor on the filesystem holding the history: below it the run
+# writes nothing, so this job can never be what fills the root disk.
+pve_config_history_min_free_mb: 2048
+# Hard cap on history + config.db copies: at or above it, stop writing until a
+# human looks. History is never pruned automatically; deleting it is not undoable.
+pve_config_history_max_mb: 1024
+# Early warning: keep snapshotting, but alert, at most once a day.
+pve_config_history_warn_mb: 200
