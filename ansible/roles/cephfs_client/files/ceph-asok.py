@@ -8,12 +8,16 @@ daemon` CLI to talk to the client's admin socket. ceph-common is deliberately
 not installed: its logrotate rule sends SIGHUP to ceph-fuse, which would muddy
 #579, where a host-side SIGHUP is one of the open leads.
 
-Extra key=value arguments become command fields, e.g. to change a setting on
+Extra arguments become command fields: key=value sends a string, key:=<json>
+sends raw JSON. Some fields must be JSON: "config set" rejects a plain string
+val with "invalid command json" and wants a list, e.g. to change a setting on
 the running client without a remount:
 
-  ceph-asok <socket> "config set" var=debug_client val=1/5
+  ceph-asok <socket> "config set" var=debug_client 'val:=["1/5"]'
 
-Usage: ceph-asok <socket path> "<command>" [key=value ...]
+Exits non-zero when the daemon answers with an error, so callers notice.
+
+Usage: ceph-asok <socket path> "<command>" [key=value | key:=json ...]
 """
 import json
 import socket
@@ -38,7 +42,12 @@ def main():
         sys.exit(__doc__.strip().splitlines()[-1])
     path, prefix = sys.argv[1], sys.argv[2]
     request = {"prefix": prefix, "format": "json-pretty"}
-    request.update(a.split("=", 1) for a in sys.argv[3:])
+    for arg in sys.argv[3:]:
+        key, value = arg.split("=", 1)
+        if key.endswith(":"):
+            request[key[:-1]] = json.loads(value)
+        else:
+            request[key] = value
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     # A wedged ceph-fuse may never answer. That is itself a finding, so fail
     # fast and let the caller record it rather than hang the watchdog.
@@ -46,8 +55,10 @@ def main():
     sock.connect(path)
     sock.sendall(json.dumps(request).encode() + b"\0")
     length = struct.unpack(">I", recv_exact(sock, 4))[0]
-    sys.stdout.write(recv_exact(sock, length).decode(errors="replace"))
-    sys.stdout.write("\n")
+    reply = recv_exact(sock, length).decode(errors="replace")
+    sys.stdout.write(reply + "\n")
+    if reply.startswith("ERROR"):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -256,14 +256,20 @@
 # above would not take effect until the next remount, which in practice means
 # the next hang: exactly the event it is meant to record. The admin socket
 # applies the same settings to the running client with no interruption.
+#
+# "config set" wants val as a JSON list; a plain string is rejected with
+# "invalid command json" (the first version of this task failed that way
+# silently). log_file already defaults to this path, the directory just did
+# not exist, so the client needs "log reopen" to actually open the file.
 - name: Apply client logging to the running ceph-fuse
   ansible.builtin.shell: |
     set -euo pipefail
     for pid in $(pgrep -x ceph-fuse); do
       for asok in /var/run/ceph/ceph-client.*."$pid".*.asok; do
         [ -S "$asok" ] || continue
-        {{ cephfs_client_asok_tool }} "$asok" "config set" var=log_file val='{{ cephfs_client_log_dir }}/$cluster-$name.log'
-        {{ cephfs_client_asok_tool }} "$asok" "config set" var=debug_client val='{{ cephfs_client_debug_client }}'
+        {{ cephfs_client_asok_tool }} "$asok" "config set" var=log_file 'val:=["{{ cephfs_client_log_dir }}/$cluster-$name.log"]'
+        {{ cephfs_client_asok_tool }} "$asok" "config set" var=debug_client 'val:=["{{ cephfs_client_debug_client }}"]'
+        {{ cephfs_client_asok_tool }} "$asok" "log reopen"
       done
     done
   args:
