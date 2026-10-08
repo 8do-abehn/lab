@@ -42,9 +42,8 @@ Before using these workflows, you must configure GitHub Secrets and Tailscale AC
 - [ ] Create Tailscale OAuth client with `auth_keys` scope and `tag:ci`
 - [ ] Add `TS_OAUTH_CLIENT_ID` secret to GitHub
 - [ ] Add `TS_OAUTH_SECRET` secret to GitHub
-- [ ] Add `SSH_PRIVATE_KEY` secret to GitHub
 - [ ] Add `ANSIBLE_VAULT_PASSWORD` secret to GitHub
-- [ ] Configure Tailscale ACLs to allow `tag:ci` access to infrastructure
+- [ ] Configure Tailscale ACLs and SSH rules to allow `tag:ci` access to infrastructure
 
 ## Workflow Behavior
 
@@ -117,9 +116,9 @@ Report results
 - Ensure ACLs grant `tag:ci` access to your hosts
 
 ### SSH Authentication Failures
-- Verify `SSH_PRIVATE_KEY` secret is correct
-- Check that the key has access to your infrastructure hosts
-- Ensure SSH key is in the correct format (PEM)
+- CI authenticates with Tailscale SSH, not a key. Check the host runs `tailscale up --ssh`
+- Check the Tailscale ACL `ssh` rules allow `tag:ci` to log in as the host's `ansible_user`
+- Check the host's `ansible_host` is a MagicDNS name or Tailscale IP, not a LAN IP
 
 ### Vault Decryption Errors
 - Verify `ANSIBLE_VAULT_PASSWORD` secret is correct
