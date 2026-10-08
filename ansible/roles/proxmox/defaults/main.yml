@@ -41,3 +41,7 @@ proxmox_apt_supported_releases:
 # Must match what the cluster actually runs: `ceph --version` reported 20.2.x
 # "tentacle" on pve01-03 (2026-10-03). Never lower this; a downgrade is not supported.
 proxmox_ceph_release: tentacle
+
+# journald size cap on the node roots (#551). Stock default is 10% of the
+# filesystem capped at 4G, which pve01 and pve03 had reached.
+proxmox_journald_max_use: 500M

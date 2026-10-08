@@ -3,6 +3,10 @@
   ansible.builtin.include_tasks: repositories.yml
 - name: Install default packages
   ansible.builtin.include_tasks: packages.yml
+# import (not include) so the tag reaches the tasks inside: deploy with tags=disk-caps
+- name: Cap journald and apt cache growth
+  ansible.builtin.import_tasks: disk-caps.yml
+  tags: disk-caps
 - name: Remove subscription nag
   ansible.builtin.include_tasks: subscription-nag.yml
 - name: Configure GPU passthrough
