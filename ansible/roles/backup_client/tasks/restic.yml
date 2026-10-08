@@ -1,29 +1,65 @@
 ---
 # Install restic, deploy backup script, configure cron
 
-- name: Install restic
+# restic comes from upstream, pinned, rather than from each distro: the distro
+# packages differed per host (0.14.0 on Debian 12, 0.16.4 on Ubuntu 24.04,
+# 0.18.0 on Debian 13), and 0.14.0 rejected --retry-lock, which broke every
+# unifi backup after #571 until #594 worked around it. One pinned version means
+# every client behaves the same. Installed to /usr/local/bin, which the backup
+# scripts put first on PATH.
+- name: Read the installed upstream restic version
+  ansible.builtin.command: /usr/local/bin/restic version
+  register: backup_restic_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install bzip2 to unpack the restic release
   ansible.builtin.apt:
-    name: restic
+    name: bzip2
     state: present
     update_cache: true
     cache_valid_time: 3600
+  when: backup_restic_release not in backup_restic_installed.stdout
 
-# restic comes from each distro's own repo, so versions differ per host:
-# Debian 12 (unifi) ships 0.14.0, which predates --retry-lock (0.16). Passing
-# it unconditionally made every unifi backup fail with "unknown flag:
-# --retry-lock" from the #571 deploy until this check existed. Hosts below
-# 0.16 simply run without the wait, as they did before #571.
-- name: Check the installed restic version
-  ansible.builtin.command: restic version
-  register: backup_restic_version
-  changed_when: false
-  check_mode: false
+- name: Download restic {{ backup_restic_release }}
+  ansible.builtin.get_url:
+    url: "https://github.com/restic/restic/releases/download/v{{ backup_restic_release }}/restic_{{ backup_restic_release }}_linux_{{ backup_restic_arch }}.bz2"
+    dest: "/root/restic_{{ backup_restic_release }}.bz2"
+    checksum: "sha256:{{ backup_restic_sha256[backup_restic_arch] }}"
+    mode: "0600"
+  when: backup_restic_release not in backup_restic_installed.stdout
 
+# Skipped in check mode: get_url does not actually download there, so there
+# is nothing to unpack (same trap as get_url + unarchive in the AdGuard role).
+# Written to a temp name and renamed, so a backup starting mid-install never
+# runs a half-written binary.
+- name: Install the restic release to /usr/local/bin
+  ansible.builtin.shell: |
+    set -euo pipefail
+    bunzip2 -c /root/restic_{{ backup_restic_release }}.bz2 > /usr/local/bin/restic.new
+    chmod 0755 /usr/local/bin/restic.new
+    mv /usr/local/bin/restic.new /usr/local/bin/restic
+    rm -f /root/restic_{{ backup_restic_release }}.bz2
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - backup_restic_release not in backup_restic_installed.stdout
+    - not ansible_check_mode
+
+# Only one restic per host, so nobody runs the old one by accident.
+- name: Remove the distro restic package
+  ansible.builtin.apt:
+    name: restic
+    state: absent
+
+# Kept as a guard in case backup_restic_release is ever pinned below 0.16.
 - name: Use --retry-lock only where restic supports it
   ansible.builtin.set_fact:
     backup_retry_lock_flag: >-
       {{ ('--retry-lock ' ~ backup_lock_wait)
-         if (backup_restic_version.stdout.split()[1] is version('0.16.0', '>='))
+         if (backup_restic_release is version('0.16.0', '>='))
          else '' }}
 
 - name: Install pipx for Python package management
