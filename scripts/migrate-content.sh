@@ -142,7 +142,8 @@ migrate_journal() {
     log "Migrating journal entries..."
     for file in "$STAGING_DIR"/journal/*.md; do
         [[ -f "$file" ]] || continue
-        local dest="$CONTENT_DIR/posts/$(basename "$file")"
+        local dest
+        dest="$CONTENT_DIR/posts/$(basename "$file")"
         add_frontmatter "$file" "$dest" "posts"
     done
 }
@@ -153,7 +154,8 @@ migrate_ad_lab() {
     log "Migrating AD Lab entries..."
     for file in "$STAGING_DIR"/ad_lab/docs/journal/*.md; do
         [[ -f "$file" ]] || continue
-        local dest="$CONTENT_DIR/projects/ad-lab-$(basename "$file")"
+        local dest
+        dest="$CONTENT_DIR/projects/ad-lab-$(basename "$file")"
         add_frontmatter "$file" "$dest" "projects"
     done
 }
