@@ -50,8 +50,9 @@ backup_keep_monthly: 6
 backup_prune_inline: false
 backup_prune_enabled: false
 
-# Weekly prune schedule. Sunday 9am keeps it clear of every backup window (2-3am)
-# and every repository check (6-7am), so the locks never overlap.
+# Weekly prune schedule. Sunday 9am normally clears every backup window (2-3am)
+# and every repository check (6-7am). A run that overruns its window can still
+# overlap it; prune then waits for the lock via backup_lock_wait.
 backup_prune_cron_hour: "9"
 backup_prune_cron_minute: "0"
 backup_prune_cron_weekday: "0"
@@ -97,4 +98,9 @@ backup_check_cron_weekday: "0"
 # client shares the pi-burg repo, so a slow night on one host (jellyfin01
 # uploading a batch of new movies) used to fail the others' retention step
 # outright with "repository is already locked". Needs restic >= 0.16.
-backup_lock_wait: "30m"
+#
+# 2h rather than 30m: on 2026-10-05 immich01's forget hit jellyfin01's lock at
+# 03:27, well over 30 minutes into an overrun (#570). These are cron jobs with
+# nothing waiting on them, so a long wait costs nothing. It still will not
+# cover a day-long run like jellyfin01 re-uploading a big batch of new media.
+backup_lock_wait: "2h"
