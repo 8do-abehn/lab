@@ -67,7 +67,7 @@ all:
     # Media Servers (VLAN 70, new cluster LXCs)
     media_servers:
       hosts:
-        jellyfin01:  # LXC 3001 on pve01, CephFS media at /mnt/library
+        jellyfin01:  # LXC 3001 on pve01, CephFS media at /mnt/library (kernel bind mount, #591)
           ansible_user: root
 
     # Immich Photos (VLAN 70, new cluster LXC)
@@ -146,7 +146,7 @@ all:
             - /mnt/library
             - /var/lib/jellyfin
             - /etc/jellyfin
-          # /mnt/library is CephFS via ceph-fuse. If it fails to mount the
+          # /mnt/library is a CephFS bind mount from the pve host (#591). If it fails to mount the
           # directory is still there, just empty, so the backup must abort
           # rather than snapshot nothing and report success.
           backup_required_mounts:
