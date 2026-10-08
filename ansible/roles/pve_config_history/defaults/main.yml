@@ -1,0 +1,81 @@
+---
+# Version history of /etc/pve and node-local rebuild files (#434). Off-cluster
+# copy is #568. Restore runbook: README.md in this role.
+
+# false removes the script and units. The history itself is left in place.
+pve_config_history_enabled: true
+
+# Git repo, root only: it holds /etc/pve/priv (cluster CA key, ceph keyrings),
+# the same trust boundary as /etc/pve itself.
+pve_config_history_repo: /var/lib/pve-config-history
+
+# Consistent copies of the pmxcfs database, kept OUTSIDE git: it changes every
+# few seconds, so hourly commits of a binary would grow without bound.
+pve_config_history_db_dir: /var/lib/pve-config-history-db
+# Time-based (grandfather-father-son) retention, never count-based: a burst of
+# changes must not push good restore points out. "latest" is refreshed hourly;
+# on top of it, one copy per UTC day, ISO week and month is kept. At ~140 KiB a
+# copy that is at most 23 files, ~3 MiB, and any day this week, week this month
+# or month this year can be restored. The git history is never pruned; see
+# README "Limits" for why, and for the manual squash procedure.
+pve_config_history_db_keep_daily: 7
+pve_config_history_db_keep_weekly: 4
+pve_config_history_db_keep_monthly: 12
+
+pve_config_history_schedule: hourly
+
+# pmxcfs entries that change on their own (status, stats, locks) and would make
+# a commit every run, plus the ticket-signing keys Proxmox rotates daily and
+# regenerates itself: keeping those would commit daily and preserve every old
+# private key. Anchored to the root of /etc/pve.
+pve_config_history_excludes:
+  - /.rrd
+  - /.version
+  - /.members
+  - /.clusterlog
+  - /.vmlist
+  - /.debug
+  - /ha/manager_status
+  - /ha/crm_commands
+  - /nodes/*/lrm_status
+  - /priv/lock/
+  - /priv/authkey.key
+  - /authkey.pub
+  - /authkey.pub.old
+
+# Node-local files that are not in pmxcfs but are needed to rebuild a node. Any
+# that do not exist on a node are skipped. /etc/nut is left out on purpose: it
+# holds upsd passwords and is fully Ansible-managed (roles/nut).
+pve_config_history_node_paths:
+  - /etc/network/interfaces
+  - /etc/network/interfaces.d
+  - /etc/hosts
+  - /etc/hostname
+  - /etc/resolv.conf
+  - /etc/fstab
+  - /etc/default/grub
+  - /etc/default/grub.d
+  - /etc/modprobe.d
+  - /etc/sysctl.d
+  - /etc/udev/rules.d
+  - /etc/corosync
+  - /etc/ceph
+  - /etc/vzdump.conf
+  - /etc/apt/sources.list.d
+  - /etc/systemd/system
+
+# Failure alerts go through the Apprise config smart_monitoring deploys.
+pve_config_history_apprise_config: /etc/apprise.yml
+pve_config_history_apprise_bin: /usr/local/bin/apprise
+
+# Safety limits, checked every run. Any breach fails the run, so the OnFailure
+# alert fires. Today's use is ~3.5 MiB per node (history + config.db copies).
+#
+# Free-space floor on the filesystem holding the history: below it the run
+# writes nothing, so this job can never be what fills the root disk.
+pve_config_history_min_free_mb: 2048
+# Hard cap on history + config.db copies: at or above it, stop writing until a
+# human looks. History is never pruned automatically; deleting it is not undoable.
+pve_config_history_max_mb: 1024
+# Early warning: keep snapshotting, but alert, at most once a day.
+pve_config_history_warn_mb: 200

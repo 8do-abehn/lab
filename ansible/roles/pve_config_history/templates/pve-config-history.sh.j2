@@ -1,0 +1,141 @@
+#!/bin/bash
+# Managed by Ansible (roles/pve_config_history, #434)
+#
+# Snapshot /etc/pve and this node's rebuild files into a git repo, committing only
+# when something changed, and keep consistent copies of the pmxcfs database.
+set -euo pipefail
+
+REPO={{ pve_config_history_repo | quote }}
+DB_DIR={{ pve_config_history_db_dir | quote }}
+KEEP_DAILY={{ pve_config_history_db_keep_daily | int }}
+KEEP_WEEKLY={{ pve_config_history_db_keep_weekly | int }}
+KEEP_MONTHLY={{ pve_config_history_db_keep_monthly | int }}
+PMXCFS_DB=/var/lib/pve-cluster/config.db
+MIN_FREE_MB={{ pve_config_history_min_free_mb | int }}
+MAX_MB={{ pve_config_history_max_mb | int }}
+WARN_MB={{ pve_config_history_warn_mb | int }}
+NODE_PATHS=({% for p in pve_config_history_node_paths %}{{ p | quote }} {% endfor %})
+EXCLUDES=({% for e in pve_config_history_excludes %}--exclude={{ e | quote }} {% endfor %})
+
+umask 077
+
+# Limits come first. A breach fails the run so the OnFailure alert fires, but at
+# most once a day per limit (marker file mtime), so a node sitting at a limit
+# logs every hour without sending 24 alerts a day. Returns 0 when this run
+# should alert.
+alert_due() {
+    local marker="$DB_DIR/.$1-alerted"
+    [[ -n "$(find "$marker" -mmin -1440 2>/dev/null)" ]] && return 1
+    touch "$marker" 2>/dev/null || true
+    return 0
+}
+alert_now=0
+install -d -m 0700 "$REPO" "$DB_DIR"
+
+# The floor stops everything: this job must never be what fills the disk.
+free_mb=$(df -Pm "$REPO" | awk 'NR==2 {print $4}')
+if (( free_mb < MIN_FREE_MB )); then
+    echo "only ${free_mb} MiB free on $(df -P "$REPO" | awk 'NR==2 {print $6}') (floor ${MIN_FREE_MB}); not writing" >&2
+    alert_due floor && exit 1
+    exit 0
+fi
+
+# The cap stops only the git history, which is what can grow. The config.db
+# copies are bounded by retention (~3 MiB) and keep refreshing.
+skip_git=0
+used_mb=$(du -smc "$REPO" "$DB_DIR" | awk 'END {print $1}')
+if (( used_mb >= MAX_MB )); then
+    echo "history uses ${used_mb} MiB, at or over the ${MAX_MB} MiB cap; not committing. See the README (Limits)." >&2
+    skip_git=1
+    alert_due cap && alert_now=1
+elif (( used_mb >= WARN_MB )); then
+    echo "history uses ${used_mb} MiB, over the ${WARN_MB} MiB warning size (cap ${MAX_MB})" >&2
+    alert_due warn && alert_now=1
+fi
+
+# First, and independent of everything below: config.db is the full-cluster
+# recovery point and is readable even with pve-cluster stopped, so neither half
+# may stop the other. The live database is in WAL mode, so a plain copy can be
+# torn; .backup takes a consistent snapshot through SQLite. A failure here is
+# reported at the end (the unit fails and alerts) after the git snapshot ran.
+# (set -e does not apply inside a function called from "if", hence the returns.)
+backup_db() {
+    install -d -m 0700 "$DB_DIR" || return 1
+    # sqlite3 exits 0 even when the source is missing, writing a valid but EMPTY
+    # backup that would replace the good one. Check both ends before replacing.
+    [[ -s "$PMXCFS_DB" ]] || { echo "$PMXCFS_DB missing or empty" >&2; return 1; }
+    rm -f "$DB_DIR/config.db.tmp"
+    sqlite3 "$PMXCFS_DB" ".backup '$DB_DIR/config.db.tmp'" || return 1
+    [[ "$(sqlite3 "$DB_DIR/config.db.tmp" 'PRAGMA quick_check;')" == ok ]] || { echo "backup failed quick_check" >&2; return 1; }
+    (( $(sqlite3 "$DB_DIR/config.db.tmp" 'SELECT count(*) FROM tree;') > 0 )) || { echo "backup has no entries" >&2; return 1; }
+    mv -f "$DB_DIR/config.db.tmp" "$DB_DIR/config.db" || return 1
+    # One copy per UTC day, ISO week and month, each tier pruned by age order.
+    # Names sort chronologically: daily.2026-10-07, weekly.2026-W41, monthly.2026-10.
+    local tier fmt keep f
+    for tier in daily weekly monthly; do
+        case $tier in
+            daily)   fmt=%F;      keep=$KEEP_DAILY ;;
+            weekly)  fmt=%G-W%V;  keep=$KEEP_WEEKLY ;;
+            monthly) fmt=%Y-%m;   keep=$KEEP_MONTHLY ;;
+        esac
+        f="$DB_DIR/config.db.$tier.$(date -u +"$fmt")"
+        [[ -e "$f" ]] || cp -p "$DB_DIR/config.db" "$f" || return 1
+        find "$DB_DIR" -maxdepth 1 -name "config.db.$tier.*" -print0 \
+            | sort -z | head -z -n "-$keep" | xargs -0 -r rm -f -- || return 1
+    done
+}
+db_failed=0
+if ! backup_db; then
+    echo "config.db copy failed; continuing with the git snapshot" >&2
+    db_failed=1
+fi
+
+if (( skip_git )); then
+    exit "$(( db_failed || alert_now ))"
+fi
+
+# /etc/pve is a FUSE mount. With pve-cluster stopped it is an empty directory,
+# and syncing that with --delete would commit "every config deleted". Losing
+# quorum is fine: pmxcfs stays mounted and readable, only writes are refused.
+if ! mountpoint -q /etc/pve || [[ ! -f /etc/pve/corosync.conf ]]; then
+    echo "/etc/pve is not mounted or has no corosync.conf (pve-cluster down?); not snapshotting" >&2
+    exit 1
+fi
+
+install -d -m 0700 "$REPO"
+cd "$REPO"
+if [[ ! -d .git ]]; then
+    git init -q
+    git config user.name "pve-config-history"
+    git config user.email "root@$(hostname -f)"
+fi
+
+rsync -a --delete --delete-excluded "${EXCLUDES[@]}" /etc/pve/ etc-pve/
+
+# Rebuilt from scratch every run so a file removed from the node also leaves the
+# snapshot. -R keeps each path's full directory layout under node-local/.
+present=()
+for p in "${NODE_PATHS[@]}"; do
+    [[ -e "$p" || -L "$p" ]] && present+=("$p")
+done
+rm -rf node-local.new
+mkdir node-local.new
+if [[ -n "${present[*]:-}" ]]; then
+    rsync -aR "${present[@]}" node-local.new/
+fi
+rm -rf node-local
+mv node-local.new node-local
+
+# A run killed mid-commit (timeout, reboot) leaves index.lock behind, and git
+# then refuses every later run. Nothing else uses this repo, so a lock older
+# than the unit's own timeout is always stale.
+find .git -maxdepth 1 -name index.lock -mmin +15 -delete
+
+git add -A
+if ! git diff --cached --quiet; then
+    count=$(git diff --cached --name-only | wc -l)
+    git commit -q -m "$(hostname -s): ${count} file(s) changed" \
+        -m "$(git diff --cached --name-status | head -50)"
+fi
+
+exit "$(( db_failed || alert_now ))"

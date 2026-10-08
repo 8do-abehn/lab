@@ -1,0 +1,81 @@
+---
+# /etc/pve version history (#434). Restore runbook: README.md in this role.
+
+- name: Install pve-config-history
+  when: pve_config_history_enabled | bool
+  block:
+    - name: Refuse a retention that would delete each copy as it is made
+      ansible.builtin.assert:
+        that:
+          - pve_config_history_db_keep_daily | int >= 1
+          - pve_config_history_db_keep_weekly | int >= 1
+          - pve_config_history_db_keep_monthly | int >= 1
+        fail_msg: config.db retention counts must be at least 1.
+        quiet: true
+
+    - name: Ensure git, rsync and sqlite3 are installed
+      ansible.builtin.apt:
+        name:
+          - git
+          - rsync
+          - sqlite3
+        state: present
+
+    - name: Deploy snapshot script
+      ansible.builtin.template:
+        src: pve-config-history.sh.j2
+        dest: /usr/local/sbin/pve-config-history
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy systemd units
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - pve-config-history.service
+        - pve-config-history.timer
+        - pve-config-history-failure.service
+      register: pve_config_history_units
+
+    # Skipped under --check: the units are not written in check mode, so there is
+    # nothing for systemd to enable yet.
+    - name: Enable the hourly snapshot timer
+      ansible.builtin.systemd:
+        name: pve-config-history.timer
+        state: started
+        enabled: true
+        daemon_reload: "{{ pve_config_history_units.changed }}"
+      when: not ansible_check_mode
+
+- name: Remove pve-config-history (history is kept)
+  when: not (pve_config_history_enabled | bool)
+  block:
+    - name: Stop and disable the snapshot timer
+      ansible.builtin.systemd:
+        name: pve-config-history.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove script and units
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/pve-config-history.timer
+        - /etc/systemd/system/pve-config-history.service
+        - /etc/systemd/system/pve-config-history-failure.service
+        - /usr/local/sbin/pve-config-history
+      register: pve_config_history_removed
+
+    - name: Reload systemd after removing units
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when:
+        - pve_config_history_removed.changed
+        - not ansible_check_mode

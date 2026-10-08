@@ -1,0 +1,18 @@
+# Managed by Ansible (roles/pve_config_history, #434)
+[Unit]
+Description=Snapshot /etc/pve and node rebuild files into git history
+After=pve-cluster.service
+OnFailure=pve-config-history-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pve-config-history
+Nice=10
+IOSchedulingClass=idle
+# /etc (and /etc/pve) read-only; /var stays writable for the repo, and for the
+# -shm file SQLite needs to read the WAL-mode pmxcfs database.
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+TimeoutStartSec=10min

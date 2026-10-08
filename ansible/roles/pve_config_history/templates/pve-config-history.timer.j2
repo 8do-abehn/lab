@@ -1,0 +1,12 @@
+# Managed by Ansible (roles/pve_config_history, #434)
+[Unit]
+Description=Hourly /etc/pve history snapshot
+
+[Timer]
+OnCalendar={{ pve_config_history_schedule }}
+# Configs change rarely; spread the three nodes so they don't run in lockstep.
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
