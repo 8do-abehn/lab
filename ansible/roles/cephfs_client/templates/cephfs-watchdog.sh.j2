@@ -37,6 +37,10 @@ ALERT_REPEAT={{ cephfs_client_watchdog_alert_repeat }}
 # Outage bookkeeping. /run is tmpfs, so a reboot starts clean, which is fine:
 # a reboot is itself a fresh attempt and a still-broken mount re-alerts.
 STATE_FILE="/run/cephfs-watchdog.state"
+DIAG_DIR="{{ cephfs_client_diag_dir }}"
+DIAG_KEEP={{ cephfs_client_diag_keep }}
+ASOK_TOOL="{{ cephfs_client_asok_tool }}"
+CLIENT_LOG_DIR="{{ cephfs_client_log_dir }}"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"; }
 
@@ -63,6 +67,44 @@ in_mount_table() {
     awk -v p="$MOUNT_PATH" '$2 == p { found = 1 } END { exit !found }' /proc/self/mounts
 }
 
+# Snapshot the hung client before recovery destroys the evidence (#579).
+# Three MDS evictions in eleven days left nothing on the client side to explain
+# them. Everything here is best effort and bounded: a wedged ceph-fuse may not
+# answer its admin socket at all, and that silence is itself worth recording.
+capture_diagnostics() {
+    local dir pid asok cmd
+    dir="$DIAG_DIR/$(date '+%Y%m%d-%H%M%S')"
+    mkdir -p "$dir" || return 0
+    grep " $MOUNT_PATH " /proc/self/mounts > "$dir/mounts.txt" 2>&1
+
+    for pid in $(pgrep -x ceph-fuse); do
+        # Thread states and wait channels. /proc/<pid>/stack is denied inside
+        # the LXC, so wchan is the closest view of where each thread is stuck.
+        ps -L -o tid,stat,wchan:32,comm -p "$pid" > "$dir/threads-$pid.txt" 2>&1
+        cp "/proc/$pid/status" "$dir/status-$pid.txt" 2>/dev/null
+
+        # Sockets are named by pid; older ones from dead processes linger.
+        for asok in /var/run/ceph/ceph-client.*."$pid".*.asok; do
+            [ -S "$asok" ] || continue
+            # "log dump" first, so the in-memory debug ring is written to the
+            # client log before these queries add their own entries to it.
+            for cmd in "log dump" status mds_sessions mds_requests objecter_requests; do
+                timeout 15 "$ASOK_TOOL" "$asok" "$cmd" > "$dir/asok-$pid-${cmd// /_}.txt" 2>&1 \
+                    || echo "no answer from admin socket (exit $?)" >> "$dir/asok-$pid-${cmd// /_}.txt"
+            done
+        done
+    done
+
+    # The dumped ring lands at the end of the client log, so keep its tail.
+    for f in "$CLIENT_LOG_DIR"/*.log; do
+        [ -f "$f" ] && tail -n 20000 "$f" > "$dir/$(basename "$f").tail" 2>/dev/null
+    done
+
+    log "diagnostics saved to $dir"
+    # Keep only the newest DIAG_KEEP snapshots.
+    ls -1d "$DIAG_DIR"/*/ 2>/dev/null | head -n -"$DIAG_KEEP" | xargs -r rm -rf
+}
+
 # State file holds "<outage start epoch> <last alert epoch>".
 outage_start() { [ -f "$STATE_FILE" ] && awk '{print $1}' "$STATE_FILE"; }
 
@@ -80,6 +122,11 @@ if healthy; then
 fi
 
 log "UNHEALTHY: $MOUNT_PATH failed its read probe, attempting recovery"
+
+# Only on the first failed probe of an outage: that is when the hung process
+# is still there to inspect. Later probes in the same outage would only
+# capture the failed remount attempts.
+[ -f "$STATE_FILE" ] || capture_diagnostics
 
 # A stale mount must be cleared before remounting, or the new mount lands on
 # top of a broken one. Lazy unmount is the fallback: a hung FUSE mount will

@@ -79,6 +79,17 @@
     - cephfs_client_upstream_repo_enabled | bool
     - cephfs_fuse_version.stdout is version(cephfs_client_min_version, '<')
 
+# Must exist before ceph-fuse next starts, or log_file below is silently
+# ignored, which is how the client ran with no log at all until #579.
+- name: Create the Ceph client log directory
+  ansible.builtin.file:
+    path: "{{ cephfs_client_log_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  when: cephfs_client_enabled | bool
+
 # ceph.conf is appended to rather than templated. The file already carries
 # mon_host, written when the container was built, and templating it would mean
 # taking ownership of a value we would then have to keep in sync with the
@@ -91,6 +102,8 @@
       [client]
       client_oc_size = {{ cephfs_client_oc_size }}
       client_cache_size = {{ cephfs_client_cache_size }}
+      log_file = {{ cephfs_client_log_dir }}/$cluster-$name.log
+      debug_client = {{ cephfs_client_debug_client }}
     create: false
     mode: "0644"
   register: cephfs_conf
@@ -226,3 +239,70 @@
   when:
     - cephfs_client_enabled | bool
     - cephfs_client_watchdog_enabled | bool
+
+# The watchdog uses this to query the hung client before clearing it (#579).
+- name: Install the admin socket query tool
+  ansible.builtin.copy:
+    src: ceph-asok.py
+    dest: "{{ cephfs_client_asok_tool }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+
+# ceph.conf is only read when ceph-fuse starts, so without this the logging
+# above would not take effect until the next remount, which in practice means
+# the next hang: exactly the event it is meant to record. The admin socket
+# applies the same settings to the running client with no interruption.
+- name: Apply client logging to the running ceph-fuse
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for pid in $(pgrep -x ceph-fuse); do
+      for asok in /var/run/ceph/ceph-client.*."$pid".*.asok; do
+        [ -S "$asok" ] || continue
+        {{ cephfs_client_asok_tool }} "$asok" "config set" var=log_file val='{{ cephfs_client_log_dir }}/$cluster-$name.log'
+        {{ cephfs_client_asok_tool }} "$asok" "config set" var=debug_client val='{{ cephfs_client_debug_client }}'
+      done
+    done
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+    - cephfs_conf.changed
+    - not ansible_check_mode
+
+- name: Create the watchdog diagnostics directory
+  ansible.builtin.file:
+    path: "{{ cephfs_client_diag_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  when:
+    - cephfs_client_enabled | bool
+    - cephfs_client_watchdog_enabled | bool
+
+# copytruncate, not Ceph's usual postrotate "killall -1 ceph-fuse". A SIGHUP
+# from the host's own Ceph logrotate landed inside the 2026-10-04 stall window,
+# so adding a second SIGHUP source in the container would muddy #579.
+- name: Rotate the Ceph client log without signalling ceph-fuse
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/ceph-client
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ cephfs_client_log_dir }}/*.log {
+          daily
+          rotate 7
+          compress
+          delaycompress
+          missingok
+          notifempty
+          copytruncate
+      }
+  when: cephfs_client_enabled | bool
