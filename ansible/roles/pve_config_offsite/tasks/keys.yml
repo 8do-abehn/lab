@@ -1,0 +1,36 @@
+---
+# Dedicated key, so the receiver can tie it to this node with a forced command.
+# Only when a recipient is set: an unset recipient means the feature is off.
+- name: Create and publish the push key
+  when: pve_config_offsite_recipient | length > 0
+  block:
+    - name: Refuse a recipient that is not an age public key
+      ansible.builtin.assert:
+        that: pve_config_offsite_recipient is match('^age1[02-9ac-hj-np-z]{58}$')
+        fail_msg: pve_config_offsite_recipient must be an age public key (age1...), never the private key.
+        quiet: true
+
+    - name: Generate the push key
+      community.crypto.openssh_keypair:
+        path: "{{ pve_config_offsite_key }}"
+        type: ed25519
+        comment: "pve-config-push@{{ inventory_hostname }}"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Check the push key exists (it does not in check mode on first run)
+      ansible.builtin.stat:
+        path: "{{ pve_config_offsite_key }}.pub"
+      register: pve_config_offsite_pub_stat
+
+    - name: Read the push public key
+      ansible.builtin.slurp:
+        src: "{{ pve_config_offsite_key }}.pub"
+      register: pve_config_offsite_pub
+      when: pve_config_offsite_pub_stat.stat.exists
+
+    - name: Publish the push public key for the receiver play
+      ansible.builtin.set_fact:
+        pve_config_offsite_pubkey: "{{ pve_config_offsite_pub.content | b64decode | trim }}"
+      when: pve_config_offsite_pub_stat.stat.exists

@@ -1,0 +1,82 @@
+---
+- name: Install the encrypted push
+  when: pve_config_offsite_recipient | length > 0
+  block:
+    - name: Require the receiver's host key from this run
+      ansible.builtin.assert:
+        that: hostvars[pve_config_offsite_target].pve_config_receiver_hostkey is defined
+        fail_msg: >-
+          No pinned host key for {{ pve_config_offsite_target }}. Run the receiver play
+          in the same run: ansible-playbook site.yml --tags pve_config.
+        quiet: true
+
+    - name: Ensure age is installed
+      ansible.builtin.apt:
+        name: age
+        state: present
+
+    - name: Pin the receiver's host key
+      ansible.builtin.template:
+        src: known_hosts.j2
+        dest: "{{ pve_config_offsite_known_hosts }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy the push script
+      ansible.builtin.template:
+        src: pve-config-offsite.sh.j2
+        dest: /usr/local/sbin/pve-config-offsite
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy systemd units
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - pve-config-offsite.service
+        - pve-config-offsite.timer
+        - pve-config-offsite-failure.service
+      register: pve_config_offsite_units
+
+    - name: Enable the daily push timer
+      ansible.builtin.systemd:
+        name: pve-config-offsite.timer
+        state: started
+        enabled: true
+        daemon_reload: "{{ pve_config_offsite_units.changed }}"
+      when: not ansible_check_mode
+
+- name: Remove the encrypted push (recipient unset; the key is kept)
+  when: pve_config_offsite_recipient | length == 0
+  block:
+    - name: Stop and disable the push timer
+      ansible.builtin.systemd:
+        name: pve-config-offsite.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove script, units and pinned host key
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/pve-config-offsite.timer
+        - /etc/systemd/system/pve-config-offsite.service
+        - /etc/systemd/system/pve-config-offsite-failure.service
+        - /usr/local/sbin/pve-config-offsite
+        - "{{ pve_config_offsite_known_hosts }}"
+      register: pve_config_offsite_removed
+
+    - name: Reload systemd after removing units
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when:
+        - pve_config_offsite_removed.changed
+        - not ansible_check_mode

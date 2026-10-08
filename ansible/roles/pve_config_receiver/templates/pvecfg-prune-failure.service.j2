@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/pve_config_receiver, #568)
+[Unit]
+Description=Alert that a node's encrypted /etc/pve copy is missing or stale
+ConditionPathExists={{ pve_config_receiver_apprise_config }}
+
+[Service]
+Type=oneshot
+ExecStart={{ pve_config_receiver_apprise_bin }} -c {{ pve_config_receiver_apprise_config }} \
+    -t "/etc/pve off-cluster copies: problem on %H" \
+    -b "pvecfg-prune.service failed on %H: a node has not pushed its encrypted /etc/pve copy recently, or pruning failed. journalctl -u pvecfg-prune.service -n 30. Runbook: ansible/roles/pve_config_offsite/README.md (#568)."
+TimeoutStartSec=2min

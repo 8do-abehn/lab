@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/pve_config_offsite, #568)
+[Unit]
+Description=Alert that the encrypted /etc/pve history push failed
+ConditionPathExists={{ pve_config_offsite_apprise_config }}
+
+[Service]
+Type=oneshot
+ExecStart={{ pve_config_offsite_apprise_bin }} -c {{ pve_config_offsite_apprise_config }} \
+    -t "/etc/pve off-cluster push failed on %H" \
+    -b "pve-config-offsite.service failed on %H, so the backup host did not get today's encrypted copy. journalctl -u pve-config-offsite.service -n 50. Runbook: ansible/roles/pve_config_offsite/README.md (#568)."
+TimeoutStartSec=2min

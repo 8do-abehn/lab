@@ -1,0 +1,27 @@
+---
+# Encrypted, write-only daily copy of each node's /etc/pve history to the backup
+# host (#568). The history itself is roles/pve_config_history (#434).
+
+# age public key (age1...) the copies are encrypted to. The private key lives
+# off-cluster (Bitwarden). Empty = disabled: nothing is installed, and anything
+# previously installed is removed. See README.md for generating the keypair.
+pve_config_offsite_recipient: ""
+
+# Inventory host running roles/pve_config_receiver. pi-burg today, pve006 after
+# #512. Its ssh host key is pinned from the receiver play, never accept-new.
+pve_config_offsite_target: pi-burg
+pve_config_offsite_target_address: "{{ pve_config_offsite_target }}"
+pve_config_offsite_user: pvecfg
+
+pve_config_offsite_key: /root/.ssh/id_pve_config_push
+pve_config_offsite_known_hosts: /root/.ssh/known_hosts_pve_config
+
+# Daily, after the hourly history snapshots; the receiver alerts if a node has
+# not pushed for 48 h, so daily also works as a liveness signal.
+pve_config_offsite_schedule: "*-*-* 03:30:00"
+
+pve_config_offsite_history_repo: /var/lib/pve-config-history
+pve_config_offsite_db: /var/lib/pve-config-history-db/config.db
+
+pve_config_offsite_apprise_config: /etc/apprise.yml
+pve_config_offsite_apprise_bin: /usr/local/bin/apprise

@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/pve_config_offsite, #568)
+[Unit]
+Description=Daily encrypted /etc/pve history push
+
+[Timer]
+OnCalendar={{ pve_config_offsite_schedule }}
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

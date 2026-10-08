@@ -1,0 +1,163 @@
+---
+# Only when this run carries at least one client key (from pve_config_offsite's
+# keys.yml earlier in site.yml). With --limit to this host alone, or before any
+# recipient is set, there are none, and the receiver is left exactly as it is
+# rather than having its authorized keys emptied.
+- name: Collect the push keys from this run
+  ansible.builtin.set_fact:
+    pve_config_receiver_clients: "{{ pve_config_receiver_clients | default([]) + [{'name': item, 'key': hostvars[item].pve_config_offsite_pubkey}] }}"
+  loop: "{{ groups[pve_config_receiver_clients_group] | default([]) }}"
+  when: hostvars[item].pve_config_offsite_pubkey is defined
+
+- name: Publish this host's ssh host key for the clients to pin
+  block:
+    - name: Read the ed25519 host key
+      ansible.builtin.slurp:
+        src: /etc/ssh/ssh_host_ed25519_key.pub
+      register: pve_config_receiver_hostkey_raw
+
+    - name: Publish it as a fact
+      ansible.builtin.set_fact:
+        pve_config_receiver_hostkey: "{{ (pve_config_receiver_hostkey_raw.content | b64decode).split()[:2] | join(' ') }}"
+
+- name: Install the receiver
+  when: (pve_config_receiver_clients | default([])) | length > 0
+  vars:
+    pve_config_receiver_nodes: "{{ pve_config_receiver_clients | map(attribute='name') | list }}"
+  block:
+    - name: Require Apprise for the stale-copy alert
+      ansible.builtin.stat:
+        path: "{{ pve_config_receiver_apprise_config }}"
+      register: pve_config_receiver_apprise
+
+    - name: Refuse to install without an alert path
+      ansible.builtin.assert:
+        that: pve_config_receiver_apprise.stat.exists
+        fail_msg: >-
+          {{ pve_config_receiver_apprise_config }} is missing, so a node that stops
+          pushing would go unnoticed. Apply roles/smart_monitoring to this host first.
+        quiet: true
+
+    - name: Create the push-only user (locked password, keys only)
+      ansible.builtin.user:
+        name: "{{ pve_config_receiver_user }}"
+        system: true
+        shell: /bin/sh
+        home: "/var/lib/{{ pve_config_receiver_user }}"
+        create_home: true
+        password: "!"
+        password_lock: true
+
+    - name: Create the storage root
+      ansible.builtin.file:
+        path: "{{ pve_config_receiver_root }}"
+        state: directory
+        owner: "{{ pve_config_receiver_user }}"
+        group: "{{ pve_config_receiver_user }}"
+        mode: "0700"
+
+    - name: Create a directory per node
+      ansible.builtin.file:
+        path: "{{ pve_config_receiver_root }}/{{ item }}"
+        state: directory
+        owner: "{{ pve_config_receiver_user }}"
+        group: "{{ pve_config_receiver_user }}"
+        mode: "0700"
+      loop: "{{ pve_config_receiver_nodes }}"
+
+    # mtime marks when a node was first expected, for the never-pushed grace.
+    - name: Mark when each node was first expected
+      ansible.builtin.file:
+        path: "{{ pve_config_receiver_root }}/{{ item }}/.created"
+        state: touch
+        owner: "{{ pve_config_receiver_user }}"
+        group: "{{ pve_config_receiver_user }}"
+        mode: "0600"
+        modification_time: preserve
+        access_time: preserve
+      loop: "{{ pve_config_receiver_nodes }}"
+
+    - name: Deploy the receive and prune scripts
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - {src: pvecfg-receive.sh.j2, dest: /usr/local/sbin/pvecfg-receive, mode: "0755"}
+        - {src: pvecfg-prune.py.j2, dest: /usr/local/sbin/pvecfg-prune, mode: "0750"}
+      loop_control:
+        label: "{{ item.dest }}"
+
+    - name: Create the root-owned authorized keys directory
+      ansible.builtin.file:
+        path: /etc/ssh/authorized_keys.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy the forced-command keys
+      ansible.builtin.template:
+        src: authorized_keys.j2
+        dest: "/etc/ssh/authorized_keys.d/{{ pve_config_receiver_user }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    # sshd -t checks the whole config including this drop-in; a broken file is
+    # removed again before anything reloads, so ssh access is never at risk.
+    - name: Lock down sshd for the push user
+      block:
+        - name: Deploy the sshd drop-in
+          ansible.builtin.template:
+            src: sshd-pvecfg.conf.j2
+            dest: /etc/ssh/sshd_config.d/99-pvecfg.conf
+            owner: root
+            group: root
+            mode: "0644"
+          register: pve_config_receiver_sshd
+
+        - name: Validate the full sshd config
+          ansible.builtin.command: /usr/sbin/sshd -t
+          changed_when: false
+          when: pve_config_receiver_sshd.changed and not ansible_check_mode
+      rescue:
+        - name: Remove the drop-in that failed validation
+          ansible.builtin.file:
+            path: /etc/ssh/sshd_config.d/99-pvecfg.conf
+            state: absent
+
+        - name: Stop here
+          ansible.builtin.fail:
+            msg: sshd -t rejected 99-pvecfg.conf; removed it, sshd was not reloaded.
+
+    - name: Reload sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: reloaded
+      when:
+        - pve_config_receiver_sshd.changed
+        - not ansible_check_mode
+
+    - name: Deploy prune units
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "/etc/systemd/system/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - pvecfg-prune.service
+        - pvecfg-prune.timer
+        - pvecfg-prune-failure.service
+      register: pve_config_receiver_units
+
+    - name: Enable the daily prune timer
+      ansible.builtin.systemd:
+        name: pvecfg-prune.timer
+        state: started
+        enabled: true
+        daemon_reload: "{{ pve_config_receiver_units.changed }}"
+      when: not ansible_check_mode

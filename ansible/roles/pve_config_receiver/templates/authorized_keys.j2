@@ -1,0 +1,5 @@
+# Managed by Ansible (roles/pve_config_receiver, #568). Root-owned so the push
+# user cannot change its own keys. One forced command per node.
+{% for c in pve_config_receiver_clients %}
+restrict,command="/usr/local/sbin/pvecfg-receive {{ c.name }}" {{ c.key }}
+{% endfor %}

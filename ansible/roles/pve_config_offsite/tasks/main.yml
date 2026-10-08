@@ -1,0 +1,10 @@
+---
+# site.yml runs this role in two halves around roles/pve_config_receiver:
+#   keys.yml  -> receiver (authorizes the keys, publishes its host key) -> push.yml
+# Running the whole role at once only works when the receiver already ran in the
+# same play run, so prefer site.yml --tags pve_config.
+- name: Prepare push key
+  ansible.builtin.include_tasks: keys.yml
+
+- name: Install push
+  ansible.builtin.include_tasks: push.yml

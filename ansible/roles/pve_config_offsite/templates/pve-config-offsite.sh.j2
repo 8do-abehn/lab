@@ -1,0 +1,38 @@
+#!/bin/bash
+# Managed by Ansible (roles/pve_config_offsite, #568)
+#
+# Encrypt this node's /etc/pve history (git bundle + latest config.db) to the
+# off-cluster age key and push it to the backup host. The receiver only accepts
+# it if the SHA-256 sent as the ssh command matches what arrived, so a push that
+# dies halfway is rejected instead of stored as a truncated "latest" copy.
+set -euo pipefail
+export LC_ALL=C
+
+REPO={{ pve_config_offsite_history_repo | quote }}
+DB={{ pve_config_offsite_db | quote }}
+RECIPIENT={{ pve_config_offsite_recipient | quote }}
+TARGET={{ (pve_config_offsite_user ~ '@' ~ pve_config_offsite_target_address) | quote }}
+KEY={{ pve_config_offsite_key | quote }}
+KNOWN_HOSTS={{ pve_config_offsite_known_hosts | quote }}
+
+[[ -d "$REPO/.git" ]] || { echo "no history at $REPO yet" >&2; exit 1; }
+[[ -s "$DB" ]] || { echo "no config.db copy at $DB yet" >&2; exit 1; }
+
+# tmpfs: the plaintext (cluster CA key, keyrings) never touches a disk here.
+umask 077
+work=$(mktemp -d /run/pve-config-offsite.XXXXXX)
+trap 'rm -rf "$work"' EXIT
+
+git -C "$REPO" bundle create "$work/history.bundle" --all 2>/dev/null
+git -C "$REPO" bundle verify --quiet "$work/history.bundle"
+# config.db is swapped in with mv by pve-config-history, so a plain copy is whole.
+cp "$DB" "$work/config.db"
+tar -C "$work" -cf "$work/payload.tar" history.bundle config.db
+age -r "$RECIPIENT" -o "$work/payload.tar.age" "$work/payload.tar"
+rm -f "$work/payload.tar" "$work/history.bundle" "$work/config.db"
+
+sum=$(sha256sum "$work/payload.tar.age" | cut -c1-64)
+ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
+    -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" \
+    -o ConnectTimeout=30 -o ServerAliveInterval=15 \
+    "$TARGET" "$sum" < "$work/payload.tar.age"
