@@ -1,0 +1,121 @@
+---
+# Ceph redundancy alert (#529). See defaults/main.yml for what it checks and
+# why. Needs /etc/apprise.yml and apprise from smart_monitoring, so site.yml
+# runs this after that role. A no-op on hosts that are not in a Ceph cluster
+# (/usr/bin/ceph alone proves nothing: PVE installs ceph-common everywhere).
+
+- name: Check whether this host is a Ceph cluster member
+  ansible.builtin.stat:
+    path: /etc/pve/ceph.conf
+  register: ceph_check_member
+
+- name: Deploy the Ceph redundancy check script
+  ansible.builtin.template:
+    src: ceph-redundancy-check.py.j2
+    dest: "{{ ceph_check_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - ceph_check_enabled | bool
+    - ceph_check_member.stat.exists
+
+- name: Install the Ceph redundancy check service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ceph-redundancy-check.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/ceph_redundancy_check)
+      [Unit]
+      Description=Alert when Ceph loses redundancy (OSDs down, no MDS/mgr standby, no quorum)
+      Documentation=https://github.com/8do-abehn/lab/issues/529
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ ceph_check_script }}
+      StateDirectory=ceph-redundancy-check
+      Nice=10
+      # Belt and braces with the script's own timeouts: a hung run would
+      # otherwise block every later run of the timer.
+      TimeoutStartSec=4min
+  register: ceph_check_unit
+  when:
+    - ceph_check_enabled | bool
+    - ceph_check_member.stat.exists
+
+- name: Install the Ceph redundancy check timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ceph-redundancy-check.timer
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/ceph_redundancy_check)
+      [Unit]
+      Description=Check Ceph redundancy every {{ ceph_check_interval }}
+      Documentation=https://github.com/8do-abehn/lab/issues/529
+
+      [Timer]
+      # Give a freshly booted node time to rejoin before it judges anything.
+      OnBootSec=10min
+      OnUnitActiveSec={{ ceph_check_interval }}
+      AccuracySec=30s
+
+      [Install]
+      WantedBy=timers.target
+  register: ceph_check_timer
+  when:
+    - ceph_check_enabled | bool
+    - ceph_check_member.stat.exists
+
+# Skipped under --check: the copy tasks above do not write the unit files in
+# check mode, so systemd would fail with "Could not find the requested service".
+- name: Enable the Ceph redundancy check timer
+  ansible.builtin.systemd:
+    name: ceph-redundancy-check.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ (ceph_check_unit.changed or ceph_check_timer.changed) | bool }}"
+  when:
+    - ceph_check_enabled | bool
+    - ceph_check_member.stat.exists
+    - not ansible_check_mode
+
+# ceph_check_enabled: false takes it all out again, rather than leaving the
+# last-deployed timer running on its own.
+- name: Check for an installed Ceph redundancy check timer
+  ansible.builtin.stat:
+    path: /etc/systemd/system/ceph-redundancy-check.timer
+  register: ceph_check_timer_file
+  when: not (ceph_check_enabled | bool)
+
+- name: Stop and disable the Ceph redundancy check timer
+  ansible.builtin.systemd:
+    name: ceph-redundancy-check.timer
+    enabled: false
+    state: stopped
+  when:
+    - not (ceph_check_enabled | bool)
+    - ceph_check_timer_file.stat.exists
+
+- name: Remove the Ceph redundancy check
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/ceph-redundancy-check.timer
+    - /etc/systemd/system/ceph-redundancy-check.service
+    - "{{ ceph_check_script }}"
+    - /var/lib/ceph-redundancy-check
+  register: ceph_check_removed
+  when: not (ceph_check_enabled | bool)
+
+- name: Reload systemd after removing the Ceph redundancy check
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when:
+    - not (ceph_check_enabled | bool)
+    - ceph_check_removed.changed
+    - not ansible_check_mode

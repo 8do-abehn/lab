@@ -1,0 +1,54 @@
+---
+# Keep Ceph daemons retrying while their node cannot reach a mon quorum (#529).
+#
+# On 2026-09-27 the Flex-XG switch was down (#524) and pve01/pve03 booted with
+# no uplink. mds, mgr and every OSD sat inside global_init() waiting to fetch
+# their config from a mon quorum that did not exist, gave up after
+# client_mount_timeout (300s), and were restarted by systemd. Two things then
+# left them dead for good, and either one alone would have:
+#
+#   1. The stock start limit (3 starts per 30min). A fourth attempt ~15min after
+#      boot is refused, the unit goes `failed`, and nothing retries again,
+#      including after the network comes back.
+#   2. Logrotate's nightly `killall -1`. Until global_init() returns, SIGHUP
+#      still has its default action and terminates the daemon. systemd counts
+#      death by SIGHUP as a CLEAN exit, so Restart=on-failure does not fire and
+#      the unit just shows "Deactivated successfully".
+#
+# The drop-in fixes both. systemd's start limit is a fixed window opened by
+# the first start; it is sized here so a daemon waiting on quorum never hits
+# it, but one that crashes quickly still does:
+#
+#   waiting on quorum: one start per 300s timeout + restart_sec = every 330s,
+#                      so at most 3 starts per 15min window, 4 if a logrotate
+#                      HUP lands mid-wait. The burst of 5 leaves one start
+#                      spare for an admin restart or a manual logrotate -f.
+#   crashing fast:     6 starts land inside 15min whenever a run dies within
+#                      ~150s, so the 6th is refused and the unit goes `failed`
+#                      (which ceph_redundancy_check then reports).
+#
+# Trade-off, chosen deliberately: no start limit can tell "waiting on quorum"
+# from "crashes after five minutes", because both look like one long failed
+# run. Stock (3 per 30min, RestartSec 10) parks anything dying within ~590s.
+# This parks only deaths within ~150s, so an OSD that dies 150-590s after
+# start (failing disk, suicide timeout) now keeps retrying instead of being
+# parked. ceph_redundancy_check will still report it as OSD_DOWN. The stock
+# behaviour is what left six OSDs dead for hours after a network outage,
+# which is the more likely failure here.
+#
+# If client_mount_timeout or restart_sec change, redo that arithmetic.
+#
+# false removes the drop-in again (stock unit behaviour); no daemon restarts.
+ceph_restart_enabled: true
+
+# ceph-mon is deliberately absent: it starts with CINIT_FLAG_NO_MON_CONFIG, never
+# waits on a quorum, and installs its SIGHUP handler right away.
+ceph_restart_daemons:
+  - osd
+  - mds
+  - mgr
+
+# Stock values are 10s for osd/mgr and systemd's default 100ms for mds.
+ceph_restart_sec: 30
+ceph_restart_start_limit_interval: 15min
+ceph_restart_start_limit_burst: 5
