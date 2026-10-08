@@ -14,3 +14,10 @@ tailscale_serve_services:
   - name: jellyfin
     upstream: 127.0.0.1:8096
     https: 443
+
+# /mnt/library is no longer ceph-fuse (#591). Since 2026-10-08 it is a Proxmox
+# bind mount of pve's kernel CephFS client (3001.conf: mp0 .../library,
+# mp=/mnt/library,shared=1). Off here so cephfs_client does not re-enable the
+# ceph-fuse watchdog. That watchdog would treat a sick bind mount as a stale
+# FUSE mount, unmount it, and start ceph-fuse on top.
+cephfs_client_enabled: false
