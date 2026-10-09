@@ -96,16 +96,26 @@ jobs:
       - name: Run Ansible playbook in check mode
         env:
           ANSIBLE_HOST_KEY_CHECKING: 'False'
+          # Hosts that are genuinely offline at times for reasons unrelated to any PR
+          # (pi-burg: a Pi on Wi-Fi at another house). Unreachable here becomes a warning
+          # instead of a failure; a failed TASK on them still fails the job. See #599.
+          CI_OPTIONAL_HOSTS: 'pi-burg'
         run: |
           cd ansible
           # Cloudflare plays are skipped here: they call the live Cloudflare
           # API from the target host, so a stale token fails unrelated PRs.
           # They still run in the manual ansible-deploy workflow.
+          # Capture output and exit code instead of failing immediately, so
+          # recap_gate.py can tell a real failure from an optional host being down.
+          set +e
           ansible-playbook -i inventory/homelab.yml site.yml \
             --vault-password-file /tmp/vault_pass \
             --check \
             --diff \
-            --skip-tags cloudflare
+            --skip-tags cloudflare 2>&1 | tee /tmp/ansible-ci.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          python3 ../.github/ci/recap_gate.py --rc "$rc" --optional "$CI_OPTIONAL_HOSTS" /tmp/ansible-ci.log
 
       - name: Clean up vault password
         if: always()
