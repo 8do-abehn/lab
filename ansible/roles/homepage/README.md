@@ -16,7 +16,7 @@ on loopback. The units come from `tailscale_serve_services` (roles/tailscale).
 | `home` | mem01 | Homepage, `127.0.0.1:3010` |
 | `chat` | mem01 | Open WebUI, `127.0.0.1:3000` |
 | `proxmox` | pve01, pve02, pve03 | `https+insecure://127.0.0.1:8006` |
-| `unifi` | unifi | `https+insecure://127.0.0.1:8443` |
+| `network` | unifi | `https+insecure://127.0.0.1:8443` |
 | `jellyfin` | jellyfin01 | already existed |
 | `immich` | immich01 | already existed |
 | `dns` | dns01, dns02 | already existed (adguard_home role) |
@@ -37,7 +37,7 @@ on loopback. The units come from `tailscale_serve_services` (roles/tailscale).
 A Tailscale Service has to exist in the admin console before a host can serve
 it, and a host's advertisement has to be approved.
 
-1. Admin console, Services: define `home`, `chat`, `proxmox` and `unifi`,
+1. Admin console, Services: define `home`, `chat`, `proxmox` and `network`,
    each with endpoint `tcp:443`.
 2. Approve the hosts when they advertise, or add auto-approval to the policy
    file so rebuilds need no clicks:
@@ -48,7 +48,7 @@ it, and a host's advertisement has to be approved.
        "svc:home":    ["tag:mem0"],
        "svc:chat":    ["tag:mem0"],
        "svc:proxmox": ["tag:proxmox"],
-       "svc:unifi":   ["tag:unifi"],
+       "svc:network": ["tag:unifi"],
      },
    },
    ```

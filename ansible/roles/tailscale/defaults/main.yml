@@ -17,6 +17,12 @@ tailscale_accept_dns: true
 #       https: 443                # optional, defaults to 443
 tailscale_serve_services: []
 
+# Service names this host used to serve and no longer should, e.g. after a
+# rename. Their units are stopped, the serve config cleared and the unit file
+# deleted. Entries can be dropped once every host has been deployed.
+#   tailscale_serve_services_removed: [unifi]
+tailscale_serve_services_removed: []
+
 # Certificate settings
 tailscale_setup_proxmox_certs: false
 tailscale_cert_path: /etc/pve/local/pveproxy-ssl.pem

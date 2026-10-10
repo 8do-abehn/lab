@@ -11,4 +11,4 @@
   when: tailscale_setup_proxmox_certs | default(false)
 - name: Include Tailscale serve persistence tasks
   ansible.builtin.include_tasks: serve.yml
-  when: tailscale_serve_services | length > 0
+  when: (tailscale_serve_services + tailscale_serve_services_removed) | length > 0

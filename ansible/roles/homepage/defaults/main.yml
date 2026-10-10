@@ -57,10 +57,10 @@ homepage_services:
           description: pve01-03 cluster
           siteMonitor: "https://proxmox.{{ tailnet_domain }}"
       - UniFi:
-          href: "https://unifi.{{ tailnet_domain }}"
+          href: "https://network.{{ tailnet_domain }}"
           icon: unifi.png
           description: Network controller
-          siteMonitor: "https://unifi.{{ tailnet_domain }}"
+          siteMonitor: "https://network.{{ tailnet_domain }}"
       - AdGuard Home:
           href: "https://dns.{{ tailnet_domain }}"
           icon: adguard-home.png

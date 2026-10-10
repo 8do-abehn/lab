@@ -21,3 +21,35 @@
   loop_control:
     label: "svc:{{ item.name }}"
   when: not ansible_check_mode
+
+# A unit's ExecStop turns its serve off, but the service's config stays on the
+# node until it is cleared, so clear it explicitly.
+- name: Stop and disable serve units for removed services
+  ansible.builtin.systemd:
+    name: "tailscale-serve-{{ item }}.service"
+    enabled: false
+    state: stopped
+  loop: "{{ tailscale_serve_services_removed }}"
+  loop_control:
+    label: "svc:{{ item }}"
+  register: tailscale_serve_removed_units
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Clear serve config for removed services
+  ansible.builtin.command: "tailscale serve clear svc:{{ item }}"
+  # Only the ones whose unit was just stopped, so a second run is a no-op.
+  loop: "{{ tailscale_serve_removed_units.results | default([]) | selectattr('changed') | map(attribute='item') | list }}"
+  loop_control:
+    label: "svc:{{ item }}"
+  changed_when: true
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Delete unit files for removed services
+  ansible.builtin.file:
+    path: "/etc/systemd/system/tailscale-serve-{{ item }}.service"
+    state: absent
+  loop: "{{ tailscale_serve_services_removed }}"
+  loop_control:
+    label: "svc:{{ item }}"

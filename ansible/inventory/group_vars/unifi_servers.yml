@@ -7,9 +7,16 @@
 tailscale_auth_key: "{{ vault_tailscale_unifi_auth_key | default('') }}"
 tailscale_tags: "tag:unifi"
 
-# svc:unifi for the controller UI. It only speaks HTTPS, with a self-signed
+# svc:network for the controller UI. It only speaks HTTPS, with a self-signed
 # certificate, hence https+insecure on loopback.
+# Not svc:unifi: the machine itself is named unifi, and MagicDNS answers
+# unifi.<tailnet> with the machine's address, never the service's.
 # Define the service in the admin console before deploying (roles/homepage).
 tailscale_serve_services:
-  - name: unifi
+  - name: network
     upstream: https+insecure://127.0.0.1:8443
+
+# svc:unifi was the first name for the service above (#607). Remove this once
+# the unifi host has been deployed with it.
+tailscale_serve_services_removed:
+  - unifi
