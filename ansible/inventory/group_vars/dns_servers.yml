@@ -11,10 +11,22 @@ tailscale_advertise_routes:
 adguard_home_tailscale_service: "svc:dns"
 adguard_home_password: "{{ vault_adguard_password }}"
 
-# Conditional forwarders intentionally empty: forwarding *.ts.net to MagicDNS
-# defeats AdGuard's authority for LAN-resident hosts and forces traffic through
-# the Tailscale subnet router at MTU 1280. See feedback_tailscale_magicdns_lan.md.
-adguard_home_conditional_forwards: []
+# The tailnet zone goes to MagicDNS so default-LAN devices resolve Tailscale
+# Service names (jellyfin.<tailnet>, home.<tailnet>, ...) to their 100.x
+# addresses. They then reach them through the router's 100.64.0.0/10 static
+# route to dns01, the subnet router, so that traffic crosses WireGuard at MTU
+# 1280. That is the price of one name everywhere with a valid certificate.
+#
+# The rewrites below still win over this forward, so LAN-resident hosts asked
+# for by host name (jellyfin01.<tailnet>) keep resolving to their LAN IP and
+# stay off the subnet router. That was the reason this list used to be empty.
+# See feedback_tailscale_magicdns_lan.md.
+#
+# 100.100.100.100 answers on any node running tailscaled, whatever its
+# --accept-dns setting, so dns01 and dns02 can both forward to it.
+adguard_home_conditional_forwards:
+  - domain: "{{ tailnet_domain }}"
+    upstream: 100.100.100.100
 
 # LAN-resident hosts that should resolve to LAN IPs even via Tailscale FQDN.
 adguard_home_rewrites:

@@ -53,6 +53,7 @@ ansible/
 │   ├── netdata/          # Monitoring agent with cloud connection
 │   ├── adguard_home/     # DNS server with Tailscale Service
 │   ├── mem0/             # AI memory stack (OpenMemory, Ollama, Open WebUI)
+│   ├── homepage/         # Service dashboard (svc:home)
 │   ├── backup_server/    # Pi backup server (disk mount, restic repo)
 │   ├── backup_client/    # Backup client (restic backup script, cron)
 │   ├── jellyfin_backup/  # Jellyfin rclone to B2
@@ -202,6 +203,12 @@ AI memory stack via Docker Compose:
 - Tailscale Service registration (`svc:mem0`)
 - Ollama model provisioning
 
+### homepage
+Homepage service dashboard via Docker Compose, served as `svc:home`:
+- Every tile links to a Tailscale Service name (`<name>.<tailnet>`)
+- The default LAN resolves those names through AdGuard's forward to MagicDNS
+- See `roles/homepage/README.md` for the one-time admin console setup
+
 ### jellyfin_backup
 Jellyfin-specific backup configuration:
 - rclone sync to Backblaze B2
@@ -229,6 +236,7 @@ Minecraft servers via Docker Compose:
 ### Service Groups
 - `dns_servers`: DNS servers (dns01)
 - `mem0_servers`: AI memory stack (mem01)
+- `dashboard_servers`: Homepage dashboard (mem01)
 - `minecraft_servers`: Minecraft servers (mc01-mc03) — currently commented out, see #317
 - `media_servers`: Media servers with backup clients (jellyfin01)
 - `immich_servers`: Immich photo library (immich01) — app installed by the community

@@ -1,0 +1,101 @@
+---
+# Homepage (gethomepage.dev) dashboard, served as svc:home
+
+homepage_dir: /opt/homepage
+homepage_image: "ghcr.io/gethomepage/homepage:v2.4.0"
+
+# Bound to loopback only: tailscale serve is the one way in, with TLS.
+homepage_port: 3010
+homepage_hostname: "home.{{ tailnet_domain }}"
+
+# Resolvers for the container. AdGuard on dns01 forwards the tailnet zone to
+# MagicDNS, which the site monitors need for the *.<tailnet> names; mem01
+# itself runs with --accept-dns=false and cannot resolve them.
+homepage_dns:
+  - 10.150.60.11
+  - 1.1.1.1
+
+homepage_settings:
+  title: Lab
+  theme: dark
+  color: slate
+  headerStyle: clean
+  statusStyle: dot
+  layout:
+    Media:
+      style: row
+      columns: 2
+    Infrastructure:
+      style: row
+      columns: 4
+    AI:
+      style: row
+      columns: 2
+
+# Rendered as-is into services.yaml, so this is Homepage's own format:
+# https://gethomepage.dev/configs/services/
+# Every href is a Tailscale Service name, which resolves and has a valid
+# certificate both on the tailnet and on the default LAN (through AdGuard).
+homepage_services:
+  - Media:
+      - Jellyfin:
+          href: "https://jellyfin.{{ tailnet_domain }}"
+          icon: jellyfin.png
+          description: Movies and TV
+          siteMonitor: "https://jellyfin.{{ tailnet_domain }}/health"
+      - Immich:
+          href: "https://immich.{{ tailnet_domain }}"
+          icon: immich.png
+          description: Photo library
+          siteMonitor: "https://immich.{{ tailnet_domain }}"
+  - Infrastructure:
+      - Proxmox:
+          href: "https://proxmox.{{ tailnet_domain }}"
+          icon: proxmox.png
+          description: pve01-03 cluster
+          siteMonitor: "https://proxmox.{{ tailnet_domain }}"
+      - UniFi:
+          href: "https://unifi.{{ tailnet_domain }}"
+          icon: unifi.png
+          description: Network controller
+          siteMonitor: "https://unifi.{{ tailnet_domain }}"
+      - AdGuard Home:
+          href: "https://dns.{{ tailnet_domain }}"
+          icon: adguard-home.png
+          description: DNS and ad blocking
+          siteMonitor: "https://dns.{{ tailnet_domain }}"
+      - Netdata:
+          href: https://app.netdata.cloud
+          icon: netdata.png
+          description: Monitoring
+  - AI:
+      - Open WebUI:
+          href: "https://chat.{{ tailnet_domain }}"
+          icon: open-webui.png
+          description: Chat with the local models
+          siteMonitor: "https://chat.{{ tailnet_domain }}"
+      - OpenMemory:
+          icon: mdi-brain
+          description: Memory API for agents, no UI
+          siteMonitor: "https://mem0.{{ tailnet_domain }}/health"
+
+homepage_bookmarks:
+  - Lab:
+      - Blog:
+          - href: https://lab.8devops.com
+            abbr: BL
+      - Repo:
+          - href: https://github.com/8do-abehn/lab
+            icon: github.png
+      - Tailscale:
+          - href: https://login.tailscale.com/admin/machines
+            icon: tailscale.png
+
+homepage_widgets:
+  - datetime:
+      format:
+        dateStyle: medium
+        timeStyle: short
+  - search:
+      provider: duckduckgo
+      target: _blank

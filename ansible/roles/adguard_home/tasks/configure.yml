@@ -34,6 +34,7 @@
     - manage_blocked_services.py
     - manage_users.py
     - manage_settings.py
+    - manage_forwards.py
 
 - name: Reconcile AdGuard Home web/DNS bind settings
   ansible.builtin.command: /opt/AdGuardHome/manage_settings.py
@@ -52,6 +53,14 @@
     stdin: "{{ adguard_home_rewrites | to_json }}"
   register: rewrite_result
   changed_when: rewrite_result.stdout == "CHANGED"
+  notify: Restart AdGuard Home
+
+- name: Reconcile AdGuard Home conditional forwards
+  ansible.builtin.command: /opt/AdGuardHome/manage_forwards.py
+  args:
+    stdin: "{{ adguard_home_conditional_forwards | to_json }}"
+  register: forwards_result
+  changed_when: forwards_result.stdout == "CHANGED"
   notify: Restart AdGuard Home
 
 - name: Reconcile AdGuard Home blocked services
