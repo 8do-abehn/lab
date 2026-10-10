@@ -132,10 +132,14 @@ all:
           # (~2 MB/s to pi-burg: 28.5 GB took 4.5h+ on 2026-10-08). At 02:00 it
           # ran first and held the shared repo lock while unifi (02:15) and
           # immich01 (03:00) tried to apply retention, which then failed. Their
-          # snapshots were saved either way. At 04:00 both are long finished.
-          # immich01 cannot simply move earlier instead: it must run after
-          # Immich's own 02:30 database dump.
-          backup_cron_hour: "4"
+          # snapshots were saved either way.
+          #
+          # Night order (Central): Immich DB dump 00:30, immich01 00:45, unifi
+          # 01:15, jellyfin01 01:30. Moving Immich's own dump earlier (an Immich
+          # setting, see immich01 below) is what lets jellyfin01 start this early
+          # while still running last.
+          backup_cron_hour: "1"
+          backup_cron_minute: "30"
           # Designated prune host. Prune reclaims space for the whole shared repo,
           # so exactly one client should run it -- see backup_client defaults.
           backup_prune_enabled: true
@@ -164,19 +168,24 @@ all:
         # #483's flock only serializes restic jobs on ONE host; it does not stop
         # immich01 and jellyfin01 overlapping on the shared repo. restic's own
         # repo locks plus --retry-lock handle that, and the schedule keeps them
-        # apart: immich01 at 02:45, jellyfin01 at 04:00.
+        # apart: immich01 at 00:45, unifi at 01:15, jellyfin01 at 01:30.
         immich01:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
 
           # Immich dumps its own Postgres database to upload/backups nightly at
-          # 02:30 (3 retained, ~375 MB each, done by about 02:31), so no
-          # pre-backup hook is needed.
+          # 00:30 (3 retained, ~375 MB each, done in under a minute), so no
+          # pre-backup hook is needed. That time is NOT managed here: it is
+          # Immich's own setting (Administration > Settings > Backup, stored as
+          # backup.database.cronExpression = "30 0 * * *"; was "30 2 * * *"
+          # until 2026-10-09). Change both together.
           # But run AFTER that, or each snapshot carries the previous night's
           # dump and the metadata trails the photos by a day. Photos without
           # albums, faces and metadata are not a restore.
-          # 02:45: fifteen minutes after the dump starts, which has finished in
-          # under a minute every night checked (02:30:00 to 02:30:49).
-          backup_cron_hour: "2"
+          # 00:45: fifteen minutes after the dump starts, which has finished in
+          # under a minute every night checked (xx:30:00 to xx:30:49). This
+          # backup itself has taken up to 12.7 minutes (2026-10-05), so it is
+          # done well before unifi at 01:15 and jellyfin01 at 01:30.
+          backup_cron_hour: "0"
           backup_cron_minute: "45"
 
           backup_paths:
@@ -275,6 +284,8 @@ all:
         # migration-era vzdump.
         unifi:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP, same as the other clients
+          # 01:15: after immich01 (00:45), before jellyfin01 (01:30).
+          backup_cron_hour: "1"
           backup_cron_minute: "15"
           backup_paths:
             - /var/lib/unifi/backup/autobackup
