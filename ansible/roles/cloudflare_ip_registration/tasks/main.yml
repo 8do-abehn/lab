@@ -137,7 +137,8 @@
   changed_when: false
   when: not ansible_check_mode
 
-- name: Deploy Worker via API
+# command-instead-of-module: an ES module Worker needs a multipart upload, which uri cannot send.
+- name: Deploy Worker via API  # noqa: command-instead-of-module
   ansible.builtin.command:
     cmd: >
       curl -s -X PUT

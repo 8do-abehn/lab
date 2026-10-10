@@ -11,9 +11,14 @@ Runs automatically when you create a PR that modifies Ansible files. Provides sa
 
 **Jobs:**
 1. **Lint** - Validates Ansible code quality with `ansible-lint`
-2. **Test Infrastructure** - Connects via Tailscale and runs playbook in `--check` mode
+2. **Syntax Check** - Syntax-checks every playbook with the vault password, covering what `ansible-lint` skips as `internal-error`
+3. **Vault Decrypts** - Confirms `vault.yml` decrypts with the repo secret
+4. **Test Infrastructure** - Connects via Tailscale and runs playbook in `--check` mode
 
 **Safe:** Only performs dry-run validation, no actual changes made.
+
+### [`shellcheck.yml`](workflows/shellcheck.yml)
+Runs `shellcheck --severity=warning` on tracked `*.sh` files when a PR changes one. Role templates (`*.sh.j2`) are not checked.
 
 ### [`ansible-deploy.yml`](workflows/ansible-deploy.yml)
 **Manual Deployment Workflow**

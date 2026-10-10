@@ -23,7 +23,8 @@
   changed_when: false
   when: proxmoxlib_file.stat.exists
 
-- name: Patch proxmoxlib.js to remove subscription nag
+# command-instead-of-module: mirrors the upstream post-install sed exactly, and is guarded by the grep above.
+- name: Patch proxmoxlib.js to remove subscription nag  # noqa: command-instead-of-module
   ansible.builtin.command: sed -i.bak -e "/data\.status/ s/!//" -e "/data\.status/ s/active/NoMoreNagging/"
     /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
   when:

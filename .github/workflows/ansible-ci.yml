@@ -22,6 +22,43 @@ jobs:
           cd ansible
           ansible-lint
 
+  # ansible-lint skips internal-error (see ansible/.ansible-lint) because its
+  # syntax-check cannot decrypt vault.yml without the password. This job has
+  # the password, so syntax errors in vault-loading playbooks still fail CI.
+  # Test Against Infrastructure only parses site.yml, not the other playbooks.
+  syntax:
+    name: Syntax Check
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/8do-abehn/lab/ansible-ci:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Syntax-check every playbook
+        shell: bash
+        env:
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f /tmp/vault_pass' EXIT
+          printf '%s' "$VAULT_PASSWORD" > /tmp/vault_pass
+          chmod 600 /tmp/vault_pass
+
+          cd ansible
+          status=0
+          for playbook in *.yml; do
+            # vault.yml is the encrypted vars file, not a playbook.
+            [ "$playbook" = "vault.yml" ] && continue
+            echo "::group::$playbook"
+            if ! ansible-playbook --syntax-check "$playbook" --vault-password-file /tmp/vault_pass; then
+              echo "::error file=ansible/$playbook::syntax check failed"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
   # Runs in parallel with the slow job on purpose. "Test Against Infrastructure"
   # decrypts the vault only as a side effect of a full check-mode run against
   # every host, so a bad ANSIBLE_VAULT_PASSWORD and a Tailscale flake look
