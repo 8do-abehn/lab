@@ -1,0 +1,10 @@
+# Managed by Ansible (roles/pve_config_receiver, #568)
+[Unit]
+Description=Daily prune and freshness check of encrypted /etc/pve copies
+
+[Timer]
+OnCalendar={{ pve_config_receiver_prune_schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+---
+# Proxmox nodes (pve01-03).
+
+# /etc/pve history off-cluster copy (#568, roles/pve_config_offsite). Kept in
+# inventory, not role defaults, because the receiver on the backup host reads
+# both through hostvars to decide whether it is the active target.
+#
+# age PUBLIC keys only (age1...), never the private keys. Empty = disabled.
+# Setup, rotation and restore: ansible/roles/pve_config_offsite/README.md
+pve_config_offsite_recipients: []
+# Inventory host that receives the copies (pi-burg until #512 moves it to pve006)
+pve_config_offsite_target: pi-burg

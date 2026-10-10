@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/pve_config_receiver, #568)
+[Unit]
+Description=Prune encrypted /etc/pve copies and check every node pushed recently
+RequiresMountsFor={{ pve_config_receiver_root }}
+OnFailure=pvecfg-prune-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pvecfg-prune
+Nice=10
+IOSchedulingClass=idle

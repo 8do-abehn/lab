@@ -1,0 +1,59 @@
+#!/bin/bash
+# Managed by Ansible (roles/pve_config_receiver, #568)
+#
+# Forced command for one Proxmox node's push key:
+#   restrict,command="/usr/local/sbin/pvecfg-receive <node>" <key>
+# The node name comes from authorized_keys, never from the client. The client may
+# only send the SHA-256 of what it uploads (as the ssh command) and the file on
+# stdin. It cannot list, read, overwrite or delete anything.
+set -euo pipefail
+# The client can set LANG/LC_* through AcceptEnv; do not let it steer anything.
+export LC_ALL=C PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+
+ROOT={{ pve_config_receiver_root | quote }}
+UPLOAD_CAP=$(( {{ pve_config_receiver_upload_cap_mb | int }} * 1024 * 1024 ))
+NODE_CAP_MB={{ pve_config_receiver_node_cap_mb | int }}
+MIN_FREE_MB={{ pve_config_receiver_min_free_mb | int }}
+
+fail() { echo "pvecfg-receive: $*" >&2; exit 1; }
+
+node="${1:-}"
+[[ "$node" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || fail "bad node name"
+want="${SSH_ORIGINAL_COMMAND:-}"
+[[ "$want" =~ ^[0-9a-f]{64}$ ]] || fail "expected the upload's sha256 as the only command"
+
+dir="$ROOT/$node"
+[[ -d "$dir" ]] || fail "no directory for $node"
+
+# One upload per node at a time, so parallel sessions cannot race the checks.
+exec 9>"$dir/.lock"
+flock -n 9 || fail "another upload for $node is in progress"
+
+free_mb=$(df -Pm "$dir" | awk 'NR==2 {print $4}')
+(( free_mb >= MIN_FREE_MB )) || fail "only ${free_mb} MiB free (floor ${MIN_FREE_MB})"
+used_mb=$(du -sm "$dir" | awk '{print $1}')
+(( used_mb < NODE_CAP_MB )) || fail "$node already uses ${used_mb} MiB (cap ${NODE_CAP_MB})"
+
+tmp="$dir/.incoming.$$"
+trap 'rm -f "$tmp"' EXIT
+# Read at most one byte past the cap, so an oversize upload is caught while
+# reading instead of after filling the disk.
+head -c $(( UPLOAD_CAP + 1 )) > "$tmp"
+size=$(stat -c %s "$tmp")
+(( size > 0 )) || fail "empty upload"
+(( size <= UPLOAD_CAP )) || fail "upload over $(( UPLOAD_CAP / 1024 / 1024 )) MiB"
+
+# Refuse anything that is not age ciphertext: a misconfigured client must never
+# leave the cluster CA key here in plaintext.
+[[ "$(head -c 21 "$tmp")" == "age-encryption.org/v1" ]] || fail "not age-encrypted; refused"
+
+# The upload is only complete if it hashes to what the client said it sent.
+got=$(sha256sum "$tmp" | cut -c1-64)
+[[ "$got" == "$want" ]] || fail "sha256 mismatch (truncated or corrupted upload); refused"
+
+name="$node-$(date -u +%Y%m%dT%H%M%SZ).tar.age"
+[[ ! -e "$dir/$name" ]] || fail "$name already exists; retry in a second"
+mv -n "$tmp" "$dir/$name"
+trap - EXIT
+echo "stored $name ($size bytes)"

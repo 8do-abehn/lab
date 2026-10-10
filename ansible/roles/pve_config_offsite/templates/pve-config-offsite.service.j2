@@ -1,0 +1,16 @@
+# Managed by Ansible (roles/pve_config_offsite, #568)
+[Unit]
+Description=Push encrypted /etc/pve history to the backup host
+After=network-online.target pve-config-history.service
+Wants=network-online.target
+OnFailure=pve-config-offsite-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pve-config-offsite
+Nice=10
+IOSchedulingClass=idle
+ProtectSystem=full
+PrivateTmp=true
+NoNewPrivileges=true
+TimeoutStartSec=15min

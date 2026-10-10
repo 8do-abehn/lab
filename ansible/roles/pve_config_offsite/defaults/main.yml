@@ -1,0 +1,30 @@
+---
+# Encrypted, write-only daily copy of each node's /etc/pve history to the backup
+# host (#568). The history itself is roles/pve_config_history (#434).
+
+# age public keys (age1...) every copy is encrypted to; any one of the matching
+# private keys can decrypt. List a primary key (Bitwarden) and a second offline
+# key, and to rotate, add the new key before removing the old one (copies made
+# while the old key was listed still need it, for up to 12 months of monthlies).
+# The private keys never touch the cluster. Empty = disabled: nothing is
+# installed, and anything previously installed is removed. See README.md.
+pve_config_offsite_recipients: []
+
+# Inventory host running roles/pve_config_receiver. pi-burg today, pve006 after
+# #512. Its ssh host key is pinned from the receiver play, never accept-new.
+pve_config_offsite_target: pi-burg
+pve_config_offsite_target_address: "{{ pve_config_offsite_target }}"
+pve_config_offsite_user: pvecfg
+
+pve_config_offsite_key: /root/.ssh/id_pve_config_push
+pve_config_offsite_known_hosts: /root/.ssh/known_hosts_pve_config
+
+# Daily, after the hourly history snapshots; the receiver alerts if a node has
+# not pushed for 48 h, so daily also works as a liveness signal.
+pve_config_offsite_schedule: "*-*-* 03:30:00"
+
+pve_config_offsite_history_repo: /var/lib/pve-config-history
+pve_config_offsite_db: /var/lib/pve-config-history-db/config.db
+
+pve_config_offsite_apprise_config: /etc/apprise.yml
+pve_config_offsite_apprise_bin: /usr/local/bin/apprise

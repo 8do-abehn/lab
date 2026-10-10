@@ -1,0 +1,105 @@
+#!/usr/bin/python3
+# Managed by Ansible (roles/pve_config_receiver, #568)
+#
+# Daily, as root, on the receiver: enforce time-based retention per node, clear
+# abandoned partial uploads, and fail (so OnFailure alerts) when a node has not
+# pushed recently. Retention lives here, not on the clients, so a compromised node
+# cannot shorten it. Files are named <node>-YYYYmmddTHHMMSSZ.tar.age by the
+# receiver itself, so the name is the timestamp.
+import os
+import re
+import sys
+import time
+from datetime import datetime, timedelta, timezone
+
+ROOT = {{ pve_config_receiver_root | to_json }}
+NODES = {{ pve_config_receiver_nodes | to_json }}
+KEEP = {"day": {{ pve_config_receiver_keep_daily | int }},
+        "week": {{ pve_config_receiver_keep_weekly | int }},
+        "month": {{ pve_config_receiver_keep_monthly | int }}}
+STALE = timedelta(hours={{ pve_config_receiver_stale_hours | int }})
+DRY_RUN = "--dry-run" in sys.argv
+
+NAME = re.compile(r"^(?P<node>[a-z0-9-]+)-(?P<ts>\d{8}T\d{6}Z)\.tar\.age$")
+
+
+def buckets(ts):
+    iso = ts.isocalendar()
+    return {"day": ts.strftime("%Y-%m-%d"),
+            "week": "%04d-W%02d" % (iso[0], iso[1]),
+            "month": ts.strftime("%Y-%m")}
+
+
+def keep_set(files):
+    """files: list of (ts, name), any order. Keep the newest file in each of the
+    most recent KEEP[tier] buckets of each tier (grandfather-father-son)."""
+    keep = set()
+    for tier, count in KEEP.items():
+        seen = []
+        for ts, name in sorted(files, reverse=True):
+            b = buckets(ts)[tier]
+            if b in seen:
+                continue
+            if len(seen) >= count:
+                break
+            seen.append(b)
+            keep.add(name)
+    return keep
+
+
+def main():
+    now = datetime.now(timezone.utc)
+    problems = []
+    for node in NODES:
+        d = os.path.join(ROOT, node)
+        if not os.path.isdir(d):
+            problems.append("%s: no directory %s" % (node, d))
+            continue
+        files = []
+        for entry in os.listdir(d):
+            path = os.path.join(d, entry)
+            if entry.startswith(".incoming."):
+                # An upload can finish (rename) between listdir and here.
+                try:
+                    if time.time() - os.lstat(path).st_mtime > 3600:
+                        print("removing abandoned partial upload %s" % path)
+                        if not DRY_RUN:
+                            os.remove(path)
+                except FileNotFoundError:
+                    pass
+                continue
+            m = NAME.match(entry)
+            if m and m.group("node") == node:
+                ts = datetime.strptime(m.group("ts"), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                files.append((ts, entry))
+
+        keep = keep_set(files)
+        for ts, name in files:
+            if name not in keep:
+                print("pruning %s/%s" % (node, name))
+                if not DRY_RUN:
+                    os.remove(os.path.join(d, name))
+
+        if files:
+            newest = max(files)[0]
+            if now - newest > STALE:
+                problems.append("%s: newest copy is from %s, %d h ago (alert after %d h)"
+                                % (node, newest.strftime("%Y-%m-%d %H:%M UTC"),
+                                   (now - newest).total_seconds() // 3600,
+                                   STALE.total_seconds() // 3600))
+        else:
+            # A node that has never pushed is only a problem once its directory
+            # has existed longer than the stale window (first deploy grace).
+            created = datetime.fromtimestamp(os.path.getmtime(os.path.join(d, ".created")), timezone.utc) \
+                if os.path.exists(os.path.join(d, ".created")) else now
+            if now - created > STALE:
+                problems.append("%s: has never pushed a copy" % node)
+        print("%s: %d kept" % (node, len(keep)))
+
+    for p in problems:
+        print("PROBLEM: " + p, file=sys.stderr)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

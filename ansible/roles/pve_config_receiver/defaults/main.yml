@@ -1,0 +1,26 @@
+---
+# Receives the encrypted daily /etc/pve history copies from the Proxmox nodes
+# (#568). Write-only per node: each node's key is forced to one command that can
+# store a new file under that node's name and nothing else.
+
+pve_config_receiver_user: pvecfg
+pve_config_receiver_root: "{{ backup_mount_point | default('/mnt/backup') }}/pve-config"
+# Group whose hosts push here; their keys come from roles/pve_config_offsite.
+pve_config_receiver_clients_group: proxmox
+
+# Disk-fill bounds against a compromised node, enforced while reading.
+pve_config_receiver_upload_cap_mb: 16     # one push is ~60 KiB-3 MiB
+pve_config_receiver_node_cap_mb: 1024     # per node directory
+pve_config_receiver_min_free_mb: 2048     # on the backup disk, shared with restic
+
+# Time-based retention per node, enforced here so a client can never shorten it.
+pve_config_receiver_keep_daily: 7
+pve_config_receiver_keep_weekly: 4
+pve_config_receiver_keep_monthly: 12
+
+# Alert when a node has not pushed for this long (it pushes daily).
+pve_config_receiver_stale_hours: 48
+pve_config_receiver_prune_schedule: "*-*-* 06:30:00"
+
+pve_config_receiver_apprise_config: /etc/apprise.yml
+pve_config_receiver_apprise_bin: /usr/local/bin/apprise

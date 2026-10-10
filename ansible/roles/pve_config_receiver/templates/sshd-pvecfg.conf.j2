@@ -1,0 +1,14 @@
+# Managed by Ansible (roles/pve_config_receiver, #568)
+# Defense in depth for the push-only user, whatever the global settings are
+# (#590: pi-burg allows password auth globally). No ForceCommand here: it would
+# override each key's command=, which is what ties a key to its node name.
+# Named 99- so it is the last drop-in: a Match block applies until the next Match
+# or the end of the file, so nothing may follow it in this file.
+Match User {{ pve_config_receiver_user }}
+    AuthenticationMethods publickey
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    AuthorizedKeysFile /etc/ssh/authorized_keys.d/{{ pve_config_receiver_user }}
+    DisableForwarding yes
+    PermitTTY no
+    PermitUserRC no

@@ -122,6 +122,41 @@
   roles:
     - pve_config_history
 
+# Encrypted, write-only daily copy of that history to the backup host (#568), in
+# three steps because each side needs something from the other in the same run:
+# node push keys -> receiver authorizes them and publishes its host key -> nodes
+# pin that host key and install the push. Disabled until
+# pve_config_offsite_recipients (age public keys) is set; see the role README.
+- name: Prepare /etc/pve off-cluster push keys
+  hosts: proxmox
+  become: true
+  tags:
+    - pve_config
+  tasks:
+    - name: Push keys
+      ansible.builtin.include_role:
+        name: pve_config_offsite
+        tasks_from: keys.yml
+
+- name: Receive encrypted /etc/pve copies
+  hosts: backup_servers
+  become: true
+  tags:
+    - pve_config
+  roles:
+    - pve_config_receiver
+
+- name: Push encrypted /etc/pve copies off-cluster
+  hosts: proxmox
+  become: true
+  tags:
+    - pve_config
+  tasks:
+    - name: Push
+      ansible.builtin.include_role:
+        name: pve_config_offsite
+        tasks_from: push.yml
+
 # Host-level counterpart to the in-container cephfs_client watchdog (#456):
 # catches D-state FUSE hangs (#516) that a probe running inside the container
 # can never detect, because it would hang inside its own health check too.
