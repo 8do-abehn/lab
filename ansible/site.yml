@@ -82,7 +82,7 @@
         mode: "0644"
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers:encoders
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers:encoders:claude_hosts
   become: true
   vars_files:
     - vault.yml
@@ -192,6 +192,12 @@
   become: true
   roles:
     - encoder
+
+- name: Configure Claude Code hosts
+  hosts: claude_hosts
+  become: true
+  roles:
+    - claude_code
 
 - name: Setup DNS servers
   hosts: dns_servers

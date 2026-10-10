@@ -97,6 +97,14 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # Claude Code host (VLAN 60). Always-on sessions steered from the phone
+    # with Remote Control. No outbound SSH to other hosts yet. See #575.
+    claude_hosts:
+      hosts:
+        claude01:  # LXC 3016 on pve03 -- Claude Code sessions in tmux, runs as user adambehn (no sudo)
+          ansible_user: root
+          # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     # Node placement is HA-managed and drifts; these are as of 2026-10-04.
