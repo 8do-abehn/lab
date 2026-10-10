@@ -3,7 +3,8 @@
 Reconcile AdGuard Home DNS rewrites with the desired list passed via stdin.
 
 Stdin: JSON list of {"domain": str, "answer": str} objects (the desired state).
-Reads/writes /opt/AdGuardHome/AdGuardHome.yaml in place.
+Reads/writes /opt/AdGuardHome/AdGuardHome.yaml in place, replacing only the
+keys it manages (agh_config.py, #605).
 Prints "CHANGED" if the file was modified, "OK" otherwise.
 Exit non-zero on error.
 """
@@ -12,6 +13,8 @@ import sys
 from pathlib import Path
 
 import yaml
+
+from agh_config import write_config
 
 CONFIG_PATH = Path("/opt/AdGuardHome/AdGuardHome.yaml")
 
@@ -23,7 +26,8 @@ def main() -> int:
         key=lambda r: (r["domain"], r["answer"]),
     )
 
-    cfg = yaml.safe_load(CONFIG_PATH.read_text())
+    text = CONFIG_PATH.read_text()
+    cfg = yaml.safe_load(text)
     filtering = cfg.setdefault("filtering", {})
     current = filtering.get("rewrites") or []
     current_normalized = sorted(
@@ -39,7 +43,7 @@ def main() -> int:
         return 0
 
     filtering["rewrites"] = desired_normalized
-    CONFIG_PATH.write_text(yaml.safe_dump(cfg, default_flow_style=False, sort_keys=False))
+    write_config(CONFIG_PATH, text, [(("filtering", "rewrites"), desired_normalized)], cfg)
     print("CHANGED")
     return 0
 

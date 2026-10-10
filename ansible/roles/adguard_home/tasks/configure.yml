@@ -29,6 +29,7 @@
     group: root
     mode: "0755"
   loop:
+    - agh_config.py
     - manage_rewrites.py
     - manage_blocked_services.py
     - manage_users.py
