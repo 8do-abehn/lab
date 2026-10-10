@@ -5,7 +5,9 @@
 # Claude Code refuses --dangerously-skip-permissions as root, and keeping the
 # sessions off root limits what a bad command can do inside the container.
 # No sudo on purpose; add packages through this role instead.
-claude_user: claude
+# Same username as the Mac so the phone SSH login and paths match. A literal,
+# not "{{ ansible_user }}": claude01 connects as root, so that var is root here.
+claude_user: adambehn
 
 # gh comes from Ubuntu universe, which avoids a third-party apt repo.
 claude_packages:

@@ -101,7 +101,7 @@ all:
     # with Remote Control. No outbound SSH to other hosts yet. See #575.
     claude_hosts:
       hosts:
-        claude01:  # LXC 3016 on pve03 -- Claude Code sessions in tmux, runs as user claude
+        claude01:  # LXC 3016 on pve03 -- Claude Code sessions in tmux, runs as user adambehn (no sudo)
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
