@@ -1,0 +1,7 @@
+---
+- name: Recreate Homepage
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ homepage_dir }}"
+  changed_when: true
+  when: not ansible_check_mode

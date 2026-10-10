@@ -1,0 +1,13 @@
+---
+# Host port for the Homepage dashboard. Open WebUI already holds 3000 here.
+homepage_port: 3010
+
+# Persist Tailscale serve config across LXC restarts (#396). svc:mem0 is still
+# registered one-shot by the mem0 role. Define these services in the admin
+# console before deploying (roles/homepage).
+tailscale_serve_services:
+  - name: home
+    upstream: "127.0.0.1:{{ homepage_port }}"
+  # Open WebUI, mem0_openwebui_port in the mem0 role.
+  - name: chat
+    upstream: 127.0.0.1:3000
