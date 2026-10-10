@@ -97,6 +97,12 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # Not managed by Ansible: dropbox, LXC 3102 on pve01 (VLAN 70, DHCP).
+    # Drop point for files from the client LAN. Bind mounts the Jellyfin
+    # library and cephfs-hdd/riplab. Not on the tailnet, so CI cannot reach it;
+    # listed here only so it is not forgotten. Pinned by the HA rule
+    # dropbox-bindmount-pin (#591). See #550, #600.
+
     # Claude Code host (VLAN 60). Always-on sessions steered from the phone
     # with Remote Control. No outbound SSH to other hosts yet. See #575.
     claude_hosts:

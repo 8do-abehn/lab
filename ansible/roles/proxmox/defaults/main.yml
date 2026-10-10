@@ -30,7 +30,10 @@ proxmox_lvm_thin_autoextend_threshold: 80
 proxmox_lvm_thin_autoextend_percent: 20
 
 # VLANs allowed on the vmbr0 uplink, applied identically to pve01-03.
-# 10 = client LAN (dropbox LXC), 65 = Ceph storage, 70 = guest
+# 65 = Ceph storage, 70 = guest. 10 is unused: the client LAN is the untagged
+# Default network in UniFi (there is no VLAN 10), and dropbox moved to 70 (#550).
+# No guest is tagged 10 (checked 2026-10-10). Kept until a deliberate removal,
+# since changing bridge-vids reloads vmbr0 on every node (#600).
 proxmox_bridge_vids: "10 65 70"
 
 # apt sources (tasks/repositories.yml). The role writes PVE 9's deb822 .sources
