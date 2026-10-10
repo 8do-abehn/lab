@@ -14,6 +14,7 @@
     name: "{{ claude_user }}"
     shell: /bin/bash
     create_home: true
+  register: claude_user_result
 
 # Mouse mode makes scrolling work from a phone SSH client, and the larger
 # history keeps long session output reachable after a reattach.
@@ -28,6 +29,8 @@
     mode: "0644"
 
 # `creates` keeps this to a first install; after that the binary updates itself.
+# Skipped in --check on a fresh host: the user isn't really created yet, so
+# become_user fails with "unknown user".
 - name: Install Claude Code with the native installer
   ansible.builtin.shell:
     cmd: set -o pipefail; curl -fsSL {{ claude_install_url }} | bash
@@ -35,3 +38,4 @@
     creates: "/home/{{ claude_user }}/.local/bin/claude"
   become: true
   become_user: "{{ claude_user }}"
+  when: not (ansible_check_mode and claude_user_result is changed)
