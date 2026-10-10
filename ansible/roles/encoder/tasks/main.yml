@@ -54,10 +54,11 @@
     - not ansible_check_mode
 
 # Container-level settings live in the node's /etc/pve config, not inside the
-# container, so these run on the Proxmox node.
-- name: Read the encoder container's Proxmox config
-  ansible.builtin.command: pct config {{ encoder_vmid }}
-  register: encoder_pct_config
+# container, so these run on the Proxmox node. The container is HA-managed and
+# can move, so ask the cluster where it is instead of trusting a fixed node.
+- name: Find which Proxmox node hosts the encoder container
+  ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+  register: encoder_cluster_vms
   changed_when: false
   check_mode: false
   delegate_to: "{{ encoder_pve_node }}"
@@ -65,13 +66,28 @@
     - encoder_pve_node | length > 0
     - encoder_vmid | string | length > 0
 
+- name: Record the encoder container's current node
+  ansible.builtin.set_fact:
+    encoder_ct_node: >-
+      {{ (encoder_cluster_vms.stdout | from_json
+          | selectattr('vmid', 'equalto', encoder_vmid | int) | first).node }}
+  when: encoder_cluster_vms is not skipped
+
+- name: Read the encoder container's Proxmox config
+  ansible.builtin.command: pct config {{ encoder_vmid }}
+  register: encoder_pct_config
+  changed_when: false
+  check_mode: false
+  delegate_to: "{{ encoder_ct_node }}"
+  when: encoder_cluster_vms is not skipped
+
 - name: Set the encoder container's CPU weight and start-on-boot
   ansible.builtin.command: >-
     pct set {{ encoder_vmid }}
     --cpuunits {{ encoder_cpuunits }}
     --onboot {{ encoder_onboot | bool | ternary(1, 0) }}
   changed_when: true
-  delegate_to: "{{ encoder_pve_node }}"
+  delegate_to: "{{ encoder_ct_node }}"
   when:
     - encoder_pct_config is not skipped
     - >-

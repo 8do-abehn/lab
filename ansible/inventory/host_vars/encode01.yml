@@ -1,5 +1,6 @@
 ---
-# The CephFS bind mount (mp0) blocks HA migration, so the container stays on
-# this node. Update both if it is ever rebuilt elsewhere.
-encoder_pve_node: pve02
+# Any PVE node: the role asks it where 3015 currently runs. The container is
+# HA-managed and moves (its riplab bind mount is shared=1), so do not pin a
+# node here. Update encoder_vmid if it is ever rebuilt.
+encoder_pve_node: pve01
 encoder_vmid: 3015

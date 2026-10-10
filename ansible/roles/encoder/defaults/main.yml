@@ -65,7 +65,9 @@ handbrake_build_deps:
 encoder_packages:
   - ffmpeg
 
-# Container settings, applied on the Proxmox node that hosts it. cpuunits is
+# Container settings, applied on whichever Proxmox node hosts it right now.
+# encoder_pve_node is only the cluster member the role asks (pvesh) to find
+# that node, so any reachable PVE host works. cpuunits is
 # CPU weight: 10 against the default 100 means encodes yield to dns01, Ceph
 # OSDs and corosync instead of competing equally (load hit ~53 on 24 threads
 # at the default). Set both per host; the role skips this when they are unset.
