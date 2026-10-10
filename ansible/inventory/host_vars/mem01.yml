@@ -5,9 +5,13 @@ homepage_port: 3010
 # Persist Tailscale serve config across LXC restarts (#396). svc:mem0 is still
 # registered one-shot by the mem0 role. Define these services in the admin
 # console before deploying (roles/homepage).
-tailscale_serve_services:
-  - name: home
-    upstream: "127.0.0.1:{{ homepage_port }}"
-  # Open WebUI, mem0_openwebui_port in the mem0 role.
-  - name: chat
-    upstream: 127.0.0.1:3000
+#
+# svc:chat is Open WebUI and only exists while the mem0 role runs it. The mem0
+# role's defaults are not loaded in the tailscale play, hence the fallbacks,
+# which match roles/mem0/defaults/main.yml.
+tailscale_serve_services: >-
+  {{
+    [{'name': 'home', 'upstream': '127.0.0.1:' ~ homepage_port}]
+    + ([{'name': 'chat', 'upstream': '127.0.0.1:' ~ (mem0_openwebui_port | default(3000))}]
+       if (mem0_openwebui_enabled | default(true) | bool) else [])
+  }}

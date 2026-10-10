@@ -10,10 +10,12 @@ homepage_hostname: "home.{{ tailnet_domain }}"
 
 # Resolvers for the container. AdGuard on dns01 forwards the tailnet zone to
 # MagicDNS, which the site monitors need for the *.<tailnet> names; mem01
-# itself runs with --accept-dns=false and cannot resolve them.
+# itself runs with --accept-dns=false and cannot resolve them. Both AdGuard
+# hosts, never a public resolver: public DNS returns NXDOMAIN for the tailnet
+# zone, so a fallback to it turns every status dot red while dns01 is down.
 homepage_dns:
-  - 10.150.60.11
-  - 1.1.1.1
+  - 10.150.60.11  # dns01
+  - 10.150.60.12  # dns02
 
 homepage_settings:
   title: Lab
