@@ -6,3 +6,10 @@
 # rebuild, when the node has to register from scratch.
 tailscale_auth_key: "{{ vault_tailscale_unifi_auth_key | default('') }}"
 tailscale_tags: "tag:unifi"
+
+# svc:unifi for the controller UI. It only speaks HTTPS, with a self-signed
+# certificate, hence https+insecure on loopback.
+# Define the service in the admin console before deploying (roles/homepage).
+tailscale_serve_services:
+  - name: unifi
+    upstream: https+insecure://127.0.0.1:8443

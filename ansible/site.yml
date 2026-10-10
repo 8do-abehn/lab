@@ -250,6 +250,16 @@
   roles:
     - mem0
 
+# Homepage, the service dashboard, at https://home.<tailnet>. Every link on it
+# is a Tailscale Service name, which the default LAN also resolves through
+# AdGuard's forward of the tailnet zone. See roles/homepage/README.md.
+- name: Deploy Homepage dashboard
+  hosts: dashboard_servers
+  tags: homepage
+  become: true
+  roles:
+    - homepage
+
 - name: Deploy Minecraft servers
   hosts: minecraft_servers
   tags: minecraft
