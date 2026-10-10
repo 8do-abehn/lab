@@ -64,6 +64,13 @@ all:
           ansible_user: root
           ansible_host: 100.85.177.56
 
+    # Homepage dashboard (roles/homepage), served as svc:home. Runs on mem01
+    # because it already has Docker; it needs no particular VLAN, since every
+    # link on it is a Tailscale Service name.
+    dashboard_servers:
+      hosts:
+        mem01:
+
     # Media Servers (VLAN 70, new cluster LXCs)
     media_servers:
       hosts:

@@ -10,3 +10,12 @@ tailscale_tags: "tag:proxmox"
 # Netdata claiming
 netdata_claim_token: "{{ vault_netdata_claim_token }}"
 netdata_claim_rooms: "{{ vault_netdata_proxmox_claim_rooms }}"
+
+# svc:proxmox, served by every node, so https://proxmox.<tailnet> keeps working
+# while any one of them is down. Login tickets are cluster-wide, so it does
+# not matter which node a browser lands on. pveproxy only speaks HTTPS, with
+# a certificate for the node's own name, hence https+insecure on loopback.
+# Define the service in the admin console before deploying (roles/homepage).
+tailscale_serve_services:
+  - name: proxmox
+    upstream: https+insecure://127.0.0.1:8006

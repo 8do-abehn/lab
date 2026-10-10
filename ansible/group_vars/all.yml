@@ -7,3 +7,8 @@ ansible_python_interpreter: /usr/bin/python3
 # Default Netdata claiming (for hosts not in proxmox or k3s_cluster)
 netdata_claim_token: "{{ vault_netdata_claim_token }}"
 netdata_claim_rooms: "{{ vault_netdata_default_claim_rooms }}"
+
+# The tailnet's MagicDNS suffix. Tailscale Services are reachable as
+# <service>.<tailnet_domain> with a valid certificate, and AdGuard forwards
+# this zone to MagicDNS so the default LAN resolves the same names.
+tailnet_domain: taile975f.ts.net

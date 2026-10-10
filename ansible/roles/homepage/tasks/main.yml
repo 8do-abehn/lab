@@ -1,0 +1,44 @@
+---
+- name: Create Homepage config directory
+  ansible.builtin.file:
+    path: "{{ homepage_dir }}/config"
+    state: directory
+    mode: "0755"
+
+# Homepage watches its config directory, so these take effect without a
+# restart. Anything not templated here (custom.css, docker.yaml, ...) is
+# created by Homepage on first start and left alone.
+- name: Deploy Homepage config
+  ansible.builtin.template:
+    src: "{{ item }}.yaml.j2"
+    dest: "{{ homepage_dir }}/config/{{ item }}.yaml"
+    mode: "0644"
+  loop:
+    - settings
+    - services
+    - bookmarks
+    - widgets
+
+- name: Deploy docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ homepage_dir }}/docker-compose.yml"
+    mode: "0644"
+
+# up -d also recreates the container when docker-compose.yml has changed.
+- name: Start Homepage
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ homepage_dir }}"
+  register: homepage_up
+  changed_when: "'Started' in homepage_up.stderr or 'Recreated' in homepage_up.stderr"
+  when: not ansible_check_mode
+
+- name: Wait for Homepage to answer
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ homepage_port }}/api/healthcheck"
+  register: homepage_health
+  until: homepage_health.status == 200
+  retries: 20
+  delay: 3
+  when: not ansible_check_mode
