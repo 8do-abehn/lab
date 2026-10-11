@@ -82,7 +82,7 @@
         mode: "0644"
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers:encoders:claude_hosts
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers:encoders:claude_hosts:ollama_servers
   become: true
   vars_files:
     - vault.yml
@@ -249,6 +249,15 @@
     - vault.yml
   roles:
     - mem0
+
+# Publishes the GPU Ollama on ollama01 as svc:ollama for Open WebUI on mem01,
+# with the port firewalled to loopback. See roles/ollama/README.md.
+- name: Expose Ollama to the tailnet
+  hosts: ollama_servers
+  tags: ollama
+  become: true
+  roles:
+    - ollama
 
 # Homepage, the service dashboard, at https://home.<tailnet>. Every link on it
 # is a Tailscale Service name, which the default LAN also resolves through

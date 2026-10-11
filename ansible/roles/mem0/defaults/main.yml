@@ -24,6 +24,15 @@ mem0_tailscale_service: "svc:mem0"
 # Feature flags
 mem0_openwebui_enabled: true
 
+# Ollama servers Open WebUI uses. The first also serves RAG embeddings.
+# Kept in sync with the setting stored in Open WebUI's database (service.yml).
+mem0_openwebui_ollama_urls:
+  - http://ollama:11434
+
+# Resolvers for the Open WebUI container. Empty uses Docker's default, which
+# cannot resolve tailnet names on a host running --accept-dns=false.
+mem0_openwebui_dns: []
+
 # Auto-update: weekly cron to pull latest images and prune old ones
 mem0_auto_update_enabled: true
 mem0_auto_update_weekday: "0"

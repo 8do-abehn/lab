@@ -1,0 +1,79 @@
+---
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Render the loopback-only rule for Ollama's port
+  ansible.builtin.template:
+    src: ollama-firewall.nft.j2
+    dest: /etc/ollama-firewall.nft
+    owner: root
+    group: root
+    mode: "0644"
+  register: ollama_nft_rules
+
+- name: Render the unit that loads the rule
+  ansible.builtin.template:
+    src: ollama-firewall.service.j2
+    dest: /etc/systemd/system/ollama-firewall.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: ollama_firewall_unit
+
+- name: Create the Ollama drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/ollama.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# A file of its own: override.conf (Vulkan settings) was written by hand and
+# stays that way.
+- name: Render the listen address drop-in
+  ansible.builtin.template:
+    src: listen.conf.j2
+    dest: /etc/systemd/system/ollama.service.d/listen.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: ollama_listen_dropin
+
+# The firewall goes first, so Ollama never listens on 0.0.0.0 unguarded.
+# restarted, not started: a changed rule file has to be reloaded.
+- name: Enable and load the firewall
+  ansible.builtin.systemd:
+    name: ollama-firewall.service
+    enabled: true
+    state: "{{ 'restarted' if (ollama_nft_rules.changed or ollama_firewall_unit.changed) else 'started' }}"
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Restart Ollama on the new listen address
+  ansible.builtin.systemd:
+    name: ollama.service
+    state: restarted
+    daemon_reload: true
+  when:
+    - not ansible_check_mode
+    - ollama_listen_dropin.changed
+
+- name: Verify the rule is loaded
+  ansible.builtin.command: nft list table inet ollama_guard
+  changed_when: false
+  when: not ansible_check_mode
+
+# A request carrying the tailnet hostname is what tailscale serve sends. 403
+# here means Ollama is still bound to loopback and svc:ollama would fail.
+- name: Verify Ollama accepts the tailnet Host header
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ollama_port }}/api/version"
+    headers:
+      Host: "{{ ollama_service_hostname }}"
+  register: ollama_host_check
+  retries: 10
+  delay: 3
+  until: ollama_host_check.status == 200
+  when: not ansible_check_mode

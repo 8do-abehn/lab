@@ -1,0 +1,18 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+#
+# Ollama listens on 0.0.0.0 so its Host check is off (see roles/ollama). Only
+# loopback may reach the port: tailscale serve proxies svc:ollama from
+# 127.0.0.1, so tailnet access is governed by the ACL and the LAN gets nothing.
+#
+# Its own table, so Docker's rules and /etc/nftables.conf are left alone. The
+# declare/delete/redefine sequence makes reloading this file idempotent.
+table inet ollama_guard
+delete table inet ollama_guard
+
+table inet ollama_guard {
+    chain input {
+        type filter hook input priority filter; policy accept;
+        tcp dport {{ ollama_port }} iifname != "lo" drop
+    }
+}
