@@ -23,12 +23,24 @@ on loopback. The units come from `tailscale_serve_services` (roles/tailscale).
 | `mem0` | mem01 | OpenMemory, `127.0.0.1:8090` (mem0 role) |
 
 - **Tailnet devices** resolve these through MagicDNS as usual.
-- **Default-LAN devices** (no Tailscale) get AdGuard from DHCP. AdGuard
-  forwards the tailnet zone to `100.100.100.100`
-  (`adguard_home_conditional_forwards` in `group_vars/dns_servers.yml`), so
-  they get the same 100.x answer. The router's `100.64.0.0/10` static route
-  sends that traffic to dns01, which forwards and masquerades it into the
-  tailnet. The certificate is valid either way.
+- **Default-LAN devices** (no Tailscale) get the router as their DNS server
+  from DHCP, not AdGuard, and the router forwards to public resolvers that
+  cannot answer for the tailnet zone. Two settings on the router, both set by
+  hand (the router is not managed by Ansible):
+  - DNS: forward only the tailnet zone to AdGuard on dns01 and dns02,
+    `set service dns forwarding options server=/<tailnet>/<dns01 IP>` (and
+    the same for dns02). AdGuard forwards it on to `100.100.100.100`
+    (`adguard_home_conditional_forwards` in `group_vars/dns_servers.yml`), so
+    LAN devices get the same 100.x answer as tailnet devices.
+  - Routing: `set protocols static route 100.64.0.0/10 next-hop <dns01 IP>`.
+    Without it the router sends 100.x traffic out the WAN. dns01 is the
+    subnet router and masquerades it into the tailnet. One next-hop only:
+    EdgeOS does not notice a dead static next-hop, so a second one would
+    black-hole half the connections whenever either host is down.
+
+  The certificate is valid either way. Check from a LAN device with
+  `traceroute <a 100.x service address>`: the hop after the router must be
+  dns01.
 - AdGuard's rewrites take precedence over the forward, so host names such as
   `jellyfin01.<tailnet>` still resolve to the LAN IP.
 
