@@ -41,9 +41,6 @@ mem0_openmemory_dns: "{{ mem0_openwebui_dns }}"
 # /etc/apprise.yml when the host has one.
 mem0_openmemory_fallback_check_enabled: true
 
-# Tailscale service for OpenMemory
-mem0_tailscale_service: "svc:mem0"
-
 # Feature flags
 mem0_openwebui_enabled: true
 
