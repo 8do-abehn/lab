@@ -111,3 +111,21 @@
     job: /usr/local/bin/openmemory-fallback-check
     user: root
     state: "{{ 'present' if mem0_openmemory_fallback_check_enabled else 'absent' }}"
+
+- name: Install the SQLite snapshot script for backups
+  ansible.builtin.template:
+    src: mem0-db-snapshot.py.j2
+    dest: /usr/local/bin/mem0-db-snapshot
+    owner: root
+    group: root
+    mode: "0755"
+  when: mem0_db_snapshot_sources | length > 0
+
+- name: Snapshot the SQLite databases before the nightly backup
+  ansible.builtin.cron:
+    name: "mem0-db-snapshot"
+    hour: "{{ mem0_db_snapshot_hour }}"
+    minute: "{{ mem0_db_snapshot_minute }}"
+    job: /usr/local/bin/mem0-db-snapshot >> /var/log/mem0-db-snapshot.log 2>&1
+    user: root
+    state: "{{ 'present' if mem0_db_snapshot_sources | length > 0 else 'absent' }}"
