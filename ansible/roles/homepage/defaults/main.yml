@@ -33,11 +33,17 @@ homepage_settings:
     AI:
       style: row
       columns: 2
+    Tools:
+      style: row
+      columns: 2
 
 # Rendered as-is into services.yaml, so this is Homepage's own format:
 # https://gethomepage.dev/configs/services/
-# Every href is a Tailscale Service name, which resolves and has a valid
+# Most hrefs are Tailscale Service names, which resolve and have a valid
 # certificate both on the tailnet and on the default LAN (through AdGuard).
+# Portainer, changedetection and Readeck are hand-built hosts outside Ansible
+# and are linked by machine name instead. A Service for one of them could not
+# reuse the machine name: MagicDNS answers it with the machine (see svc:network).
 homepage_services:
   - Media:
       - Jellyfin:
@@ -70,6 +76,12 @@ homepage_services:
           href: https://app.netdata.cloud
           icon: netdata.png
           description: Monitoring
+      # Self-signed certificate. Homepage's site monitor does not verify TLS.
+      - Portainer:
+          href: "https://docker.{{ tailnet_domain }}:9443"
+          icon: portainer.png
+          description: Containers on the docker LXC
+          siteMonitor: "https://docker.{{ tailnet_domain }}:9443/api/system/status"
   - AI:
       - Open WebUI:
           href: "https://chat.{{ tailnet_domain }}"
@@ -80,6 +92,18 @@ homepage_services:
           icon: mdi-brain
           description: Memory API for agents, no UI
           siteMonitor: "https://mem0.{{ tailnet_domain }}/health"
+  - Tools:
+      - changedetection:
+          href: "https://changedetection.{{ tailnet_domain }}"
+          icon: changedetection.png
+          description: Website change alerts
+          siteMonitor: "https://changedetection.{{ tailnet_domain }}"
+      # Plain HTTP: Readeck has no tailscale serve in front of it.
+      - Readeck:
+          href: "http://readeck.{{ tailnet_domain }}:8000"
+          icon: readeck.png
+          description: Read-later and bookmarks
+          siteMonitor: "http://readeck.{{ tailnet_domain }}:8000/api/info"
 
 homepage_bookmarks:
   - Lab:
