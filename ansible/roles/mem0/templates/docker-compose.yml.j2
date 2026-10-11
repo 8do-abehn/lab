@@ -20,21 +20,28 @@ services:
     environment:
       - OM_PORT=8080
       - OM_MODE=standard
-      - OM_TIER=hybrid
+      - OM_TIER={{ mem0_openmemory_tier }}
       - OM_DB_PATH=/data/openmemory.sqlite
       - OM_METADATA_BACKEND=sqlite
       - OM_VECTOR_BACKEND=sqlite
       - OM_EMBEDDINGS=ollama
       - OM_EMBEDDING_FALLBACK=synthetic
       - OM_EMBED_MODE=simple
-      - OM_VEC_DIM=256
-      - OLLAMA_URL=http://ollama:11434
-      - OM_OLLAMA_URL=http://ollama:11434
+      - OM_VEC_DIM={{ mem0_openmemory_vec_dim }}
+      - OM_OLLAMA_MODEL={{ mem0_openmemory_embed_model }}
+      - OLLAMA_URL={{ mem0_openmemory_ollama_url }}
+      - OM_OLLAMA_URL={{ mem0_openmemory_ollama_url }}
       - OM_DECAY_REINFORCE_ON_QUERY=true
       - OM_REGENERATION_ENABLED=true
       - OM_LG_REFLECTIVE=true
     volumes:
       - openmemory_data:/data
+{% if mem0_openmemory_dns | length > 0 %}
+    dns:
+{% for server in mem0_openmemory_dns %}
+      - {{ server }}
+{% endfor %}
+{% endif %}
     depends_on:
       - ollama
     healthcheck:

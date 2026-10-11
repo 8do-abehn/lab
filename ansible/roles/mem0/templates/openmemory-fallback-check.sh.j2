@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# OpenMemory falls back to synthetic (hash) vectors whenever its embedding
+# Ollama is unreachable, and that fallback cannot be turned off. A memory
+# stored that way never matches by meaning again until it is re-embedded, so
+# this looks for the fallback in the last hour of the container log (#625).
+set -euo pipefail
+
+CONTAINER=mem0-openmemory
+
+hits=$(docker logs --since 1h "$CONTAINER" 2>&1 | grep -cE 'All providers failed|Fallback to' || true)
+[ "$hits" -eq 0 ] && exit 0
+
+msg="OpenMemory used synthetic embeddings ${hits} time(s) in the last hour: {{ mem0_openmemory_ollama_url }} was unreachable. Memories added then need re-embedding."
+logger -t openmemory-fallback-check "$msg"
+
+# Same pattern as the backup scripts: the Apprise URLs stay in a 0600 file.
+if [ -r /etc/apprise.yml ] && command -v apprise &>/dev/null; then
+    apprise -t "OpenMemory: synthetic embedding fallback on $(hostname)" --body "$msg" --config /etc/apprise.yml 2>/dev/null || true
+fi

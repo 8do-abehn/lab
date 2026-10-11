@@ -113,3 +113,20 @@
       docker image prune -a -f
       >> /var/log/mem0-update.log 2>&1
   when: mem0_auto_update_enabled
+
+- name: Install the OpenMemory embedding fallback check
+  ansible.builtin.template:
+    src: openmemory-fallback-check.sh.j2
+    dest: /usr/local/bin/openmemory-fallback-check
+    owner: root
+    group: root
+    mode: "0755"
+  when: mem0_openmemory_fallback_check_enabled
+
+- name: Run the fallback check hourly
+  ansible.builtin.cron:
+    name: "openmemory-fallback-check"
+    minute: "7"
+    job: /usr/local/bin/openmemory-fallback-check
+    user: root
+    state: "{{ 'present' if mem0_openmemory_fallback_check_enabled else 'absent' }}"

@@ -5,3 +5,6 @@ ollama_port: 11434
 
 # Hostname a tailnet client sends. Used only to verify the Host check is off.
 ollama_service_hostname: "ollama.{{ tailnet_domain }}"
+
+# Models to keep pulled. Pulls only what is missing; never removes anything.
+ollama_models: []
