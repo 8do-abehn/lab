@@ -53,6 +53,17 @@ mem0_openwebui_ollama_urls:
 # cannot resolve tailnet names on a host running --accept-dns=false.
 mem0_openwebui_dns: []
 
+# Consistent SQLite snapshots for restic (#329), taken a few minutes before
+# mem01's backup (backup_clients in the inventory). Paths are relative to
+# /var/lib/docker/volumes. Empty disables the snapshot cron.
+mem0_db_snapshot_dir: /var/backups/mem0-db
+mem0_db_snapshot_sources:
+  openmemory.sqlite: mem0_openmemory_data/_data/openmemory.sqlite
+  openwebui.db: mem0_openwebui_data/_data/webui.db
+  openwebui-chroma.db: mem0_openwebui_data/_data/vector_db/chroma.sqlite3
+mem0_db_snapshot_hour: "0"
+mem0_db_snapshot_minute: "5"
+
 # Auto-update: weekly cron to pull latest images and prune old ones
 mem0_auto_update_enabled: true
 mem0_auto_update_weekday: "0"

@@ -322,6 +322,28 @@ all:
           backup_paths:
             - /var/lib/unifi/backup/autobackup
 
+        # OpenMemory (the shared MCP memory) and Open WebUI, both SQLite (#329).
+        # The live databases are WAL-mode and not safe to copy as files, so the
+        # mem0 role snapshots them at 00:05 with SQLite's online backup API into
+        # /var/backups/mem0-db, and restic takes that directory. Ollama models
+        # and Open WebUI's model cache are re-downloadable and excluded.
+        # 00:15: a few MB, done well before immich01 at 00:45.
+        mem01:
+          backup_server_host: 100.83.251.53  # pi-burg Tailscale IP, same as the other clients
+          backup_cron_hour: "0"
+          backup_cron_minute: "15"
+          backup_paths:
+            - /var/backups/mem0-db
+            # Open WebUI uploads and the Chroma index files next to its sqlite.
+            - /var/lib/docker/volumes/mem0_openwebui_data/_data/uploads
+            - /var/lib/docker/volumes/mem0_openwebui_data/_data/vector_db
+            # Compose file and Dockerfile.mem0-mcp (a few KB).
+            - /opt/mem0
+          backup_excludes:
+            - "*.tmp"
+            # The live database; the consistent copy is in /var/backups/mem0-db.
+            - "chroma.sqlite3*"
+
     # Backup Servers
     backup_servers:
       hosts:

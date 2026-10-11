@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+# {{ ansible_managed }}
+#
+# Consistent copies of mem01's live SQLite databases for restic (#329).
+# OpenMemory, Open WebUI and its Chroma index all run SQLite in WAL mode, and
+# a file-level copy of a live WAL database can be torn or miss everything
+# still in the -wal file (OpenMemory's main file went unwritten from March to
+# October; all its data sat in the WAL). The SQLite online backup API copies a
+# consistent snapshot, WAL included, while the containers keep running.
+#
+# Runs from cron shortly before the restic backup, which picks up
+# {{ mem0_db_snapshot_dir }}. Exits non-zero on any failure.
+import os
+import sqlite3
+import subprocess
+import sys
+
+DEST = "{{ mem0_db_snapshot_dir }}"
+VOLUMES = "/var/lib/docker/volumes"
+SOURCES = {
+{% for name, path in mem0_db_snapshot_sources.items() %}
+    "{{ name }}": "{{ path }}",
+{% endfor %}
+}
+
+
+def notify(msg):
+    subprocess.run(["logger", "-t", "mem0-db-snapshot", msg], check=False)
+    if os.access("/etc/apprise.yml", os.R_OK):
+        subprocess.run(["apprise", "-t", f"mem0 DB snapshot FAILED on {os.uname().nodename}",
+                        "--body", msg, "--config", "/etc/apprise.yml"],
+                       check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+os.makedirs(DEST, mode=0o700, exist_ok=True)
+failed = []
+for name, rel in SOURCES.items():
+    src = os.path.join(VOLUMES, rel)
+    dst = os.path.join(DEST, name)
+    tmp = dst + ".tmp"
+    try:
+        if not os.path.exists(src):
+            raise FileNotFoundError(src)
+        # mode=ro: the backup reads only; it never takes a write lock or
+        # checkpoints the live database.
+        with sqlite3.connect(f"file:{src}?mode=ro", uri=True) as s, sqlite3.connect(tmp) as d:
+            s.backup(d)
+        # The copy inherits WAL mode from its source. Switch it to a plain
+        # rollback journal so each snapshot is one self-contained file with no
+        # -wal or -shm next to it.
+        d = sqlite3.connect(tmp)
+        try:
+            d.execute("PRAGMA journal_mode=DELETE")
+            check = d.execute("PRAGMA integrity_check").fetchone()[0]
+        finally:
+            d.close()
+        if check != "ok":
+            raise RuntimeError(f"integrity_check: {check}")
+        os.replace(tmp, dst)
+        print(f"{name}: ok, {os.path.getsize(dst)} bytes")
+    except Exception as e:
+        failed.append(f"{name}: {e}")
+    finally:
+        for leftover in (tmp, tmp + "-wal", tmp + "-shm"):
+            if os.path.exists(leftover):
+                os.remove(leftover)
+
+if failed:
+    notify("; ".join(failed) + ". restic will back up the previous snapshot instead.")
+    sys.exit(1)

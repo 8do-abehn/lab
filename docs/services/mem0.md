@@ -48,6 +48,24 @@ only ever used hash-based synthetic vectors, so recall matched words, not meanin
 - Regeneration only re-embeds a memory when a query hits it, so it does not
   repair memories that stopped matching.
 
+## Backups (#329)
+
+Nightly restic to pi-burg, same shared repo as the other clients:
+
+- **00:05** `mem0-db-snapshot` (cron, mem0 role) copies the three live SQLite
+  databases (OpenMemory, Open WebUI, Open WebUI's Chroma index) with SQLite's
+  online backup API into `/var/backups/mem0-db`, checks each with
+  `integrity_check`, and writes them as single files. The live files are WAL-mode
+  and not safe to copy directly. A failure is logged and sent through Apprise.
+- **00:15** restic backs up `/var/backups/mem0-db`, Open WebUI's `uploads` and
+  `vector_db` (minus the live `chroma.sqlite3`), and `/opt/mem0`.
+- Not backed up: Ollama models and Open WebUI's `cache/`, which are
+  re-downloadable.
+
+Restore OpenMemory: stop the stack, restore `openmemory.sqlite` from a snapshot
+into the `mem0_openmemory_data` volume (remove any `-wal`/`-shm` next to it),
+and start the stack.
+
 ## Ollama Models
 
 | Where | Model | Purpose |
@@ -70,7 +88,6 @@ only ever used hash-based synthetic vectors, so recall matched words, not meanin
 
 | Issue | Description |
 |-------|-------------|
-| [#329](https://github.com/8do-abehn/lab/issues/329) | No restic backup configured yet |
 | [#336](https://github.com/8do-abehn/lab/issues/336) | Ollama and Open WebUI not exposed as Tailscale Services |
 | [#313](https://github.com/8do-abehn/lab/issues/313) | MagicDNS leaks into LXC resolv.conf on reboot |
 | [#307](https://github.com/8do-abehn/lab/issues/307) | GPU spike: test Ollama on RX 570 |
