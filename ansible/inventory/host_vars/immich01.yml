@@ -1,6 +1,6 @@
 ---
 # Persist Tailscale serve config across LXC restarts (#396).
-# The one-shot `tailscale serve` pattern used by adguard_home and mem0 does not
+# A one-shot `tailscale serve` (still used by mem0 for svc:mem0) does not
 # survive a container restart; this renders a systemd unit that re-applies it.
 tailscale_serve_services:
   - name: immich

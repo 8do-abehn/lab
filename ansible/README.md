@@ -192,10 +192,11 @@ Backup client configuration including:
 **Note:** Run via `backup-setup.yml` playbook, not included in `site.yml`
 
 ### adguard_home
-AdGuard Home DNS server with Tailscale Service registration:
+AdGuard Home DNS server:
 - Installation and initial configuration
 - DNS binding on port 53
-- Tailscale Service registration (`svc:dns`)
+- `svc:dns` is published by the tailscale role, from `tailscale_serve_services`
+  in `inventory/group_vars/dns_servers.yml` (#621)
 
 ### mem0
 AI memory stack via Docker Compose:
