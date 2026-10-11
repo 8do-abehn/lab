@@ -2,22 +2,25 @@
 # Host port for the Homepage dashboard. Open WebUI already holds 3000 here.
 homepage_port: 3010
 
-# Persist Tailscale serve config across LXC restarts (#396). svc:mem0 is still
-# registered one-shot by the mem0 role. Define these services in the admin
-# console before deploying (roles/homepage).
+# Persist Tailscale serve config across LXC restarts (#396). Define these
+# services in the admin console before deploying (roles/homepage).
 #
+# svc:mem0 is OpenMemory, the shared MCP memory (#623: it used to be a one-shot
+# `tailscale serve` from the mem0 role and vanished on every LXC restart).
 # svc:chat is Open WebUI and only exists while the mem0 role runs it. The mem0
 # role's defaults are not loaded in the tailscale play, hence the fallbacks,
 # which match roles/mem0/defaults/main.yml.
 tailscale_serve_services: >-
   {{
-    [{'name': 'home', 'upstream': '127.0.0.1:' ~ homepage_port}]
+    [{'name': 'home', 'upstream': '127.0.0.1:' ~ homepage_port},
+     {'name': 'mem0', 'upstream': '127.0.0.1:' ~ (mem0_openmemory_port | default(8090))}]
     + ([{'name': 'chat', 'upstream': '127.0.0.1:' ~ (mem0_openwebui_port | default(3000))}]
        if (mem0_openwebui_enabled | default(true) | bool) else [])
   }}
 
-# The local CPU Ollama stays first: it serves the RAG embeddings (bge-m3).
-# svc:ollama is the GPU one on ollama01 (roles/ollama).
+# The local CPU Ollama stays listed first. svc:ollama is the GPU one on
+# ollama01 (roles/ollama). Open WebUI's RAG uses its built-in
+# sentence-transformers model, not either Ollama (#625).
 mem0_openwebui_ollama_urls:
   - http://ollama:11434
   - "https://ollama.{{ tailnet_domain }}"

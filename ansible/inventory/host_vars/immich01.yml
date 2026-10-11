@@ -1,7 +1,7 @@
 ---
 # Persist Tailscale serve config across LXC restarts (#396).
-# A one-shot `tailscale serve` (still used by mem0 for svc:mem0) does not
-# survive a container restart; this renders a systemd unit that re-applies it.
+# A one-shot `tailscale serve` does not survive a container restart; this
+# renders a systemd unit that re-applies it.
 tailscale_serve_services:
   - name: immich
     upstream: 127.0.0.1:2283

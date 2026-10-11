@@ -201,7 +201,8 @@ AdGuard Home DNS server:
 ### mem0
 AI memory stack via Docker Compose:
 - OpenMemory MCP server, Ollama, Open WebUI
-- Tailscale Service registration (`svc:mem0`)
+- `svc:mem0` is published by the tailscale role, from `tailscale_serve_services`
+  in `inventory/host_vars/mem01.yml` (#623)
 - Ollama model provisioning
 
 ### homepage
