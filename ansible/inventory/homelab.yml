@@ -98,9 +98,12 @@ all:
 
     # riplab encoders (VLAN 60). HandBrake x265 built from source, works the
     # queue in cephfs-hdd/riplab (bind-mounted at /riplab). See #548.
+    # The bind mount is shared=1 (cephfs-hdd is on every node), so HA can
+    # move it like jellyfin01. A move restarts the CT and kills any running
+    # encode, and the queue does not resume by itself.
     encoders:
       hosts:
-        encode01:  # LXC 3015 on pve02, 24 cores at cpuunits 10 -- riplab x265 encoder
+        encode01:  # LXC 3015, HA-managed, 24 cores at cpuunits 10 -- riplab x265 encoder
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
