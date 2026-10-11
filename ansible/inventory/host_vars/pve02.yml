@@ -1,16 +1,30 @@
 ---
 proxmox_gpu_passthrough_enabled: true
-# RX 570 (1002:67df,1002:aaf0) added 2026-09-27: dedicated to vm-awb-cachyos (704) via
-# VFIO instead of host amdgpu, so cachyos no longer waits behind vm-awb (703) for the
-# shared 3080 Ti. amdgpu added to the blacklist below so the host doesn't grab the card
-# before vfio-pci can claim it. This also means jellyfin (ct:3001) loses /dev/dri on this
-# node -- see the jellyfin-gpu-pin HA rule (live on the cluster, not tracked in this repo).
+# Both cards on this node are VFIO-bound for VM passthrough. The host keeps no GPU
+# driver and has no /dev/dri, so no LXC here can use a GPU.
 #
-# 2026-09-28: 3080 Ti removed from VFIO/blacklist entirely -- it's now permanently LXC-only
-# (ollama01/3014, nouveau + Mesa NVK Vulkan, no proprietary driver).
-# 2026-10-04: vm-awb (703) moved to pve01, where it shares vm-rtb's 3080 (#532). No VM on
-# this node passes the 3080 Ti through anymore.
-proxmox_gpu_vfio_ids: "1002:67df,1002:aaf0"
+# RX 570 (1002:67df,1002:aaf0, 40:00, IOMMU group 38): dedicated to vm-awb-cachyos (704)
+# since 2026-09-27, so cachyos never waits behind another VM for a shared card.
+#
+# RTX 3080 Ti (10de:2208,10de:1aef, 3f:00, IOMMU group 37): back on VFIO as of #609, for a
+# VM that runs the proprietary NVIDIA driver + CUDA (Ollama and wrf_gpu). From 2026-09-28
+# until #609 it was nouveau/NVK for the ollama01 LXC, but JAX needs CUDA, and the NVIDIA
+# kernel module cannot be built on this host (the Debian 550 DKMS build fails on the 7.0
+# kernel, and NVIDIA's apt repo key is rejected as SHA1). Inside a VM the guest kernel
+# loads its own driver, so neither problem applies there.
+#
+# nouveau/nvidia are blacklisted so nothing on the host grabs the 3080 Ti before vfio-pci.
+# That also switches off the role's glx-alternative and nvidia-persistenced tasks (both
+# key on nouveau NOT being blacklisted). glx is already left in manual mode on
+# mesa-diverted from #537, which is harmless with the card on vfio-pci.
+#
+# jellyfin (ct:3001) cannot run here, see the jellyfin-gpu-pin HA rule (live on the
+# cluster, not tracked in this repo). vm-awb (703) moved to pve01 on 2026-10-04 (#532).
+proxmox_gpu_vfio_ids: "10de:2208,10de:1aef,1002:67df,1002:aaf0"
 proxmox_gpu_blacklist_drivers:
+  - nouveau
+  - nvidia
+  - nvidiafb
+  - nvidia_drm
   - amdgpu
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
