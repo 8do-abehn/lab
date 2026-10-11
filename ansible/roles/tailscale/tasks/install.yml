@@ -1,4 +1,14 @@
 ---
+# A host where Tailscale was installed by hand can have a deb822
+# tailscale.sources signed by another keyring path (immich01 had
+# /etc/apt/keyrings/tailscale.gpg). Next to this role's tailscale.list, apt
+# refuses both (conflicting Signed-By) and every apt task fails, so remove it
+# before the first apt call (#610).
+- name: Remove a hand-installed deb822 Tailscale source
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/tailscale.sources
+    state: absent
+
 - name: Ensure prerequisites for Tailscale repo setup
   ansible.builtin.apt:
     name:
