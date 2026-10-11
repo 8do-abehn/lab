@@ -25,3 +25,7 @@ mem0_openwebui_ollama_urls:
 mem0_openwebui_dns:
   - 10.150.60.11  # dns01
   - 10.150.60.12  # dns02
+
+# OpenMemory embeds on the GPU Ollama (bge-m3:567m on ollama01, #625). It
+# resolves the tailnet name through the AdGuard hosts above.
+mem0_openmemory_ollama_url: "https://ollama.{{ tailnet_domain }}"

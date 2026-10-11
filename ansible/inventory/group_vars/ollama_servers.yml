@@ -13,3 +13,10 @@ tailscale_accept_dns: false
 tailscale_serve_services:
   - name: ollama
     upstream: "127.0.0.1:{{ ollama_port | default(11434) }}"
+
+# bge-m3:567m is OpenMemory's embedding model (mem0_openmemory_embed_model on
+# mem01). Pinned: a different bge-m3 build would silently change its vectors.
+ollama_models:
+  - bge-m3:567m
+  - qwen3:8b
+  - llama3.1:8b

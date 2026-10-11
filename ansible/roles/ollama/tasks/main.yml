@@ -77,3 +77,20 @@
   delay: 3
   until: ollama_host_check.status == 200
   when: not ansible_check_mode
+
+- name: List the models Ollama already has
+  ansible.builtin.command: ollama list
+  register: ollama_present
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - ollama_models | length > 0
+
+# ollama list prints "name:tag"; a bare name means ":latest".
+- name: Pull missing models
+  ansible.builtin.command: "ollama pull {{ item }}"
+  loop: "{{ ollama_models }}"
+  when:
+    - not ansible_check_mode
+    - (item if ':' in item else item ~ ':latest') not in (ollama_present.stdout_lines | map('split') | map('first') | list)
+  changed_when: true
