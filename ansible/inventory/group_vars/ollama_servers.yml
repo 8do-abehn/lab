@@ -1,0 +1,15 @@
+---
+# Registered by hand (roles/ollama/README.md, "Bootstrap"), so the tailscale
+# role only re-asserts the tag and --ssh. The vault key is a fallback for a
+# rebuild.
+tailscale_auth_key: "{{ vault_tailscale_ollama_auth_key | default('') }}"
+tailscale_tags: "tag:ollama"
+# Needs nothing on the tailnet by name, and MagicDNS leaks into LXC resolv.conf.
+tailscale_accept_dns: false
+
+# svc:ollama, the GPU Ollama for Open WebUI on mem01. Ollama listens on 0.0.0.0
+# but roles/ollama firewalls the port to loopback, which is where serve
+# connects from.
+tailscale_serve_services:
+  - name: ollama
+    upstream: "127.0.0.1:{{ ollama_port | default(11434) }}"

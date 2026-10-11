@@ -107,6 +107,14 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # GPU Ollama (VLAN 60). Ollama is installed by hand; Ansible manages only
+    # its listen address, firewall and svc:ollama (roles/ollama).
+    ollama_servers:
+      hosts:
+        ollama01:  # LXC 3014 on pve02, RTX 3080 Ti via Mesa NVK (Vulkan) -- LLMs for Open WebUI
+          ansible_user: root
+          # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
+
     # Not managed by Ansible: dropbox, LXC 3102 on pve01 (VLAN 70, DHCP).
     # Drop point for files from the client LAN. Bind mounts the Jellyfin
     # library and cephfs-hdd/riplab. Not on the tailnet, so CI cannot reach it;

@@ -52,6 +52,35 @@
   delay: 5
   check_mode: false
 
+# Open WebUI only reads OLLAMA_BASE_URLS on first start; afterwards the value
+# stored in its database wins. Retried because a fresh container may still be
+# creating its database.
+- name: Sync Open WebUI's Ollama servers with mem0_openwebui_ollama_urls
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - -i
+      - mem0-openwebui
+      - python3
+      - "-"
+      - ollama.base_urls
+      - "{{ mem0_openwebui_ollama_urls | to_json }}"
+    stdin: "{{ lookup('ansible.builtin.file', 'openwebui_set_config.py') }}"
+  register: mem0_openwebui_urls
+  until: mem0_openwebui_urls.rc == 0
+  retries: 10
+  delay: 6
+  changed_when: mem0_openwebui_urls.stdout == 'changed'
+  when: mem0_openwebui_enabled
+
+- name: Restart Open WebUI to load its new Ollama servers  # noqa: no-handler
+  ansible.builtin.command: docker restart mem0-openwebui
+  changed_when: true
+  when:
+    - mem0_openwebui_enabled
+    - mem0_openwebui_urls.changed | default(false)
+
 - name: Check if Tailscale Service is already registered
   ansible.builtin.shell: set -o pipefail; tailscale serve status --json | jq -e '.Services["{{ mem0_tailscale_service }}"]'
   args:

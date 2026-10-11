@@ -15,3 +15,13 @@ tailscale_serve_services: >-
     + ([{'name': 'chat', 'upstream': '127.0.0.1:' ~ (mem0_openwebui_port | default(3000))}]
        if (mem0_openwebui_enabled | default(true) | bool) else [])
   }}
+
+# The local CPU Ollama stays first: it serves the RAG embeddings (bge-m3).
+# svc:ollama is the GPU one on ollama01 (roles/ollama).
+mem0_openwebui_ollama_urls:
+  - http://ollama:11434
+  - "https://ollama.{{ tailnet_domain }}"
+# Both AdGuard hosts: they forward the tailnet zone, Docker's default cannot.
+mem0_openwebui_dns:
+  - 10.150.60.11  # dns01
+  - 10.150.60.12  # dns02

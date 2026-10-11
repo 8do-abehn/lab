@@ -54,7 +54,14 @@ services:
     volumes:
       - openwebui_data:/app/backend/data
     environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_BASE_URL={{ mem0_openwebui_ollama_urls | first }}
+      - OLLAMA_BASE_URLS={{ mem0_openwebui_ollama_urls | join(';') }}
+{% if mem0_openwebui_dns | length > 0 %}
+    dns:
+{% for server in mem0_openwebui_dns %}
+      - {{ server }}
+{% endfor %}
+{% endif %}
     depends_on:
       - ollama
     restart: unless-stopped

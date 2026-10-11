@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Keep Ollama's port {{ ollama_port }} to loopback only
+Before=ollama.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/ollama-firewall.nft
+ExecStop=/usr/sbin/nft delete table inet ollama_guard
+
+[Install]
+WantedBy=multi-user.target

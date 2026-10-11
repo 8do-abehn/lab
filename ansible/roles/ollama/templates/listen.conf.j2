@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+# Ollama refuses any Host header but localhost while bound to loopback, and
+# tailscale serve passes the client's Host (ollama.<tailnet>) through. Binding
+# 0.0.0.0 turns that check off. Requires= means Ollama does not start, and is
+# stopped with it, unless the firewall that keeps the port off the LAN is up.
+[Unit]
+Requires=ollama-firewall.service
+After=ollama-firewall.service
+
+[Service]
+Environment=OLLAMA_HOST=0.0.0.0:{{ ollama_port }}
