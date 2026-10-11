@@ -29,11 +29,14 @@ adguard_home_conditional_forwards:
     upstream: 100.100.100.100
 
 # LAN-resident hosts that should resolve to LAN IPs even via Tailscale FQDN.
+# Both LXCs take their address from DHCP (net0 ip=dhcp), so each answer must
+# match a static-mapping on the EdgeRouter. jellyfin01 moved .12 -> .14 on a
+# reboot (2026-10-08) when it had none, and the Rokus lost the server.
 adguard_home_rewrites:
   - domain: jellyfin01
-    answer: 10.150.70.12
+    answer: 10.150.70.14
   - domain: jellyfin01.taile975f.ts.net
-    answer: 10.150.70.12
+    answer: 10.150.70.14
   - domain: immich01
     answer: 10.150.70.15
   - domain: immich01.taile975f.ts.net
