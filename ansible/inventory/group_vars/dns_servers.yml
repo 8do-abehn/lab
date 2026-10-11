@@ -8,7 +8,13 @@ tailscale_advertise_routes:
   - "10.150.65.0/24"
   - "10.150.70.0/24"
 
-adguard_home_tailscale_service: "svc:dns"
+# svc:dns serves the AdGuard web UI. A tailscale-serve unit re-applies it on
+# every boot and deploy, so a host that stops advertising it (dns01, #614)
+# recovers by itself. The tailscale play does not load the adguard_home role's
+# defaults, hence the fallback to that role's default port.
+tailscale_serve_services:
+  - name: dns
+    upstream: "127.0.0.1:{{ adguard_home_web_port | default(3000) }}"
 adguard_home_password: "{{ vault_adguard_password }}"
 
 # The tailnet zone goes to MagicDNS so default-LAN devices resolve Tailscale
