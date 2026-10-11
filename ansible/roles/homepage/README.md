@@ -17,10 +17,10 @@ on loopback. The units come from `tailscale_serve_services` (roles/tailscale).
 | `chat` | mem01 | Open WebUI, `127.0.0.1:3000` |
 | `proxmox` | pve01, pve02, pve03 | `https+insecure://127.0.0.1:8006` |
 | `network` | unifi | `https+insecure://127.0.0.1:8443` |
-| `jellyfin` | jellyfin01 | already existed |
-| `immich` | immich01 | already existed |
-| `dns` | dns01, dns02 | already existed (adguard_home role) |
-| `mem0` | mem01 | already existed (mem0 role) |
+| `jellyfin` | jellyfin01 | Jellyfin, `127.0.0.1:8096` |
+| `immich` | immich01 | Immich, `127.0.0.1:2283` |
+| `dns` | dns01, dns02 | AdGuard UI, `127.0.0.1:3000` (adguard_home role) |
+| `mem0` | mem01 | OpenMemory, `127.0.0.1:8090` (mem0 role) |
 
 - **Tailnet devices** resolve these through MagicDNS as usual.
 - **Default-LAN devices** (no Tailscale) get AdGuard from DHCP. AdGuard
@@ -34,21 +34,27 @@ on loopback. The units come from `tailscale_serve_services` (roles/tailscale).
 
 ## One-time setup before the first deploy
 
-A Tailscale Service has to exist in the admin console before a host can serve
-it, and a host's advertisement has to be approved.
+A Tailscale Service has to exist in the admin console before a host
+advertises it, and each host's advertisement has to be approved.
 
-1. Admin console, Services: define `home`, `chat`, `proxmox` and `network`,
-   each with endpoint `tcp:443`.
+1. Admin console, Services: define every name in the table above that is
+   missing, each with endpoint `tcp:443`. Check the list, not this README:
+   on 2026-10-10 `immich` turned out never to have been defined, although
+   immich01 had been advertising it for weeks.
 2. Approve the hosts when they advertise, or add auto-approval to the policy
    file so rebuilds need no clicks:
 
    ```jsonc
    "autoApprovers": {
      "services": {
-       "svc:home":    ["tag:mem0"],
-       "svc:chat":    ["tag:mem0"],
-       "svc:proxmox": ["tag:proxmox"],
-       "svc:network": ["tag:unifi"],
+       "svc:home":     ["tag:mem0"],
+       "svc:chat":     ["tag:mem0"],
+       "svc:mem0":     ["tag:mem0"],
+       "svc:proxmox":  ["tag:proxmox"],
+       "svc:network":  ["tag:unifi"],
+       "svc:dns":      ["tag:dns"],
+       "svc:immich":   ["tag:immich"],
+       "svc:jellyfin": ["tag:media"],
      },
    },
    ```
@@ -65,6 +71,20 @@ ansible-playbook -i inventory/homelab.yml site.yml --limit 'proxmox:unifi_server
 
 If a service is not defined yet, its `tailscale-serve-<name>` unit can fail,
 and the play fails on that host. Define it, then re-run.
+
+### A service shows "0 hosts" or "Not advertising the service"
+
+- **0 hosts, though the host serves it:** the host advertised before the
+  service was defined, and the control plane dropped that advertisement. The
+  host will not send it again on its own. Restart the unit on the host
+  (`systemctl restart tailscale-serve-<name>`), then approve it.
+- **Resolves, but HTTPS times out:** the host is waiting for approval.
+- **Not advertising the service:** check `tailscale debug prefs | jq
+  .AdvertiseServices` on the host. dns01 had its serve config but an empty
+  list (#614). Re-running the serve command restores it.
+- **A service name equal to a machine name never works.** MagicDNS answers
+  `<name>.<tailnet>` with the machine's address. That is why the UniFi UI is
+  `svc:network`, not `svc:unifi` (the machine is `unifi`).
 
 ## Changing the dashboard
 

@@ -15,8 +15,3 @@ tailscale_tags: "tag:unifi"
 tailscale_serve_services:
   - name: network
     upstream: https+insecure://127.0.0.1:8443
-
-# svc:unifi was the first name for the service above (#607). Remove this once
-# the unifi host has been deployed with it.
-tailscale_serve_services_removed:
-  - unifi
