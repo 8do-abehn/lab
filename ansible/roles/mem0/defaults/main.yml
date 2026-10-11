@@ -13,10 +13,12 @@ mem0_ollama_port: 11434
 mem0_openmemory_port: 8090
 mem0_openwebui_port: 3000
 
-# Ollama models to pull on first deploy
+# Ollama models pulled on every deploy into the CPU Ollama on mem01. Only the
+# embedding model lives here: chat models (qwen3:8b, llama3.1:8b) run on the
+# GPU Ollama on ollama01 (svc:ollama), which Open WebUI also uses. OpenMemory
+# only uses embedding models, never a chat model.
 mem0_ollama_models:
   - bge-m3
-  - qwen3:8b
 
 # Tailscale service for OpenMemory
 mem0_tailscale_service: "svc:mem0"
