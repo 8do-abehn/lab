@@ -259,6 +259,16 @@
   roles:
     - ollama
 
+# CUDA VMs for wrf_gpu (#631): NVIDIA driver, wrf_gpu, WRF/WPS builds. The
+# wrf_servers group arrives with #632, so this matches no hosts until then.
+# Builds are skipped once their binaries exist. See roles/wrf_gpu/README.md.
+- name: Configure CUDA WRF VMs
+  hosts: wrf_servers
+  tags: wrf
+  become: true
+  roles:
+    - wrf_gpu
+
 # Homepage, the service dashboard, at https://home.<tailnet>. Every link on it
 # is a Tailscale Service name, which the default LAN also resolves through
 # AdGuard's forward of the tailnet zone. See roles/homepage/README.md.
