@@ -1,0 +1,97 @@
+---
+# CUDA WRF VMs (#609, #631): wrf_gpu on the passed-through GPU, plus CPU WRF
+# and WPS builds to prepare its input and compare against. Everything lives
+# under wrf_root. See README.md for what each piece is for.
+wrf_root: /opt/wrf
+
+# 580 is the oldest driver branch with CUDA 13, which jax[cuda13] needs. The
+# -open kernel module builds with DKMS inside the guest (unlike on the PVE
+# hosts). The VM reboots once to load it.
+wrf_nvidia_packages:
+  - nvidia-headless-580-open
+  - nvidia-utils-580
+wrf_reboot_for_driver: true
+
+# Compilers, NetCDF and MPI for WRF/WPS, cmake for wgrib2, python3-venv for
+# wrf_gpu and Herbie. WRF's compile is a csh script.
+wrf_build_packages:
+  - build-essential
+  - cmake
+  - csh
+  - curl
+  - file
+  - gfortran
+  - git
+  - libnetcdf-dev
+  - libnetcdff-dev
+  - libopenmpi-dev
+  - m4
+  - make
+  - netcdf-bin
+  - openmpi-bin
+  - perl
+  - python3-venv
+
+# wrf_gpu (JAX WRF), installed editable into its own venv. The pip package
+# is called gpuwrf; its version gates the reinstall.
+wrf_gpu_repo: https://github.com/wrf-gpu/wrf_gpu.git
+wrf_gpu_version: "0.3.4"
+wrf_gpu_dir: "{{ wrf_root }}/wrf_gpu"
+wrf_gpu_venv: "{{ wrf_gpu_dir }}/.venv"
+wrf_gpu_pip_packages:
+  - jax[cuda13]==0.10.*
+  - filelock
+
+# WRF needs the noahmp submodule: MPTABLE.TBL lives there and wrf_gpu reads
+# it from the WRF tree's run/.
+wrf_repo: https://github.com/wrf-model/WRF.git
+wrf_version: v4.7.1
+wps_repo: https://github.com/wrf-model/WPS.git
+wps_version: v4.6.0
+
+# Two WRF trees from the same tag. Option numbers are the GNU (gfortran/gcc)
+# entries in WRF's configure menu: 32 serial, 33 smpar, 34 dmpar. The serial
+# tree is the one WPS links against and the one wrf_gpu reads tables from.
+# The dmpar tree is only for CPU comparison runs (see the README for its
+# known hang).
+wrf_trees:
+  - dir: WRF
+    configure_option: 32
+  - dir: WRF_dmpar
+    configure_option: 34
+# 1 = basic nesting.
+wrf_nesting_option: 1
+# WPS menu option 1 = Linux x86_64, gfortran (serial).
+wps_configure_option: 1
+wrf_build_jobs: "{{ ansible_facts['processor_vcpus'] }}"
+wrf_build_env:
+  NETCDF: "{{ wrf_netcdf_prefix }}"
+  NETCDF_classic: "1"
+  J: "-j {{ wrf_build_jobs }}"
+
+# Ubuntu splits NetCDF-C and NetCDF-Fortran across /usr/include and the
+# multiarch lib dir. WRF's configure only adds -lnetcdff when it finds it
+# under $NETCDF/lib, so this prefix gathers both in one place.
+wrf_netcdf_prefix: "{{ wrf_root }}/netcdf"
+wrf_netcdf_libdir: "/usr/lib/{{ ansible_facts['architecture'] }}-linux-gnu"
+
+# The WPS mandatory static data, low-res set.
+wrf_geog_low_res_url: https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_low_res_mandatory.tar.gz
+wrf_geog_low_res_dir: "{{ wrf_root }}/WPS_GEOG_LOW_RES"
+
+# wgrib2 crops HRRR's CONUS files before ungrib (one slice is ~5.8 GB
+# otherwise). Not packaged on noble, so built from source. Static library so
+# the installed binary needs no rpath.
+wgrib2_repo: https://github.com/NOAA-EMC/wgrib2.git
+wgrib2_version: v3.8.0
+wgrib2_src_dir: "{{ wrf_root }}/src/wgrib2"
+wgrib2_prefix: "{{ wrf_root }}/wgrib2"
+wgrib2_cmake_flags:
+  - -DBUILD_SHARED_LIB=OFF
+  - -DBUILD_TESTING=OFF
+  - -DUSE_OPENMP=ON
+
+# Herbie downloads GFS/HRRR for the job scripts (#633). Own venv, so its
+# numpy/xarray pins never fight wrf_gpu's jax.
+herbie_venv: "{{ wrf_root }}/herbie/.venv"
+herbie_version: "2026.9.2"

@@ -1,0 +1,40 @@
+---
+- name: Install WRF/WPS build dependencies
+  ansible.builtin.apt:
+    name: "{{ wrf_build_packages }}"
+    state: present
+
+- name: Create the WRF directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ wrf_root }}"
+    - "{{ wrf_root }}/src"
+    - "{{ wrf_netcdf_prefix }}"
+    - "{{ wrf_netcdf_prefix }}/lib"
+
+# Without -lnetcdff the WRF link fails with "undefined reference to nf_*".
+# See wrf_netcdf_prefix in defaults/main.yml.
+- name: Point the NetCDF prefix's include at the system headers
+  ansible.builtin.file:
+    src: /usr/include
+    dest: "{{ wrf_netcdf_prefix }}/include"
+    state: link
+
+- name: Find the system NetCDF libraries
+  ansible.builtin.find:
+    paths: "{{ wrf_netcdf_libdir }}"
+    patterns: "libnetcdf*"
+    file_type: any
+  register: wrf_netcdf_libs
+
+- name: Link the NetCDF libraries into the prefix
+  ansible.builtin.file:
+    src: "{{ item.path }}"
+    dest: "{{ wrf_netcdf_prefix }}/lib/{{ item.path | basename }}"
+    state: link
+  loop: "{{ wrf_netcdf_libs.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
