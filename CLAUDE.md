@@ -66,6 +66,18 @@
 - This matters more than usual here: more than one agent session can be working in this
   repo at once, from different branches and worktrees.
 
+## Service Names (one name on and off the VPN)
+- Every service is a Tailscale Service: `https://<name>.taile975f.ts.net`. Use that name
+  everywhere by default. It works on the tailnet and on the default LAN: AdGuard forwards
+  the tailnet zone to MagicDNS, and the router routes `100.64.0.0/10` via dns01.
+- From the LAN those names travel through dns01's WireGuard tunnel (MTU 1280). That is a
+  deliberate, accepted cost of one name everywhere, not a bug. Fine for UIs and normal
+  streaming. Don't steer people off the name for performance unless it's measured.
+- Escape hatch for heavy LAN-only clients (e.g. Rokus buffering on 4K):
+  `http://jellyfin01:8096`, which AdGuard's host rewrite resolves to the LAN IP.
+- Open idea: serve the svc name directly on the LAN (rewrite plus HTTPS on jellyfin01:443)
+  for one name and the direct path. Blocked on whether Tailscale issues a cert usable that way.
+
 ## Docker in LXC
 - LXCs must be **privileged** (`--unprivileged 0`) - overlay2 fails in unprivileged. Can't change after creation, must destroy and recreate.
 - Podman does NOT work in unprivileged LXCs - use Docker instead
@@ -83,7 +95,7 @@
 - Proxmox installer leaves `/etc/default/grub.d/installer.cfg` with `nomodeset` — must remove, not just update `/etc/default/grub`
 - LXC GPU device passthrough uses `pct set --dev0 /dev/dri/card0,gid=44 --dev1 /dev/dri/renderD128,gid=993` — verify GIDs match host with `stat -c '%g' /dev/dri/*`
 - CephFS bind mounts (`mp0:`) block LXC HA migration — Proxmox refuses to migrate containers with bind mounts
-- Tailscale serve config is NOT persistent across LXC restarts — must re-run `tailscale serve` after container restart
+- `tailscale serve` config is NOT persistent across LXC restarts by itself. Publish services through `tailscale_serve_services`, which renders a `tailscale-serve-<name>` unit that re-applies it on boot
 
 ## Cloudflare
 - Zero Trust requires dashboard onboarding (team name) before Access API works — 403 until completed
