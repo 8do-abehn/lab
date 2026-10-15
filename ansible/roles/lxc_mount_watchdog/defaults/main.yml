@@ -22,10 +22,10 @@
 # a service people are using. A human decides when to pull that trigger.
 lxc_watchdog_enabled: true
 
-# One entry per container+mount to probe. Empty by default; set per-host in
-# host_vars where the watched containers actually run.
+# One entry per container+mount to probe. Empty by default; set it for every node
+# a watched container can run on (each node skips containers not running on it).
 lxc_watchdog_targets: []
-# Example (see host_vars/pve01.yml):
+# Example (see group_vars/proxmox.yml):
 # lxc_watchdog_targets:
 #   - ctid: 3001
 #     name: jellyfin01
