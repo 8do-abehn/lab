@@ -30,8 +30,22 @@ notify() {
     apprise -t "$1" --body "$2" --config /etc/apprise.yml >/dev/null 2>&1 || true
 }
 
+# Every node carries the same target list, because HA can run a watched container on
+# any of them. Only the node it is actually on can probe it: `pct exec` against a
+# container that lives elsewhere fails, and on 2026-10-14 that failure read as
+# UNHEALTHY and alerted every 5 minutes after jellyfin01 moved to pve03, while pve03
+# watched nothing (lab#648). The config file test reads pmxcfs only, so it cannot
+# hang on the mount being probed.
+NODE="$(hostname)"
+runs_here() {
+    [ -f "/etc/pve/nodes/$NODE/lxc/$1.conf" ] || return 1
+    pct status "$1" 2>/dev/null | grep -q "status: running"
+}
+
 {% for target in lxc_watchdog_targets %}
-if ! timeout --signal=KILL "$OUTER_TIMEOUT" pct exec {{ target.ctid }} -- timeout "$INNER_TIMEOUT" ls -A {{ target.mount_path }} >/dev/null 2>&1; then
+if ! runs_here {{ target.ctid }}; then
+    :
+elif ! timeout --signal=KILL "$OUTER_TIMEOUT" pct exec {{ target.ctid }} -- timeout "$INNER_TIMEOUT" ls -A {{ target.mount_path }} >/dev/null 2>&1; then
     log "UNHEALTHY: {{ target.name }} (ct:{{ target.ctid }}) {{ target.mount_path }} did not respond within ${OUTER_TIMEOUT}s"
     notify "LXC mount watchdog: {{ target.name }} unresponsive" "$(hostname): ct:{{ target.ctid }} ({{ target.name }}) did not answer a read probe on {{ target.mount_path }} within ${OUTER_TIMEOUT}s at $(date).
 

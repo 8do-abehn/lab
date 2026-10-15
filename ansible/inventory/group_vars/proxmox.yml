@@ -10,3 +10,15 @@
 pve_config_offsite_recipients: []
 # Inventory host that receives the copies (pi-burg until #512 moves it to pve006)
 pve_config_offsite_target: pi-burg
+
+# Host-level watchdog for CephFS mounts inside LXCs (#516). See
+# roles/lxc_mount_watchdog for why this runs on the host rather than inside the
+# container. Set for every node, not just one: HA moves jellyfin01 between pve01
+# and pve03, and each node probes only the containers running on it. While this
+# list lived in host_vars/pve01.yml, moving jellyfin01 to pve03 made pve01 alert
+# every 5 minutes about a container it no longer ran, and left pve03 unwatched
+# (lab#648).
+lxc_watchdog_targets:
+  - ctid: 3001
+    name: jellyfin01
+    mount_path: /mnt/library
