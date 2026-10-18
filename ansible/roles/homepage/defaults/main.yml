@@ -71,10 +71,10 @@ homepage_weather_longitude: -91.200
 homepage_nws_forecast_url: https://api.weather.gov/gridpoints/MPX/177,76/forecast
 # NWS rejects requests without a User-Agent and asks for a contact in it.
 homepage_nws_user_agent: "lab-homepage (github.com/8do-abehn/lab)"
-# NWS radar loop for the Radar tile: a single radar (KMPX, KARX, ...) or a
-# regional mosaic. The station sits between KMPX and KARX, so the Upper
-# Mississippi Valley mosaic covers it best.
-homepage_radar_region: UPPERMISSVLY
+# NWS radar for the Radar tile. KARX (La Crosse) has the station near the top
+# center, with Eau Claire and Rice Lake labelled; KMPX (Twin Cities) has it at
+# the east edge, and the UPPERMISSVLY mosaic is centred on Iowa.
+homepage_radar_site: KARX
 
 # Rendered as-is into services.yaml, so this is Homepage's own format:
 # https://gethomepage.dev/configs/services/
@@ -200,19 +200,25 @@ homepage_services:
             mappings:
               name: name
               label: summary
-      # The browser loads this, not the container. NWS regenerates the loop
-      # every few minutes; the iframe reloads on the same cadence.
+      # The browser loads this, not the container. A bare image in an iframe
+      # shows at its own 600px size and gets cropped to the tile, so the src
+      # is a one-line HTML page that scales the GIF to fit. It is a data: URL,
+      # so "#" and "%" are written %23 and %25. NWS regenerates the loop every
+      # few minutes; the iframe reloads on the same cadence.
       - Radar:
-          href: "https://radar.weather.gov/region/{{ homepage_radar_region | lower }}/standard"
+          href: "https://radar.weather.gov/station/{{ homepage_radar_site | lower }}/standard"
           icon: mdi-radar
-          description: NWS radar loop
+          description: "NWS radar, {{ homepage_radar_site }}"
           widget:
             type: iframe
             name: radar
-            src: "https://radar.weather.gov/ridge/standard/{{ homepage_radar_region }}_loop.gif"
+            src: >-
+              data:text/html,<body style='margin:0;background:transparent'>
+              <img src='https://radar.weather.gov/ridge/standard/{{ homepage_radar_site }}_loop.gif'
+              style='display:block;width:100%25;height:100vh;object-fit:contain'>
             refreshInterval: 300000
             allowScrolling: "no"
-            classes: h-72
+            classes: h-96
 
 homepage_bookmarks:
   - Lab:
