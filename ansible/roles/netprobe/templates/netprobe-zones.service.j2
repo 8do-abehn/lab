@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Move each zone interface into its own network namespace (netprobe)
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/netprobe-zones /etc/netprobe/zones.conf
+
+[Install]
+WantedBy=multi-user.target

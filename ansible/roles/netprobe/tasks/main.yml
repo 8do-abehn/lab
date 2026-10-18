@@ -1,0 +1,80 @@
+---
+- name: Check every zone is fully defined
+  ansible.builtin.assert:
+    that:
+      - item.name is defined and item.name | length <= 15
+      - item.address is defined and '/' in item.address
+      - item.gateway is defined
+      - item.dns is defined
+    fail_msg: "netprobe_zones entry {{ item }} needs name (<=15 chars), address with /prefix, gateway and dns"
+    quiet: true
+  loop: "{{ netprobe_zones }}"
+
+- name: Install the probe tools
+  ansible.builtin.apt:
+    name:
+      - iproute2
+      - netcat-openbsd
+      - bind9-dnsutils
+    state: present
+
+- name: Create /etc/netprobe
+  ansible.builtin.file:
+    path: /etc/netprobe
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the expected reachability table
+  ansible.builtin.copy:
+    src: expected.tsv
+    dest: /etc/netprobe/expected.tsv
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render the zone definitions
+  ansible.builtin.template:
+    src: zones.conf.j2
+    dest: /etc/netprobe/zones.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: netprobe_zones_conf
+
+- name: Install the namespace setup script
+  ansible.builtin.copy:
+    src: netprobe-zones.sh
+    dest: /usr/local/sbin/netprobe-zones
+    owner: root
+    group: root
+    mode: "0755"
+  register: netprobe_zones_script
+
+- name: Install the test runner
+  ansible.builtin.copy:
+    src: netprobe.sh
+    dest: /usr/local/bin/netprobe
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render the namespace setup unit
+  ansible.builtin.template:
+    src: netprobe-zones.service.j2
+    dest: /etc/systemd/system/netprobe-zones.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: netprobe_zones_unit
+
+# restarted, not started: a changed zone list has to be applied. The script
+# replaces addresses and routes, so rerunning it is harmless.
+- name: Enable and apply the zone namespaces
+  ansible.builtin.systemd:
+    name: netprobe-zones.service
+    enabled: true
+    state: "{{ 'restarted' if (netprobe_zones_conf.changed or netprobe_zones_script.changed or netprobe_zones_unit.changed) else 'started' }}"
+    daemon_reload: true
+  when: not ansible_check_mode

@@ -1,0 +1,25 @@
+---
+# Registered by hand (roles/netprobe/README.md, "Bootstrap"), so the tailscale
+# role only re-asserts the tag and --ssh. The vault key is a fallback for a
+# rebuild.
+tailscale_auth_key: "{{ vault_tailscale_netprobe_auth_key | default('') }}"
+tailscale_tags: "tag:netprobe"
+# Needs nothing on the tailnet by name, and MagicDNS leaks into LXC resolv.conf.
+tailscale_accept_dns: false
+
+# One entry per zone interface the LXC actually has (roles/netprobe/defaults).
+# Only VLANs 10 and 70 reach guests today (proxmox_bridge_vids), so these two
+# come first. Add IoT (20), Guests (25), Kids (30), Work (40) and Untrusted
+# (666) as their VLANs are added to the bridge.
+#
+# .250 is a proposal: confirm it is outside each VLAN's DHCP pool on the
+# EdgeRouter, or add a static-mapping, before deploying.
+netprobe_zones:
+  - name: trusted
+    address: 10.150.10.250/24
+    gateway: 10.150.10.1
+    dns: 10.150.10.1
+  - name: services
+    address: 10.150.70.250/24
+    gateway: 10.150.70.1
+    dns: 10.150.60.11
