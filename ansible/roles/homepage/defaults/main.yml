@@ -36,6 +36,17 @@ homepage_settings:
     Tools:
       style: row
       columns: 2
+    Weather:
+      style: row
+      columns: 1
+
+# Wisconet (UW-Madison's Wisconsin mesonet) station for the Weather tile. The
+# API needs no key. Station IDs: https://wisconet.wisc.edu/api/v1/stations/
+homepage_wisconet_station: RTHR
+homepage_wisconet_slug: arthur
+# The station's own coordinates, for the forecast in the header.
+homepage_weather_latitude: 45.032
+homepage_weather_longitude: -91.200
 
 # Rendered as-is into services.yaml, so this is Homepage's own format:
 # https://gethomepage.dev/configs/services/
@@ -104,6 +115,50 @@ homepage_services:
           icon: readeck.png
           description: Read-later and bookmarks
           siteMonitor: "http://readeck.{{ tailnet_domain }}:8000/api/info"
+  - Weather:
+      # latest_measures returns a list, not an object keyed by field name, so
+      # customapi can only pick values by position. The positions below match
+      # on every station checked (2026-10-17), but if Wisconet adds a field
+      # they shift and the labels silently show the wrong numbers. Re-check
+      # with: curl -s <url> | jq -r 'to_entries[] | "\(.key) \(.value.standard_name)"'
+      # "Yesterday" rows: the daily_* fields cover the previous full day.
+      - Arthur:
+          href: "https://wisconet.wisc.edu/stations/{{ homepage_wisconet_slug }}"
+          icon: mdi-weather-partly-cloudy
+          description: Wisconet station, 5-minute readings
+          widget:
+            type: customapi
+            url: "https://wisconet.wisc.edu/api/v1/stations/{{ homepage_wisconet_station }}/latest_measures"
+            # The station reports every 5 minutes.
+            refreshInterval: 300000
+            display: list
+            mappings:
+              - field: 0.value
+                label: Temperature
+                suffix: "°F"
+              - field: 1.value
+                label: Dew point
+                suffix: "°F"
+              - field: 4.value
+                label: Humidity
+                suffix: "%"
+              - field: 5.value
+                label: Wind
+                suffix: mph
+              - field: 70.value
+                label: High yesterday
+                suffix: "°F"
+              - field: 71.value
+                label: Low yesterday
+                suffix: "°F"
+              - field: 75.value
+                label: Rain yesterday
+                suffix: in
+              # collection_time is epoch seconds; relativeDate wants ms.
+              - field: 0.collection_time
+                label: Updated
+                scale: 1000
+                format: relativeDate
 
 homepage_bookmarks:
   - Lab:
@@ -118,6 +173,15 @@ homepage_bookmarks:
             icon: tailscale.png
 
 homepage_widgets:
+  # Wisconet has no forecast (its own site uses the NWS for that), so the
+  # header shows Open-Meteo's current conditions for the same spot.
+  - openmeteo:
+      label: Arthur
+      latitude: "{{ homepage_weather_latitude }}"
+      longitude: "{{ homepage_weather_longitude }}"
+      timezone: America/Chicago
+      units: imperial
+      cache: 15
   - datetime:
       format:
         dateStyle: medium
