@@ -36,7 +36,7 @@ case "$kind" in
     # shellcheck disable=SC2016
     filter='
       (.properties.periods // error("unexpected forecast response")) as $p
-      | ($p[:6] | map({name, summary: "\(.temperature)°\(.temperatureUnit) \(.shortForecast)"}))
+      | ($p[:6] | map({name, summary: "\(.shortForecast) \(.temperature)°\(.temperatureUnit)"}))
       + [{name: "Issued", summary: (.properties.updateTime | sub("\\+00:00$"; "Z") | fromdate | strflocaltime("%a %-I:%M %p"))}]'
     ;;
   *)

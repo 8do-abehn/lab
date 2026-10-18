@@ -186,7 +186,7 @@ homepage_services:
                 label: Updated
                 scale: 1000
                 format: relativeDate
-      # Rows are the next 6 NWS periods (3 days) as "62°F Sunny", plus when
+      # Rows are the next 6 NWS periods (3 days) as "Sunny 62°F", plus when
       # NWS issued the forecast, joined by the forecast fetch.
       - Forecast:
           href: "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}"
