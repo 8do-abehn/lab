@@ -114,7 +114,11 @@ console, and add a tile here with `href: https://<name>.{{ tailnet_domain }}`.
 The Weather tile reads a [Wisconet](https://wisconet.wisc.edu/data/api)
 station (`homepage_wisconet_station`) through `customapi`; the header shows
 Open-Meteo's current conditions for the same coordinates, since Wisconet has
-no forecast. Both are fetched by the container, and neither needs an API key.
+no forecast. Two more tiles show the NWS forecast for the same spot
+(`homepage_nws_forecast_url`), one with temperatures and one with the sky,
+because a Homepage list row holds only one value. All of these are fetched by
+the container, and none needs an API key; NWS only asks for a User-Agent
+(`homepage_nws_user_agent`).
 
 The Wisconet response is a list, so the tile picks fields by position. If a
 row starts showing a wrong-looking number, the list has shifted: re-check the

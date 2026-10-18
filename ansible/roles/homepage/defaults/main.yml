@@ -38,15 +38,21 @@ homepage_settings:
       columns: 2
     Weather:
       style: row
-      columns: 1
+      columns: 3
 
 # Wisconet (UW-Madison's Wisconsin mesonet) station for the Weather tile. The
 # API needs no key. Station IDs: https://wisconet.wisc.edu/api/v1/stations/
 homepage_wisconet_station: RTHR
 homepage_wisconet_slug: arthur
-# The station's own coordinates, for the forecast in the header.
+# The station's own coordinates, for the current conditions in the header.
 homepage_weather_latitude: 45.032
 homepage_weather_longitude: -91.200
+# NWS forecast for the same spot. The grid point comes from
+# https://api.weather.gov/points/<lat>,<lon> (properties.forecast) and only
+# changes if the coordinates do.
+homepage_nws_forecast_url: https://api.weather.gov/gridpoints/MPX/177,76/forecast
+# NWS rejects requests without a User-Agent and asks for a contact in it.
+homepage_nws_user_agent: "lab-homepage (github.com/8do-abehn/lab)"
 
 # Rendered as-is into services.yaml, so this is Homepage's own format:
 # https://gethomepage.dev/configs/services/
@@ -159,6 +165,43 @@ homepage_services:
                 label: Updated
                 scale: 1000
                 format: relativeDate
+      # Homepage's list rows hold one value each, so the forecast is two tiles
+      # over the same periods: temperatures, and the sky. Both keep NWS's own
+      # period names (Tonight, Sunday, Sunday Night, ...), 6 periods = 3 days.
+      - Forecast:
+          href: "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}"
+          icon: mdi-thermometer
+          description: National Weather Service
+          widget:
+            type: customapi
+            url: "{{ homepage_nws_forecast_url }}"
+            headers:
+              User-Agent: "{{ homepage_nws_user_agent }}"
+            # NWS updates the forecast about hourly.
+            refreshInterval: 1800000
+            display: dynamic-list
+            mappings:
+              items: properties.periods
+              name: name
+              label: temperature
+              suffix: "°F"
+              limit: 6
+      - Sky:
+          href: "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}"
+          icon: mdi-weather-cloudy
+          description: National Weather Service
+          widget:
+            type: customapi
+            url: "{{ homepage_nws_forecast_url }}"
+            headers:
+              User-Agent: "{{ homepage_nws_user_agent }}"
+            refreshInterval: 1800000
+            display: dynamic-list
+            mappings:
+              items: properties.periods
+              name: name
+              label: shortForecast
+              limit: 6
 
 homepage_bookmarks:
   - Lab:
