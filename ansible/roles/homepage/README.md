@@ -109,6 +109,17 @@ To add a service, publish it as a Tailscale Service on the host that runs it
 (`tailscale_serve_services` in its host or group vars), define it in the admin
 console, and add a tile here with `href: https://<name>.{{ tailnet_domain }}`.
 
+## Weather
+
+The Weather tile reads a [Wisconet](https://wisconet.wisc.edu/data/api)
+station (`homepage_wisconet_station`) through `customapi`; the header shows
+Open-Meteo's current conditions for the same coordinates, since Wisconet has
+no forecast. Both are fetched by the container, and neither needs an API key.
+
+The Wisconet response is a list, so the tile picks fields by position. If a
+row starts showing a wrong-looking number, the list has shifted: re-check the
+positions with the `jq` command in `defaults/main.yml`.
+
 ## Status dots
 
 `siteMonitor` checks run from the Homepage container, not the browser. mem01
