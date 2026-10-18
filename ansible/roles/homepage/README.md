@@ -111,18 +111,33 @@ console, and add a tile here with `href: https://<name>.{{ tailnet_domain }}`.
 
 ## Weather
 
-The Weather tile reads a [Wisconet](https://wisconet.wisc.edu/data/api)
-station (`homepage_wisconet_station`) through `customapi`; the header shows
-Open-Meteo's current conditions for the same coordinates, since Wisconet has
-no forecast. Two more tiles show the NWS forecast for the same spot
-(`homepage_nws_forecast_url`), one with temperatures and one with the sky,
-because a Homepage list row holds only one value. All of these are fetched by
-the container, and none needs an API key; NWS only asks for a User-Agent
-(`homepage_nws_user_agent`).
+The Weather section has three tiles, and none of its sources needs an API key:
 
-The Wisconet response is a list, so the tile picks fields by position. If a
-row starts showing a wrong-looking number, the list has shifted: re-check the
-positions with the `jq` command in `defaults/main.yml`.
+| Tile | Source | Fetched by |
+|------|--------|------------|
+| Arthur | [Wisconet](https://wisconet.wisc.edu/data/api) station `homepage_wisconet_station`, 5-minute readings | mem01 timer |
+| Forecast | NWS gridpoint forecast `homepage_nws_forecast_url`, next 6 periods | mem01 timer |
+| Radar | NWS radar loop GIF `homepage_radar_region` | your browser |
+
+The header also shows Open-Meteo's current conditions for the same
+coordinates, fetched by the Homepage container.
+
+Neither Arthur nor Forecast can read its source directly. Wisconet's
+`latest_measures` is a list of about 150 readings, which `customapi` could
+only read by position, and a Homepage list row holds one field, so the NWS
+period's temperature and sky have to be joined first. For each entry in
+`homepage_weather_fetches`, a `weather-fetch-<name>.timer` on mem01 runs
+`files/weather-fetch.sh`, which reshapes the source into
+`/opt/homepage/weather/<name>.json`. A busybox `httpd` container in the same
+compose project serves those files to Homepage at
+`http://weather:8080/<name>.json`, with no port published on the host. NWS
+rejects requests without a User-Agent (`homepage_nws_user_agent`).
+
+- A row showing `null`: Wisconet renamed or dropped that field. List the
+  current names with `jq 'keys' /opt/homepage/weather/wisconet.json`.
+- Arthur's "Updated" or the Forecast's "Issued" stuck in the past: that fetch
+  is failing and the last good file is still being served. Check
+  `systemctl status weather-fetch-wisconet.service` (or `-forecast`).
 
 ## Status dots
 
