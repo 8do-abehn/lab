@@ -1,7 +1,9 @@
 <!doctype html>
 <!-- Managed by Ansible (roles/homepage). Inlined into the Forecast tile as a
-     data: URL, so the browser fetches NWS itself (NWS allows any origin).
-     Colors are Homepage's slate theme: theme-200, theme-400, theme-900. -->
+     data: URL, so the browser fetches NWS itself (NWS allows any origin):
+     active alerts for the point on top, then the forecast table.
+     Colors are Homepage's slate theme (theme-200, theme-400, theme-900) and
+     Tailwind red-400, orange-400 and yellow-400 for alert severity. -->
 <meta charset="utf-8">
 <style>
   body { margin: 0; background: transparent; color: #e2e8f0; font: 12px/1.4 system-ui, sans-serif; }
@@ -12,7 +14,15 @@
   td:last-child { border-radius: 0 2px 2px 0; }
   .n { text-align: right; white-space: nowrap; }
   #issued { color: #94a3b8; padding: 2px 8px; }
+  #alerts a { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0 0; padding: 5px 8px;
+              border-radius: 2px; color: #0f172a; font-weight: 600; text-decoration: none; }
+  #alerts a span { font-weight: 400; white-space: nowrap; }
+  #alerts .severe { background: #f87171; }
+  #alerts .moderate { background: #fb923c; }
+  #alerts .minor { background: #facc15; }
+  #alerts .more { background: rgba(15, 23, 42, 0.2); color: #94a3b8; }
 </style>
+<div id="alerts"></div>
 <table>
   <thead><tr><th>Day</th><th>Sky</th><th class="n">High</th><th class="n">Low</th><th class="n">Rain</th></tr></thead>
   <tbody id="days"></tbody>
@@ -20,7 +30,17 @@
 <div id="issued">Loading…</div>
 <script>
   const url = "{{ homepage_nws_forecast_url }}";
+  const alertsUrl = "{{ homepage_nws_alerts_url }}";
   const days = {{ homepage_forecast_days }};
+  // The NWS point page lists each active alert's full text.
+  const pointPage = "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}";
+  const maxAlerts = 2;
+
+  // Both requests fill the bottom line, so it is drawn once each settles.
+  const status = { issued: "Loading…", alerts: "" };
+  function drawStatus() {
+    document.getElementById("issued").textContent = [status.issued, status.alerts].filter(Boolean).join(" · ");
+  }
 
   // NWS returns 12-hour periods, a day followed by its night. Group them by
   // start date: the day gives the high and the sky, the night the low, and
@@ -52,6 +72,49 @@
   }
 
   const deg = (t) => (t == null ? "–" : `${t}°`);
+  const when = (iso) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+
+  function alertRow(text, until, className) {
+    const a = document.createElement("a");
+    a.href = pointPage;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.className = className;
+    a.append(text);
+    if (until) {
+      const span = document.createElement("span");
+      span.textContent = until;
+      a.append(span);
+    }
+    return a;
+  }
+
+  // One row per event type (NWS often issues the same warning several times
+  // for neighbouring zones), worst first, keeping the latest end time.
+  const rank = { Extreme: 0, Severe: 0, Moderate: 1, Minor: 2 };
+  const level = ["severe", "moderate", "minor"];
+  fetch(alertsUrl, { headers: { Accept: "application/geo+json" } })
+    .then((r) => {
+      if (!r.ok) throw new Error(`NWS answered ${r.status}`);
+      return r.json();
+    })
+    .then((data) => {
+      const byEvent = new Map();
+      for (const { properties: p } of data.features) {
+        const end = p.ends ?? p.expires;
+        const seen = byEvent.get(p.event);
+        if (!seen || end > seen.end) byEvent.set(p.event, { event: p.event, end, rank: rank[p.severity] ?? 2 });
+      }
+      const alerts = [...byEvent.values()].sort((a, b) => a.rank - b.rank);
+      const box = document.getElementById("alerts");
+      alerts.slice(0, maxAlerts).forEach((a) => box.append(alertRow(a.event, a.end && `until ${when(a.end)}`, level[a.rank])));
+      if (alerts.length > maxAlerts) box.append(alertRow(`+${alerts.length - maxAlerts} more`, "", "more"));
+      status.alerts = alerts.length ? "" : "No active alerts";
+    })
+    .catch((e) => {
+      status.alerts = `Alerts unavailable: ${e.message}`;
+    })
+    .finally(drawStatus);
 
   fetch(url, { headers: { Accept: "application/geo+json" } })
     .then((r) => {
@@ -68,11 +131,10 @@
         tr.append(cell(name), cell(d.sky ?? "–"), cell(deg(d.high), true), cell(deg(d.low), true), cell(`${d.rain}%`, true));
         body.append(tr);
       });
-      const issued = new Date(data.properties.updateTime);
-      document.getElementById("issued").textContent =
-        `Issued ${issued.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`;
+      status.issued = `Issued ${when(data.properties.updateTime)}`;
     })
     .catch((e) => {
-      document.getElementById("issued").textContent = `Forecast unavailable: ${e.message}`;
-    });
+      status.issued = `Forecast unavailable: ${e.message}`;
+    })
+    .finally(drawStatus);
 </script>

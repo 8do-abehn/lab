@@ -69,6 +69,9 @@ homepage_weather_longitude: -91.200
 homepage_nws_forecast_url: https://api.weather.gov/gridpoints/MPX/177,76/forecast
 # Days in the Forecast table. NWS forecasts 7.
 homepage_forecast_days: 5
+# Active NWS alerts (warnings, watches, advisories) for the same point, shown
+# above the Forecast table.
+homepage_nws_alerts_url: "https://api.weather.gov/alerts/active?point={{ homepage_weather_latitude }},{{ homepage_weather_longitude }}"
 # NWS rejects requests without a User-Agent and asks for a contact in it.
 # Only the Wisconet fetch sends this one; browsers send their own.
 homepage_nws_user_agent: "lab-homepage (github.com/8do-abehn/lab)"
@@ -187,7 +190,8 @@ homepage_services:
                 label: Updated
                 scale: 1000
                 format: relativeDate
-      # A table (day, sky, high, low, rain) that the browser fills from NWS.
+      # Active alerts, then a table (day, sky, high, low, rain), filled by the
+      # browser from NWS.
       # The page is templates/forecast-table.html.j2, inlined as a data: URL
       # like the radar; it refetches whenever the iframe reloads.
       - Forecast:
@@ -198,10 +202,13 @@ homepage_services:
             type: iframe
             name: forecast
             src: "data:text/html;charset=utf-8,{{ lookup('ansible.builtin.template', role_path ~ '/templates/forecast-table.html.j2') | urlencode }}"
-            # NWS updates the forecast about hourly.
-            refreshInterval: 1800000
+            # NWS updates the forecast about hourly; alerts can come at any
+            # time, so the tile reloads every 5 minutes.
+            refreshInterval: 300000
             allowScrolling: "no"
-            classes: h-56
+            # Room for the table plus up to 2 alert rows and "+N more"
+            # (about 340px); quiet days leave space at the bottom.
+            classes: h-96
       # The browser loads this, not the container. A bare image in an iframe
       # shows at its own 600px size and gets cropped to the tile, so the src
       # is a one-line HTML page that scales the GIF to fit. It is a data: URL,

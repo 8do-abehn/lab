@@ -116,7 +116,7 @@ The Weather section has three tiles, and none of its sources needs an API key:
 | Tile | Source | Fetched by |
 |------|--------|------------|
 | Arthur | [Wisconet](https://wisconet.wisc.edu/data/api) station `homepage_wisconet_station`, 5-minute readings | mem01 timer |
-| Forecast | NWS gridpoint forecast `homepage_nws_forecast_url`, a table of `homepage_forecast_days` days | your browser |
+| Forecast | NWS alerts for the point, then the gridpoint forecast as a table of `homepage_forecast_days` days | your browser |
 | Radar | NWS radar loop GIF for `homepage_radar_site`, scaled by an inline page | your browser |
 
 The header also shows Open-Meteo's current conditions for the same
@@ -141,8 +141,13 @@ value each, which rules out a table there. The Forecast page is
 `templates/forecast-table.html.j2`: it groups NWS's 12-hour periods by date
 into day, sky, high, low and rain chance. NWS allows requests from any origin.
 
-- "Forecast unavailable": NWS answered with an error, or the browser could
-  not reach it. The tile retries every 30 minutes and on page reload.
+- The Forecast tile also shows active NWS alerts for the point
+  (`homepage_nws_alerts_url`) above the table, colored by severity, one row
+  per event type, at most 2 plus "+N more". Each links to the NWS point page
+  with the full text. With none, the bottom line says "No active alerts".
+- "Forecast unavailable" or "Alerts unavailable": NWS answered with an error,
+  or the browser could not reach it. The tile retries every 5 minutes and on
+  page reload.
 - A fetch job dropped from `homepage_weather_fetches` goes into
   `homepage_weather_fetches_removed`, so the role removes its units from mem01.
 
