@@ -2,15 +2,13 @@
 # Managed by Ansible (roles/homepage)
 #
 # Fetches one weather source and reshapes it into JSON the Homepage customapi
-# widget can read directly (#651). Two shapes it cannot handle as-is:
+# widget can read directly (#651):
 #   wisconet: latest_measures is a list of ~150 readings, readable only by
 #             position, where a field Wisconet adds or drops would shift every
 #             row onto the wrong number without any error. Rewritten as one
 #             object keyed by standard_name; a missing field shows as null.
-#   forecast: a Homepage list row holds one field, so the NWS period's
-#             temperature and sky are joined into one string per row.
 #
-# Usage: weather-fetch <wisconet|forecast> <source URL> <output file>
+# Usage: weather-fetch wisconet <source URL> <output file>
 set -euo pipefail
 
 kind="$1"
@@ -29,16 +27,6 @@ case "$kind" in
         error("unexpected latest_measures response")
       end'
     ;;
-  forecast)
-    # The last row says when NWS issued the forecast, since a dynamic list has
-    # no separate "Updated" row. strflocaltime uses the host's time zone.
-    # $p is a jq variable, so single quotes are intended.
-    # shellcheck disable=SC2016
-    filter='
-      (.properties.periods // error("unexpected forecast response")) as $p
-      | ($p[:6] | map({name, summary: "\(.shortForecast) \(.temperature)°\(.temperatureUnit)"}))
-      + [{name: "Issued", summary: (.properties.updateTime | sub("\\+00:00$"; "Z") | fromdate | strflocaltime("%a %-I:%M %p"))}]'
-    ;;
   *)
     echo "unknown kind: $kind" >&2
     exit 2
@@ -50,8 +38,7 @@ esac
 tmp="$(mktemp "${out}.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 
-# NWS rejects requests without a User-Agent and asks for a contact in it;
-# Wisconet does not mind one. The unit sets WEATHER_FETCH_UA.
+# A User-Agent with a contact, as public APIs ask. The unit sets it.
 curl -fsS --max-time 30 -A "${WEATHER_FETCH_UA:?set WEATHER_FETCH_UA}" "$url" | jq -e "$filter" > "$tmp"
 
 chmod 0644 "$tmp"

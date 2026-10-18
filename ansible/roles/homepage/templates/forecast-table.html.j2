@@ -1,0 +1,78 @@
+<!doctype html>
+<!-- Managed by Ansible (roles/homepage). Inlined into the Forecast tile as a
+     data: URL, so the browser fetches NWS itself (NWS allows any origin).
+     Colors are Homepage's slate theme: theme-200, theme-400, theme-900. -->
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: transparent; color: #e2e8f0; font: 12px/1.4 system-ui, sans-serif; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+  th { color: #94a3b8; font-weight: 400; text-align: left; padding: 0 8px; }
+  td { background: rgba(15, 23, 42, 0.2); padding: 5px 8px; font-weight: 600; }
+  td:first-child { font-weight: 300; border-radius: 2px 0 0 2px; }
+  td:last-child { border-radius: 0 2px 2px 0; }
+  .n { text-align: right; white-space: nowrap; }
+  #issued { color: #94a3b8; padding: 2px 8px; }
+</style>
+<table>
+  <thead><tr><th>Day</th><th>Sky</th><th class="n">High</th><th class="n">Low</th><th class="n">Rain</th></tr></thead>
+  <tbody id="days"></tbody>
+</table>
+<div id="issued">Loading…</div>
+<script>
+  const url = "{{ homepage_nws_forecast_url }}";
+  const days = {{ homepage_forecast_days }};
+
+  // NWS returns 12-hour periods, a day followed by its night. Group them by
+  // start date: the day gives the high and the sky, the night the low, and
+  // rain is the higher of the two chances. The first entry can be a night
+  // alone (in the evening), so the high may be missing.
+  function group(periods) {
+    const byDate = new Map();
+    for (const p of periods) {
+      const date = p.startTime.slice(0, 10);
+      if (!byDate.has(date)) byDate.set(date, { date });
+      const d = byDate.get(date);
+      d.rain = Math.max(d.rain ?? 0, p.probabilityOfPrecipitation?.value ?? 0);
+      if (p.isDaytime) {
+        d.high = p.temperature;
+        d.sky = p.shortForecast;
+      } else {
+        d.low = p.temperature;
+        d.sky ??= p.shortForecast;
+      }
+    }
+    return [...byDate.values()].slice(0, days);
+  }
+
+  function cell(text, numeric) {
+    const td = document.createElement("td");
+    td.textContent = text;
+    if (numeric) td.className = "n";
+    return td;
+  }
+
+  const deg = (t) => (t == null ? "–" : `${t}°`);
+
+  fetch(url, { headers: { Accept: "application/geo+json" } })
+    .then((r) => {
+      if (!r.ok) throw new Error(`NWS answered ${r.status}`);
+      return r.json();
+    })
+    .then((data) => {
+      const body = document.getElementById("days");
+      group(data.properties.periods).forEach((d, i) => {
+        // After about 6 PM NWS starts with tonight, and today's high is gone.
+        const name = i === 0 ? (d.high == null ? "Tonight" : "Today")
+          : new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+        const tr = document.createElement("tr");
+        tr.append(cell(name), cell(d.sky ?? "–"), cell(deg(d.high), true), cell(deg(d.low), true), cell(`${d.rain}%`, true));
+        body.append(tr);
+      });
+      const issued = new Date(data.properties.updateTime);
+      document.getElementById("issued").textContent =
+        `Issued ${issued.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`;
+    })
+    .catch((e) => {
+      document.getElementById("issued").textContent = `Forecast unavailable: ${e.message}`;
+    });
+</script>

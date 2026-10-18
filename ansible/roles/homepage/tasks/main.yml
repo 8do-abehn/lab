@@ -23,6 +23,36 @@
 # field name instead of list position, and the NWS forecast with temperature
 # and sky joined per row (#651, files/weather-fetch.sh, defaults/main.yml).
 # One oneshot service and timer per entry in homepage_weather_fetches.
+# A fetch job dropped from homepage_weather_fetches leaves its units behind,
+# so retired ones are listed in homepage_weather_fetches_removed.
+- name: Look for retired weather fetch timers
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/weather-fetch-{{ item }}.timer"
+  loop: "{{ homepage_weather_fetches_removed }}"
+  register: homepage_weather_retired_timers
+
+- name: Stop retired weather fetch timers
+  ansible.builtin.systemd:
+    name: "weather-fetch-{{ item.item }}.timer"
+    enabled: false
+    state: stopped
+  loop: "{{ homepage_weather_retired_timers.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.stat.exists
+
+- name: Remove retired weather fetch units and data
+  ansible.builtin.file:
+    path: "{{ item.1 | format(item.0) }}"
+    state: absent
+  loop: "{{ homepage_weather_fetches_removed | product(homepage_weather_retired_paths) | list }}"
+  vars:
+    homepage_weather_retired_paths:
+      - /etc/systemd/system/weather-fetch-%s.timer
+      - /etc/systemd/system/weather-fetch-%s.service
+      - "{{ homepage_weather_dir }}/%s.json"
+  register: homepage_weather_retired
+
 - name: Install curl and jq for the weather fetches
   ansible.builtin.apt:
     name:
@@ -102,7 +132,8 @@
     name: "weather-fetch-{{ item.name }}.timer"
     enabled: true
     state: started
-    daemon_reload: "{{ (homepage_weather_units.changed or homepage_weather_timers.changed) | bool }}"
+    # Also picks up the removal of any retired units above.
+    daemon_reload: "{{ (homepage_weather_units.changed or homepage_weather_timers.changed or homepage_weather_retired.changed) | bool }}"
   loop: "{{ homepage_weather_fetches }}"
   loop_control:
     label: "{{ item.name }}"

@@ -116,28 +116,35 @@ The Weather section has three tiles, and none of its sources needs an API key:
 | Tile | Source | Fetched by |
 |------|--------|------------|
 | Arthur | [Wisconet](https://wisconet.wisc.edu/data/api) station `homepage_wisconet_station`, 5-minute readings | mem01 timer |
-| Forecast | NWS gridpoint forecast `homepage_nws_forecast_url`, next 6 periods | mem01 timer |
+| Forecast | NWS gridpoint forecast `homepage_nws_forecast_url`, a table of `homepage_forecast_days` days | your browser |
 | Radar | NWS radar loop GIF for `homepage_radar_site`, scaled by an inline page | your browser |
 
 The header also shows Open-Meteo's current conditions for the same
 coordinates, fetched by the Homepage container.
 
-Neither Arthur nor Forecast can read its source directly. Wisconet's
-`latest_measures` is a list of about 150 readings, which `customapi` could
-only read by position, and a Homepage list row holds one field, so the NWS
-period's temperature and sky have to be joined first. For each entry in
+**Arthur.** Wisconet's `latest_measures` is a list of about 150 readings,
+which `customapi` could only read by position. For each entry in
 `homepage_weather_fetches`, a `weather-fetch-<name>.timer` on mem01 runs
 `files/weather-fetch.sh`, which reshapes the source into
 `/opt/homepage/weather/<name>.json`. A busybox `httpd` container in the same
 compose project serves those files to Homepage at
-`http://weather:8080/<name>.json`, with no port published on the host. NWS
-rejects requests without a User-Agent (`homepage_nws_user_agent`).
+`http://weather:8080/<name>.json`, with no port published on the host.
 
 - A row showing `null`: Wisconet renamed or dropped that field. List the
   current names with `jq 'keys' /opt/homepage/weather/wisconet.json`.
-- Arthur's "Updated" or the Forecast's "Issued" stuck in the past: that fetch
-  is failing and the last good file is still being served. Check
-  `systemctl status weather-fetch-wisconet.service` (or `-forecast`).
+- "Updated" stuck in the past: the fetch is failing and the last good file is
+  still being served. Check `systemctl status weather-fetch-wisconet.service`.
+
+**Forecast and Radar** are small HTML pages inlined into `iframe` tiles as
+`data:` URLs, so the browser does the fetching. Homepage list rows hold one
+value each, which rules out a table there. The Forecast page is
+`templates/forecast-table.html.j2`: it groups NWS's 12-hour periods by date
+into day, sky, high, low and rain chance. NWS allows requests from any origin.
+
+- "Forecast unavailable": NWS answered with an error, or the browser could
+  not reach it. The tile retries every 30 minutes and on page reload.
+- A fetch job dropped from `homepage_weather_fetches` goes into
+  `homepage_weather_fetches_removed`, so the role removes its units from mem01.
 
 ## Status dots
 

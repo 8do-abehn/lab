@@ -44,13 +44,11 @@ homepage_settings:
 # API needs no key. Station IDs: https://wisconet.wisc.edu/api/v1/stations/
 homepage_wisconet_station: RTHR
 homepage_wisconet_slug: arthur
-# Neither weather source fits customapi as-is: Wisconet's latest_measures is
-# a list readable only by position, and a Homepage list row holds one field,
-# so the NWS forecast's temperature and sky need joining. A timer per entry
-# below fetches and reshapes its source on the host (files/weather-fetch.sh,
-# #651), and a busybox httpd in the compose project serves the results to
-# Homepage on the compose network only, as http://weather:8080/<name>.json.
-# The name also selects the reshape, so it must be wisconet or forecast.
+# Wisconet's latest_measures is a list that customapi could only read by
+# position. A timer per entry below fetches and reshapes it on the host
+# (files/weather-fetch.sh, #651), and a busybox httpd in the compose project
+# serves the result to Homepage on the compose network only, as
+# http://weather:8080/<name>.json. The name also selects the reshape.
 homepage_weather_dir: "{{ homepage_dir }}/weather"
 homepage_weather_image: "busybox:1.37"
 homepage_weather_base_url: http://weather:8080
@@ -58,10 +56,10 @@ homepage_weather_fetches:
   - name: wisconet
     url: "https://wisconet.wisc.edu/api/v1/stations/{{ homepage_wisconet_station }}/latest_measures"
     interval: 5min
-  # NWS updates the forecast about hourly.
-  - name: forecast
-    url: "{{ homepage_nws_forecast_url }}"
-    interval: 30min
+# Fetch jobs that used to exist; their units are stopped and removed. The
+# forecast moved into the browser (templates/forecast-table.html.j2).
+homepage_weather_fetches_removed:
+  - forecast
 # The station's own coordinates, for the current conditions in the header.
 homepage_weather_latitude: 45.032
 homepage_weather_longitude: -91.200
@@ -69,7 +67,10 @@ homepage_weather_longitude: -91.200
 # https://api.weather.gov/points/<lat>,<lon> (properties.forecast) and only
 # changes if the coordinates do.
 homepage_nws_forecast_url: https://api.weather.gov/gridpoints/MPX/177,76/forecast
+# Days in the Forecast table. NWS forecasts 7.
+homepage_forecast_days: 5
 # NWS rejects requests without a User-Agent and asks for a contact in it.
+# Only the Wisconet fetch sends this one; browsers send their own.
 homepage_nws_user_agent: "lab-homepage (github.com/8do-abehn/lab)"
 # NWS radar for the Radar tile. KARX (La Crosse) has the station near the top
 # center, with Eau Claire and Rice Lake labelled; KMPX (Twin Cities) has it at
@@ -186,20 +187,21 @@ homepage_services:
                 label: Updated
                 scale: 1000
                 format: relativeDate
-      # Rows are the next 6 NWS periods (3 days) as "Sunny 62°F", plus when
-      # NWS issued the forecast, joined by the forecast fetch.
+      # A table (day, sky, high, low, rain) that the browser fills from NWS.
+      # The page is templates/forecast-table.html.j2, inlined as a data: URL
+      # like the radar; it refetches whenever the iframe reloads.
       - Forecast:
           href: "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}"
           icon: mdi-weather-cloudy-clock
           description: National Weather Service
           widget:
-            type: customapi
-            url: "{{ homepage_weather_base_url }}/forecast.json"
-            refreshInterval: 300000
-            display: dynamic-list
-            mappings:
-              name: name
-              label: summary
+            type: iframe
+            name: forecast
+            src: "data:text/html;charset=utf-8,{{ lookup('ansible.builtin.template', role_path ~ '/templates/forecast-table.html.j2') | urlencode }}"
+            # NWS updates the forecast about hourly.
+            refreshInterval: 1800000
+            allowScrolling: "no"
+            classes: h-56
       # The browser loads this, not the container. A bare image in an iframe
       # shows at its own 600px size and gets cropped to the tile, so the src
       # is a one-line HTML page that scales the GIF to fit. It is a data: URL,
