@@ -129,6 +129,14 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # Zone reachability probe (#640, roles/netprobe). One interface per VLAN,
+    # each in its own network namespace. Not built yet: create the LXC by hand
+    # (roles/netprobe/README.md, "Bootstrap"), then uncomment.
+    netprobe_hosts:
+      hosts:
+        # netprobe01:  # LXC on the new cluster -- runs `netprobe` against files/expected.tsv
+        #   ansible_user: root
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     # Node placement is HA-managed and drifts; these are as of 2026-10-04.

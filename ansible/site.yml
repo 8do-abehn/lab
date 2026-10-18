@@ -82,7 +82,7 @@
         mode: "0644"
 
 - name: Setup Tailscale on all hosts
-  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers:encoders:claude_hosts:ollama_servers
+  hosts: proxmox:k3s_cluster:media_servers:backup_servers:dns_servers:mem0_servers:minecraft_servers:immich_servers:unifi_servers:encoders:claude_hosts:ollama_servers:netprobe_hosts
   become: true
   vars_files:
     - vault.yml
@@ -268,6 +268,15 @@
   become: true
   roles:
     - homepage
+
+# Zone reachability probe for the network zones plan. Run `netprobe` on the
+# host before and after each firewall change. See roles/netprobe/README.md.
+- name: Configure the zone reachability probe
+  hosts: netprobe_hosts
+  tags: netprobe
+  become: true
+  roles:
+    - netprobe
 
 - name: Deploy Minecraft servers
   hosts: minecraft_servers

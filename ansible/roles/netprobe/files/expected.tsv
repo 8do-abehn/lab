@@ -1,0 +1,80 @@
+# Expected zone reachability (#640, zones plan #414).
+#
+# One row per test. Columns, whitespace separated:
+#   zone     namespace on the netprobe LXC (= zone name, see zones.conf)
+#   target   IP or name, or "gateway" for that zone's router address
+#   port     TCP port, or the DNS port for dns checks
+#   check    tcp (nc -z, 2s timeout) or dns (dig, one 2s try)
+#   expect   allow or deny
+#   name     dns only, optional: the name to look up (default example.com)
+# Anything after # is a note and is printed with the result.
+#
+# This table describes the rules as they ARE. A PR that changes a router rule
+# changes the rows it affects in the same PR, so "netprobe" before and after
+# each phase is the test for that phase.
+#
+# Rows for zones that do not exist yet are kept here and SKIPped until the
+# zone's interface is added to the LXC.
+#
+# Targets:
+#   1.1.1.1        stands in for "the internet"
+#   10.150.60.11   dns01: AdGuard DNS (53), web UI (3000)
+#   10.150.60.21   pve01: Proxmox UI (8006), SSH (22)
+#   10.150.70.14   jellyfin01 (8096)
+
+# --- Trusted (VLAN 10): no firewall yet ---
+trusted   1.1.1.1        443   tcp   allow                # internet
+trusted   10.150.60.11   53    dns   allow                # AdGuard
+trusted   10.150.60.21   8006  tcp   allow                # Proxmox UI
+trusted   10.150.60.21   22    tcp   allow                # Proxmox SSH
+trusted   10.150.60.11   3000  tcp   allow                # AdGuard UI
+trusted   10.150.70.14   8096  tcp   allow                # Jellyfin
+
+# --- IoT (VLAN 20): internet + DNS only ---
+iot       1.1.1.1        443   tcp   allow                # internet
+iot       10.150.60.11   53    dns   allow                # AdGuard
+iot       10.150.60.21   8006  tcp   deny                 # Proxmox UI
+iot       10.150.60.21   22    tcp   deny                 # Proxmox SSH
+iot       10.150.60.11   3000  tcp   deny                 # AdGuard UI
+iot       10.150.70.14   8096  tcp   deny                 # Jellyfin; phase 4 (#642) decides if TVs need it
+
+# --- Guests (VLAN 25): internet + DNS only ---
+guests    1.1.1.1        443   tcp   allow                # internet
+guests    10.150.60.11   53    dns   allow                # AdGuard; phase 1 (#639) moves this to the router
+guests    10.150.60.21   8006  tcp   deny                 # Proxmox UI
+guests    10.150.60.21   22    tcp   deny                 # Proxmox SSH
+guests    10.150.60.11   3000  tcp   deny                 # AdGuard UI
+guests    10.150.70.14   8096  tcp   deny                 # Jellyfin
+
+# --- Services (VLAN 70): light hardening only, reaches everything ---
+services  1.1.1.1        443   tcp   allow                # internet
+services  10.150.60.11   53    dns   allow                # AdGuard
+services  10.150.60.21   8006  tcp   allow                # Proxmox UI; phase 3 (#641) should flip to deny
+services  10.150.60.21   22    tcp   allow                # Proxmox SSH; phase 3 (#641) should flip to deny
+services  10.150.60.11   3000  tcp   allow                # AdGuard UI; phase 3 (#641) should flip to deny
+
+# --- Work (VLAN 40, phase 1 #639): internet only, DNS from the router ---
+work      1.1.1.1        443   tcp   allow                # internet
+work      gateway        53    dns   allow                # router DNS
+work      10.150.60.11   53    dns   deny                 # AdGuard is in HOME
+work      10.150.60.21   8006  tcp   deny                 # Proxmox UI
+work      10.150.60.21   22    tcp   deny                 # Proxmox SSH
+work      10.150.70.14   8096  tcp   deny                 # Jellyfin
+# TODO(#639): add the PRINTERS group on tcp 631/9100 as allow once it exists.
+
+# --- Untrusted (VLAN 666, phase 1 #639): internet only, DNS from the router ---
+untrusted 1.1.1.1        443   tcp   allow                # internet
+untrusted gateway        53    dns   allow                # router DNS
+untrusted 10.150.60.11   53    dns   deny                 # AdGuard is in HOME
+untrusted 10.150.60.21   8006  tcp   deny                 # Proxmox UI
+untrusted 10.150.60.21   22    tcp   deny                 # Proxmox SSH
+untrusted 10.150.70.14   8096  tcp   deny                 # Jellyfin
+
+# --- Kids (VLAN 30, phase 5 #546): internet, DNS, Minecraft, Jellyfin, printers ---
+kids      1.1.1.1        443   tcp   allow                # internet
+kids      10.150.60.11   53    dns   allow                # AdGuard
+kids      10.150.70.14   8096  tcp   allow                # Jellyfin
+kids      10.150.60.21   8006  tcp   deny                 # Proxmox UI
+kids      10.150.60.21   22    tcp   deny                 # Proxmox SSH
+kids      10.150.60.11   3000  tcp   deny                 # AdGuard UI
+# TODO(#546): add mc01/mc02 game ports and the printers as allow.

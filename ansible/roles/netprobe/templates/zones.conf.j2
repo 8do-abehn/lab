@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+# zone  address  gateway  dns
+{% for zone in netprobe_zones %}
+{{ zone.name }}  {{ zone.address }}  {{ zone.gateway }}  {{ zone.dns }}
+{% endfor %}

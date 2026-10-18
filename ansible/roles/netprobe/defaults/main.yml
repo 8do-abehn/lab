@@ -1,0 +1,13 @@
+---
+# Zones the netprobe LXC has an interface for, one network namespace each.
+# The interface in the LXC must be named exactly like the zone (pct set
+# --netN name=<zone>,...). List only zones whose interface exists: a missing
+# one makes netprobe-zones.service fail. Rows in files/expected.tsv for zones
+# not listed here are skipped, not failed.
+#
+#   name:    zone, namespace and interface name (15 characters max)
+#   address: static address with prefix. Pick one outside the VLAN's DHCP
+#            pool, or add a static-mapping for it on the EdgeRouter.
+#   gateway: the zone's router address
+#   dns:     resolver the zone's DHCP hands out
+netprobe_zones: []
