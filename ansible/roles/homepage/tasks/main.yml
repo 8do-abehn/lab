@@ -19,6 +19,95 @@
     - bookmarks
     - widgets
 
+# The Weather tiles read reshaped copies of their sources: Wisconet keyed by
+# field name instead of list position, and the NWS forecast with temperature
+# and sky joined per row (#651, files/weather-fetch.sh, defaults/main.yml).
+# One oneshot service and timer per entry in homepage_weather_fetches.
+- name: Install curl and jq for the weather fetches
+  ansible.builtin.apt:
+    name:
+      - curl
+      - jq
+    state: present
+
+- name: Create the weather data directory
+  ansible.builtin.file:
+    path: "{{ homepage_weather_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy the weather fetch script
+  ansible.builtin.copy:
+    src: weather-fetch.sh
+    dest: /usr/local/bin/weather-fetch
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the weather fetch services
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/weather-fetch-{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/homepage)
+      [Unit]
+      Description=Fetch {{ item.name }} weather data for Homepage
+      Documentation=https://github.com/8do-abehn/lab/issues/651
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      Environment="WEATHER_FETCH_UA={{ homepage_nws_user_agent }}"
+      ExecStart=/usr/local/bin/weather-fetch {{ item.name }} {{ item.url }} {{ homepage_weather_dir }}/{{ item.name }}.json
+      # The script's curl has its own 30s limit; this stops a hung run from
+      # blocking every later run of the timer.
+      TimeoutStartSec=2min
+  loop: "{{ homepage_weather_fetches }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: homepage_weather_units
+
+- name: Install the weather fetch timers
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/weather-fetch-{{ item.name }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/homepage)
+      [Unit]
+      Description=Fetch {{ item.name }} weather data every {{ item.interval }}
+
+      [Timer]
+      # Fires shortly after the timer starts (deploy or boot), so the tile
+      # has data without waiting a full interval.
+      OnActiveSec=10s
+      OnUnitActiveSec={{ item.interval }}
+      AccuracySec=30s
+
+      [Install]
+      WantedBy=timers.target
+  loop: "{{ homepage_weather_fetches }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: homepage_weather_timers
+
+# Skipped under --check: the copy tasks above do not write the unit files in
+# check mode, so systemd would fail with "Could not find the requested service".
+- name: Enable the weather fetch timers
+  ansible.builtin.systemd:
+    name: "weather-fetch-{{ item.name }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: "{{ (homepage_weather_units.changed or homepage_weather_timers.changed) | bool }}"
+  loop: "{{ homepage_weather_fetches }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: not ansible_check_mode
+
 - name: Deploy docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2

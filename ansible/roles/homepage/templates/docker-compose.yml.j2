@@ -18,3 +18,15 @@ services:
       - {{ server }}
 {% endfor %}
     restart: unless-stopped
+
+  # Serves the reshaped weather files (weather-fetch-*.timer) to the weather
+  # tiles as http://weather:8080/<name>.json. No published port: only
+  # containers on this compose network can reach it.
+  weather:
+    image: {{ homepage_weather_image }}
+    container_name: homepage-weather
+    command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
+    user: "65534:65534"
+    volumes:
+      - {{ homepage_weather_dir }}:/www:ro
+    restart: unless-stopped

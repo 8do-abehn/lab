@@ -44,6 +44,24 @@ homepage_settings:
 # API needs no key. Station IDs: https://wisconet.wisc.edu/api/v1/stations/
 homepage_wisconet_station: RTHR
 homepage_wisconet_slug: arthur
+# Neither weather source fits customapi as-is: Wisconet's latest_measures is
+# a list readable only by position, and a Homepage list row holds one field,
+# so the NWS forecast's temperature and sky need joining. A timer per entry
+# below fetches and reshapes its source on the host (files/weather-fetch.sh,
+# #651), and a busybox httpd in the compose project serves the results to
+# Homepage on the compose network only, as http://weather:8080/<name>.json.
+# The name also selects the reshape, so it must be wisconet or forecast.
+homepage_weather_dir: "{{ homepage_dir }}/weather"
+homepage_weather_image: "busybox:1.37"
+homepage_weather_base_url: http://weather:8080
+homepage_weather_fetches:
+  - name: wisconet
+    url: "https://wisconet.wisc.edu/api/v1/stations/{{ homepage_wisconet_station }}/latest_measures"
+    interval: 5min
+  # NWS updates the forecast about hourly.
+  - name: forecast
+    url: "{{ homepage_nws_forecast_url }}"
+    interval: 30min
 # The station's own coordinates, for the current conditions in the header.
 homepage_weather_latitude: 45.032
 homepage_weather_longitude: -91.200
@@ -53,6 +71,10 @@ homepage_weather_longitude: -91.200
 homepage_nws_forecast_url: https://api.weather.gov/gridpoints/MPX/177,76/forecast
 # NWS rejects requests without a User-Agent and asks for a contact in it.
 homepage_nws_user_agent: "lab-homepage (github.com/8do-abehn/lab)"
+# NWS radar loop for the Radar tile: a single radar (KMPX, KARX, ...) or a
+# regional mosaic. The station sits between KMPX and KARX, so the Upper
+# Mississippi Valley mosaic covers it best.
+homepage_radar_region: UPPERMISSVLY
 
 # Rendered as-is into services.yaml, so this is Homepage's own format:
 # https://gethomepage.dev/configs/services/
@@ -122,11 +144,9 @@ homepage_services:
           description: Read-later and bookmarks
           siteMonitor: "http://readeck.{{ tailnet_domain }}:8000/api/info"
   - Weather:
-      # latest_measures returns a list, not an object keyed by field name, so
-      # customapi can only pick values by position. The positions below match
-      # on every station checked (2026-10-17), but if Wisconet adds a field
-      # they shift and the labels silently show the wrong numbers. Re-check
-      # with: curl -s <url> | jq -r 'to_entries[] | "\(.key) \(.value.standard_name)"'
+      # Fields are Wisconet standard_names, read from the reshaped file (see
+      # homepage_weather_fetches above). A field Wisconet drops shows as null
+      # rather than as some other field's number.
       # "Yesterday" rows: the daily_* fields cover the previous full day.
       - Arthur:
           href: "https://wisconet.wisc.edu/stations/{{ homepage_wisconet_slug }}"
@@ -134,74 +154,65 @@ homepage_services:
           description: Wisconet station, 5-minute readings
           widget:
             type: customapi
-            url: "https://wisconet.wisc.edu/api/v1/stations/{{ homepage_wisconet_station }}/latest_measures"
-            # The station reports every 5 minutes.
+            url: "{{ homepage_weather_base_url }}/wisconet.json"
+            # The station reports, and the timer fetches, every 5 minutes.
             refreshInterval: 300000
             display: list
             mappings:
-              - field: 0.value
+              - field: 5min_air_temp_f_avg
                 label: Temperature
                 suffix: "°F"
-              - field: 1.value
+              - field: 5min_dew_point_f_avg_calc
                 label: Dew point
                 suffix: "°F"
-              - field: 4.value
+              - field: 5min_relative_humidity_pct_avg
                 label: Humidity
                 suffix: "%"
-              - field: 5.value
+              - field: 5min_wind_speed_mph_avg
                 label: Wind
                 suffix: mph
-              - field: 70.value
+              - field: daily_air_temp_f_max
                 label: High yesterday
                 suffix: "°F"
-              - field: 71.value
+              - field: daily_air_temp_f_min
                 label: Low yesterday
                 suffix: "°F"
-              - field: 75.value
+              - field: daily_rain_in_tot
                 label: Rain yesterday
                 suffix: in
-              # collection_time is epoch seconds; relativeDate wants ms.
-              - field: 0.collection_time
+              # The air temperature's collection_time, in epoch seconds;
+              # relativeDate wants ms.
+              - field: collection_time
                 label: Updated
                 scale: 1000
                 format: relativeDate
-      # Homepage's list rows hold one value each, so the forecast is two tiles
-      # over the same periods: temperatures, and the sky. Both keep NWS's own
-      # period names (Tonight, Sunday, Sunday Night, ...), 6 periods = 3 days.
+      # Rows are the next 6 NWS periods (3 days) as "62°F Sunny", plus when
+      # NWS issued the forecast, joined by the forecast fetch.
       - Forecast:
           href: "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}"
-          icon: mdi-thermometer
+          icon: mdi-weather-cloudy-clock
           description: National Weather Service
           widget:
             type: customapi
-            url: "{{ homepage_nws_forecast_url }}"
-            headers:
-              User-Agent: "{{ homepage_nws_user_agent }}"
-            # NWS updates the forecast about hourly.
-            refreshInterval: 1800000
+            url: "{{ homepage_weather_base_url }}/forecast.json"
+            refreshInterval: 300000
             display: dynamic-list
             mappings:
-              items: properties.periods
               name: name
-              label: temperature
-              suffix: "°F"
-              limit: 6
-      - Sky:
-          href: "https://forecast.weather.gov/MapClick.php?lat={{ homepage_weather_latitude }}&lon={{ homepage_weather_longitude }}"
-          icon: mdi-weather-cloudy
-          description: National Weather Service
+              label: summary
+      # The browser loads this, not the container. NWS regenerates the loop
+      # every few minutes; the iframe reloads on the same cadence.
+      - Radar:
+          href: "https://radar.weather.gov/region/{{ homepage_radar_region | lower }}/standard"
+          icon: mdi-radar
+          description: NWS radar loop
           widget:
-            type: customapi
-            url: "{{ homepage_nws_forecast_url }}"
-            headers:
-              User-Agent: "{{ homepage_nws_user_agent }}"
-            refreshInterval: 1800000
-            display: dynamic-list
-            mappings:
-              items: properties.periods
-              name: name
-              label: shortForecast
-              limit: 6
+            type: iframe
+            name: radar
+            src: "https://radar.weather.gov/ridge/standard/{{ homepage_radar_region }}_loop.gif"
+            refreshInterval: 300000
+            allowScrolling: "no"
+            classes: h-72
 
 homepage_bookmarks:
   - Lab:
