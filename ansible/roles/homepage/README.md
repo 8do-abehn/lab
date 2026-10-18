@@ -117,7 +117,7 @@ The Weather section has three tiles, and none of its sources needs an API key:
 |------|--------|------------|
 | Arthur | [Wisconet](https://wisconet.wisc.edu/data/api) station `homepage_wisconet_station`, 5-minute readings | mem01 timer |
 | Forecast | NWS gridpoint forecast `homepage_nws_forecast_url`, next 6 periods | mem01 timer |
-| Radar | NWS radar loop GIF `homepage_radar_region` | your browser |
+| Radar | NWS radar loop GIF for `homepage_radar_site`, scaled by an inline page | your browser |
 
 The header also shows Open-Meteo's current conditions for the same
 coordinates, fetched by the Homepage container.
