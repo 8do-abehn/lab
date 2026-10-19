@@ -105,6 +105,15 @@ backup_check_cron_weekday: "0"
 # cover a day-long run like jellyfin01 re-uploading a big batch of new media.
 backup_lock_wait: "2h"
 
+# Where backup.sh keeps state between runs. Holds the count of consecutive
+# nights `restic forget` was blocked by another host's repo lock (#665).
+backup_state_dir: /var/lib/restic-backup
+
+# A single blocked retention night is harmless and reported as "Backup OK,
+# retention BLOCKED". At this many blocked nights in a row, send a separate
+# warning: old snapshots are not being forgotten and the repo keeps growing.
+backup_retention_blocked_warn_nights: 3
+
 # Upstream restic release installed on every client, verified against the
 # release's SHA256SUMS (https://github.com/restic/restic/releases). To upgrade,
 # bump the version and both hashes together.
