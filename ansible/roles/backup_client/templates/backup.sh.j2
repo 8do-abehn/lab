@@ -146,23 +146,54 @@ rm -f "$BACKUP_STDERR"
 # lock, so it is opt-in here and normally left to the weekly job on the designated
 # prune host instead of running on every client every night.
 log_message "Applying retention policy"
-if restic forget "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} \
+FORGET_STDERR=$(mktemp)
+restic forget "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} \
     --keep-daily {{ backup_keep_daily }} \
     --keep-weekly {{ backup_keep_weekly }} \
     --keep-monthly {{ backup_keep_monthly }} \
 {% if backup_prune_inline | default(false) %}
     --prune \
 {% endif %}
-    >> "$LOGFILE" 2>&1; then
+    >> "$LOGFILE" 2>"$FORGET_STDERR" && FORGET_RC=0 || FORGET_RC=$?
+cat "$FORGET_STDERR" >> "$LOGFILE"
+
+# Exit code 11 is restic's "failed to lock repository": another client still
+# held the shared repo lock after the full --retry-lock wait. The snapshot above
+# already succeeded and retention simply runs again tomorrow, so that is reported
+# as OK with retention BLOCKED, not as a failed backup (#665). One blocked night
+# is harmless. A streak means old snapshots are never forgotten and the repo
+# keeps growing, so consecutive blocks are counted and warned about.
+RETENTION_BLOCKED_FILE="{{ backup_state_dir }}/retention-blocked-count"
+RETENTION_BLOCKED=false
+if [ "$FORGET_RC" -eq 0 ]; then
     log_message "Retention policy applied successfully"
+    mkdir -p "{{ backup_state_dir }}"
+    echo 0 > "$RETENTION_BLOCKED_FILE"
+elif [ "$FORGET_RC" -eq 11 ]; then
+    RETENTION_BLOCKED=true
+    # restic names the holder as "locked by PID <n> on <host> by <user>".
+    LOCK_HOLDER=$(sed -n 's/.*locked by PID [0-9]* on \([^ ]*\).*/\1/p' "$FORGET_STDERR" | tail -1)
+    LOCK_HOLDER=${LOCK_HOLDER:-unknown host}
+    BLOCKED_NIGHTS=$(cat "$RETENTION_BLOCKED_FILE" 2>/dev/null || true)
+    # A missing or mangled state file counts as no prior streak.
+    case "$BLOCKED_NIGHTS" in
+        ''|*[!0-9]*) BLOCKED_NIGHTS=0 ;;
+    esac
+    BLOCKED_NIGHTS=$(( BLOCKED_NIGHTS + 1 ))
+    mkdir -p "{{ backup_state_dir }}"
+    echo "$BLOCKED_NIGHTS" > "$RETENTION_BLOCKED_FILE"
+    log_message "Retention policy BLOCKED: repo locked by ${LOCK_HOLDER} (${BLOCKED_NIGHTS} night(s) in a row). Snapshot is fine, retention retries next run."
 else
-    EXIT_CODE=$?
-    log_message "Retention policy failed with exit code $EXIT_CODE"
+    FORGET_ERROR=$(tail -5 "$FORGET_STDERR")
+    log_message "Retention policy failed with exit code $FORGET_RC"
 {% if backup_notify_enabled | default(false) %}
-    notify "Backup FAILED on $(hostname)" "Retention policy failed with code $EXIT_CODE at $(date)"
+    notify "Backup FAILED on $(hostname)" "Retention policy failed with code $FORGET_RC at $(date)
+Error: $FORGET_ERROR"
 {% endif %}
-    exit $EXIT_CODE
+    rm -f "$FORGET_STDERR"
+    exit "$FORGET_RC"
 fi
+rm -f "$FORGET_STDERR"
 
 log_message "Backup process finished"
 {% if backup_notify_enabled | default(false) %}
@@ -172,13 +203,26 @@ DURATION_MIN=$(( DURATION / 60 ))
 DURATION_SEC=$(( DURATION % 60 ))
 SNAPSHOT_COUNT=$(restic snapshots --json 2>/dev/null | grep -c '"short_id"' || echo "?")
 
-notify "Backup OK on $(hostname)" "$(cat <<NOTIFY
+if [ "$RETENTION_BLOCKED" = true ]; then
+    NOTIFY_TITLE="Backup OK, retention BLOCKED on $(hostname)"
+    RETENTION_LINE="Retention: BLOCKED, repo locked by ${LOCK_HOLDER} (${BLOCKED_NIGHTS} night(s) in a row). Snapshot is fine, retention retries next run."
+else
+    NOTIFY_TITLE="Backup OK on $(hostname)"
+    RETENTION_LINE="Retention: applied"
+fi
+
+notify "$NOTIFY_TITLE" "$(cat <<NOTIFY
 Completed at $(date)
 
 Files: ${FILES_NEW:-0} new, ${FILES_CHANGED:-0} changed, ${FILES_UNMODIFIED:-0} unmodified
 Data added: ${DATA_ADDED:-n/a}
 Duration: ${DURATION_MIN}m ${DURATION_SEC}s
 Snapshots: ${SNAPSHOT_COUNT}
+${RETENTION_LINE}
 NOTIFY
 )"
+
+if [ "$RETENTION_BLOCKED" = true ] && [ "$BLOCKED_NIGHTS" -ge {{ backup_retention_blocked_warn_nights }} ]; then
+    notify "Retention BLOCKED ${BLOCKED_NIGHTS} nights running on $(hostname)" "restic forget has not completed on $(hostname) for ${BLOCKED_NIGHTS} nights in a row. Last lock holder: ${LOCK_HOLDER}. Old snapshots are not being forgotten and the shared repo keeps growing. Check which host's job keeps overrunning its window."
+fi
 {% endif %}
