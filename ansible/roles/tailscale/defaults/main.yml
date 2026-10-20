@@ -5,6 +5,14 @@ tailscale_enable_ssh: true
 
 # Subnet routing
 tailscale_advertise_routes: []
+# Use routes other subnet routers advertise. `tailscale up` refuses to run when a
+# non-default setting is left off the command, so a host set up by hand with
+# --accept-routes has to keep it here.
+tailscale_accept_routes: false
+# Set false to advertise routes without the role touching forwarding, iptables
+# or iptables-persistent (sysctl.yml). For a Docker host: saving its iptables
+# with netfilter-persistent would pin Docker's own rules into the boot config.
+tailscale_manage_forwarding: true
 tailscale_accept_dns: true
 
 # Tailscale Service serve persistence (#396)
