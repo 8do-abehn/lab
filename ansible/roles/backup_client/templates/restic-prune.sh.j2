@@ -45,9 +45,11 @@ log_message() {
 
 # A killed prune leaves a lock that blocks every client's backup, so log loudly
 # rather than dying silently.
-trap 'log_message "Prune interrupted - repo may hold a lock until it is cleared"; exit 130' INT TERM
+trap 'log_message "Prune interrupted - its repo lock stays until a later run clears it as stale"; exit 130' INT TERM
 
 {% include '_restic_lock.sh.j2' %}
+
+{% include '_restic_unlock.sh.j2' %}
 
 log_message "Starting restic prune"
 PRUNE_START=$(date +%s)
@@ -60,33 +62,17 @@ if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     exit 1
 fi
 
-# Clear stale locks older than 24h. Same guard the backup script uses: a hung run
-# leaves a lock behind and nothing else removes it.
-LOCK_OUTPUT=$(restic list locks --json 2>/dev/null || true)
-if [ -n "$LOCK_OUTPUT" ]; then
-    LOCK_AGE=$(echo "$LOCK_OUTPUT" | grep -o '"time":"[^"]*"' | head -1 | grep -o '[0-9T:Z.-]*' || true)
-    if [ -n "$LOCK_AGE" ]; then
-        LOCK_EPOCH=$(date -d "$LOCK_AGE" +%s 2>/dev/null || true)
-        NOW_EPOCH=$(date +%s)
-        if [ -n "$LOCK_EPOCH" ] && [ $(( NOW_EPOCH - LOCK_EPOCH )) -gt 86400 ]; then
-            log_message "WARNING: Stale lock found (age > 24h), removing before prune"
-            restic unlock >> "$LOGFILE" 2>&1
-{% if backup_notify_enabled | default(false) %}
-            notify "Prune lock cleared on $(hostname)" "Stale restic lock removed at $(date). Lock was created at ${LOCK_AGE}."
-{% endif %}
-        fi
-    fi
-fi
+clear_stale_locks "prune"
 
-PRUNE_OUTPUT=$(restic prune "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} 2>&1) && PRUNE_RC=0 || PRUNE_RC=$?
-echo "$PRUNE_OUTPUT" >> "$LOGFILE"
+run_restic_locked prune "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }}
+PRUNE_RC="$RESTIC_RC"
 
 PRUNE_END=$(date +%s)
 DURATION=$(( PRUNE_END - PRUNE_START ))
 DURATION_MIN=$(( DURATION / 60 ))
 DURATION_SEC=$(( DURATION % 60 ))
 
-if [ $PRUNE_RC -eq 0 ]; then
+if [ "$PRUNE_RC" -eq 0 ]; then
     log_message "Prune completed successfully in ${DURATION_MIN}m ${DURATION_SEC}s"
 {% if backup_notify_enabled | default(false) %}
     # Duration is the number worth watching: it grows with repo size, and a prune
@@ -95,15 +81,24 @@ if [ $PRUNE_RC -eq 0 ]; then
 Completed at $(date)
 
 Duration: ${DURATION_MIN}m ${DURATION_SEC}s
-$(echo "$PRUNE_OUTPUT" | tail -3)
+$(echo "$RESTIC_OUTPUT" | tail -3)
 NOTIFY
 )"
 {% endif %}
+elif [ "$PRUNE_RC" -eq 11 ]; then
+    # Another host held a live lock for the whole --retry-lock wait. Nothing
+    # is wrong with the repo; space just is not reclaimed until next week.
+    log_message "Prune BLOCKED by a repo lock after ${DURATION_MIN}m ${DURATION_SEC}s"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic prune BLOCKED on $(hostname)" "restic prune could not get the repo lock within {{ backup_lock_wait }} at $(date). The repo is fine; space will be reclaimed on the next weekly run. Holder:
+$(echo "$RESTIC_OUTPUT" | tail -5)"
+{% endif %}
+    exit "$PRUNE_RC"
 else
     log_message "Prune FAILED with exit code $PRUNE_RC after ${DURATION_MIN}m ${DURATION_SEC}s"
 {% if backup_notify_enabled | default(false) %}
     notify "Restic prune FAILED on $(hostname)" "restic prune exited with code $PRUNE_RC at $(date) after ${DURATION_MIN}m ${DURATION_SEC}s.
-$(echo "$PRUNE_OUTPUT" | tail -5)"
+$(echo "$RESTIC_OUTPUT" | tail -5)"
 {% endif %}
-    exit $PRUNE_RC
+    exit "$PRUNE_RC"
 fi
