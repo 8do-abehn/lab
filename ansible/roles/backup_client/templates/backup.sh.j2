@@ -46,6 +46,8 @@ trap 'log_message "Backup interrupted"; exit 130' INT TERM
 
 {% include '_restic_lock.sh.j2' %}
 
+{% include '_restic_unlock.sh.j2' %}
+
 log_message "Starting restic backup"
 {% if backup_notify_enabled | default(false) %}
 BACKUP_START=$(date +%s)
@@ -87,22 +89,9 @@ log_message "Verified mount: {{ mount }}"
 {% endfor %}
 
 {% endif %}
-# Remove stale locks older than 24h to recover from hung/killed backup runs
-LOCK_OUTPUT=$(restic list locks --json 2>/dev/null || true)
-if [ -n "$LOCK_OUTPUT" ]; then
-    LOCK_AGE=$(echo "$LOCK_OUTPUT" | grep -o '"time":"[^"]*"' | head -1 | grep -o '[0-9T:Z.-]*' || true)
-    if [ -n "$LOCK_AGE" ]; then
-        LOCK_EPOCH=$(date -d "$LOCK_AGE" +%s 2>/dev/null || true)
-        NOW_EPOCH=$(date +%s)
-        if [ -n "$LOCK_EPOCH" ] && [ $(( NOW_EPOCH - LOCK_EPOCH )) -gt 86400 ]; then
-            log_message "WARNING: Stale lock found (age > 24h), removing before backup"
-            restic unlock >> "$LOGFILE" 2>&1
-{% if backup_notify_enabled | default(false) %}
-            notify "Backup lock cleared on $(hostname)" "Stale restic lock removed at $(date). Lock was created at ${LOCK_AGE}."
-{% endif %}
-        fi
-    fi
-fi
+# Before the snapshot as well as before retention: a stale EXCLUSIVE lock
+# (a forget or prune that died) blocks backups too, not just retention.
+clear_stale_locks "backup"
 
 # Run backup
 log_message "Backing up: {{ backup_paths | join(', ') }}"
@@ -117,7 +106,7 @@ BACKUP_OUTPUT=$(restic backup "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }}
     --json 2>"$BACKUP_STDERR") && BACKUP_RC=0 || BACKUP_RC=$?
 echo "$BACKUP_OUTPUT" >> "$LOGFILE"
 
-if [ $BACKUP_RC -eq 0 ]; then
+if [ "$BACKUP_RC" -eq 0 ]; then
     log_message "Backup completed successfully"
     # Parse stats from JSON summary line
     SUMMARY=$(echo "$BACKUP_OUTPUT" | grep '"message_type":"summary"' || true)
@@ -137,7 +126,7 @@ else
 Error: $BACKUP_ERROR"
 {% endif %}
     rm -f "$BACKUP_STDERR"
-    exit $BACKUP_RC
+    exit "$BACKUP_RC"
 fi
 rm -f "$BACKUP_STDERR"
 
@@ -146,22 +135,46 @@ rm -f "$BACKUP_STDERR"
 # lock, so it is opt-in here and normally left to the weekly job on the designated
 # prune host instead of running on every client every night.
 log_message "Applying retention policy"
-if restic forget "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} \
+clear_stale_locks "retention"
+run_restic_locked forget "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} \
     --keep-daily {{ backup_keep_daily }} \
     --keep-weekly {{ backup_keep_weekly }} \
-    --keep-monthly {{ backup_keep_monthly }} \
 {% if backup_prune_inline | default(false) %}
     --prune \
 {% endif %}
-    >> "$LOGFILE" 2>&1; then
+    --keep-monthly {{ backup_keep_monthly }}
+
+# Consecutive nights retention has been lock-blocked. Kept outside /run so a
+# reboot does not reset the count and hide a lock that keeps coming back.
+RETENTION_BLOCKED_FILE="{{ backup_state_dir }}/retention-blocked-nights"
+mkdir -p "{{ backup_state_dir }}"
+RETENTION_BLOCKED_NIGHTS=0
+
+if [ "$RESTIC_RC" -eq 0 ]; then
     log_message "Retention policy applied successfully"
-else
-    EXIT_CODE=$?
-    log_message "Retention policy failed with exit code $EXIT_CODE"
+    rm -f "$RETENTION_BLOCKED_FILE"
+elif [ "$RESTIC_RC" -eq 11 ]; then
+    # Tonight's snapshot is safe; only the cleanup of old ones waited out
+    # --retry-lock behind another host's live lock. forget catches up on the
+    # next run that gets the lock, so one blocked night costs one extra day
+    # of snapshots, not data. Only a lock that keeps winning needs a human.
+    RETENTION_BLOCKED_NIGHTS=$(cat "$RETENTION_BLOCKED_FILE" 2>/dev/null || echo 0)
+    case "$RETENTION_BLOCKED_NIGHTS" in
+        ''|*[!0-9]*) RETENTION_BLOCKED_NIGHTS=0 ;;
+    esac
+    RETENTION_BLOCKED_NIGHTS=$(( RETENTION_BLOCKED_NIGHTS + 1 ))
+    echo "$RETENTION_BLOCKED_NIGHTS" > "$RETENTION_BLOCKED_FILE"
 {% if backup_notify_enabled | default(false) %}
-    notify "Backup FAILED on $(hostname)" "Retention policy failed with code $EXIT_CODE at $(date)"
+    RETENTION_LOCK_INFO=$(echo "$RESTIC_OUTPUT" | tail -5)
 {% endif %}
-    exit $EXIT_CODE
+    log_message "Retention BLOCKED by a repo lock (${RETENTION_BLOCKED_NIGHTS} consecutive night(s)); snapshot is OK"
+else
+    log_message "Retention policy failed with exit code $RESTIC_RC"
+{% if backup_notify_enabled | default(false) %}
+    notify "Backup FAILED on $(hostname)" "Retention policy failed with code $RESTIC_RC at $(date)
+Error: $(echo "$RESTIC_OUTPUT" | tail -5)"
+{% endif %}
+    exit "$RESTIC_RC"
 fi
 
 log_message "Backup process finished"
@@ -172,13 +185,30 @@ DURATION_MIN=$(( DURATION / 60 ))
 DURATION_SEC=$(( DURATION % 60 ))
 SNAPSHOT_COUNT=$(restic snapshots --json 2>/dev/null | grep -c '"short_id"' || echo "?")
 
-notify "Backup OK on $(hostname)" "$(cat <<NOTIFY
+NOTIFY_TITLE="Backup OK on $(hostname)"
+RETENTION_LINE="Retention: applied"
+if [ "$RETENTION_BLOCKED_NIGHTS" -ge {{ backup_retention_blocked_alert_after }} ]; then
+    NOTIFY_TITLE="Retention BLOCKED on $(hostname)"
+    RETENTION_LINE="Retention: BLOCKED by a repo lock for ${RETENTION_BLOCKED_NIGHTS} consecutive nights. Snapshots are still being taken, but old ones are not being expired. Holder:
+${RETENTION_LOCK_INFO}"
+elif [ "$RETENTION_BLOCKED_NIGHTS" -gt 0 ]; then
+    RETENTION_LINE="Retention: skipped, repo locked by another job (night ${RETENTION_BLOCKED_NIGHTS}; alerts after {{ backup_retention_blocked_alert_after }})"
+fi
+
+notify "$NOTIFY_TITLE" "$(cat <<NOTIFY
 Completed at $(date)
 
 Files: ${FILES_NEW:-0} new, ${FILES_CHANGED:-0} changed, ${FILES_UNMODIFIED:-0} unmodified
 Data added: ${DATA_ADDED:-n/a}
 Duration: ${DURATION_MIN}m ${DURATION_SEC}s
 Snapshots: ${SNAPSHOT_COUNT}
+${RETENTION_LINE}
 NOTIFY
 )"
 {% endif %}
+
+# Non-zero only once the block needs attention, so a single expected overlap
+# with a long run elsewhere does not look like a failed backup.
+if [ "$RETENTION_BLOCKED_NIGHTS" -ge {{ backup_retention_blocked_alert_after }} ]; then
+    exit 11
+fi

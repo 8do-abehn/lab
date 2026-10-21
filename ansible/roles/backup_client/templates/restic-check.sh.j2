@@ -42,6 +42,8 @@ log_message() {
 
 {% include '_restic_lock.sh.j2' %}
 
+{% include '_restic_unlock.sh.j2' %}
+
 log_message "Starting restic repository check"
 
 if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
@@ -52,18 +54,29 @@ if ! ping -c 1 -W 5 {{ backup_server_host }} > /dev/null 2>&1; then
     exit 1
 fi
 
-CHECK_OUTPUT=$(restic check "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }} 2>&1) && CHECK_RC=0 || CHECK_RC=$?
-echo "$CHECK_OUTPUT" >> "$LOGFILE"
+clear_stale_locks "check"
 
-if [ $CHECK_RC -eq 0 ]; then
+run_restic_locked check "${RESTIC_LIMITS[@]}" {{ backup_retry_lock_flag }}
+CHECK_RC="$RESTIC_RC"
+
+if [ "$CHECK_RC" -eq 0 ]; then
     log_message "Repository check passed"
 {% if backup_notify_enabled | default(false) %}
     notify "Restic check OK on $(hostname)" "Repository integrity verified at $(date)"
 {% endif %}
+elif [ "$CHECK_RC" -eq 11 ]; then
+    # check takes an exclusive lock, so a live job elsewhere outlasting the
+    # wait just means it did not run this week. Not evidence of damage.
+    log_message "Repository check BLOCKED by a repo lock"
+{% if backup_notify_enabled | default(false) %}
+    notify "Restic check BLOCKED on $(hostname)" "restic check could not get the repo lock within {{ backup_lock_wait }} at $(date), so the repo was not verified this week. Holder:
+$(echo "$RESTIC_OUTPUT" | tail -5)"
+{% endif %}
+    exit "$CHECK_RC"
 else
     log_message "Repository check FAILED with exit code $CHECK_RC"
 {% if backup_notify_enabled | default(false) %}
     notify "Restic check FAILED on $(hostname)" "Repository check failed with code $CHECK_RC at $(date). Check $LOGFILE for details."
 {% endif %}
-    exit $CHECK_RC
+    exit "$CHECK_RC"
 fi
