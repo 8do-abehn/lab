@@ -1,0 +1,55 @@
+{# Stale repo lock handling shared by backup.sh.j2, restic-check.sh.j2 and
+   restic-prune.sh.j2. Expects LOGFILE, log_message() and, when notifications
+   are enabled, notify() to already be defined. #}
+# A restic job that dies mid-run (host fenced, OOM, power cut) leaves its lock
+# in the shared repo, and nothing ever removes it: --retry-lock only waits, it
+# never clears stale locks. On 2026-10-18 a dead dns01 job's lock blocked every
+# client's retention for ~50h until someone ran `restic unlock` by hand (#665).
+#
+# `restic unlock` without --remove-all only removes locks restic considers
+# stale: not refreshed for 30 minutes, or created on this host by a PID that
+# no longer exists. Live jobs refresh their lock every 5 minutes, however long
+# they run, so a 10h jellyfin01 upload keeps its lock. A job that cannot reach
+# the repo to refresh for ~22 minutes cancels itself, so there is no window
+# where a live job keeps writing after its lock was removed.
+#
+# Best effort on purpose: two clients may race to delete the same stale lock,
+# and the loser's unlock then errors. That must not abort a backup.
+STALE_LOCKS_REMOVED=0
+clear_stale_locks() {
+    local context="$1"
+    local output
+    STALE_LOCKS_REMOVED=0
+    if ! output=$(restic unlock 2>&1); then
+        echo "$output" >> "$LOGFILE"
+        log_message "WARNING: restic unlock failed before ${context}, continuing anyway"
+        return 0
+    fi
+    # unlock prints nothing when there was nothing stale to remove.
+    if echo "$output" | grep -q "successfully removed"; then
+        STALE_LOCKS_REMOVED=1
+        log_message "Cleared stale repo lock before ${context}: ${output}"
+{% if backup_notify_enabled | default(false) %}
+        notify "Stale restic lock cleared on $(hostname)" "Before ${context} at $(date): ${output}. A restic job somewhere died without releasing its lock; check which host had a failed or interrupted run."
+{% endif %}
+    fi
+    return 0
+}
+
+# Run a lock-taking restic command, capturing RESTIC_OUTPUT and RESTIC_RC.
+# Exit 11 means restic gave up waiting for another lock. If that lock has
+# gone stale during the wait (its job died after our pre-run unlock), clear
+# it and try once more instead of losing the whole night.
+run_restic_locked() {
+    RESTIC_OUTPUT=$(restic "$@" 2>&1) && RESTIC_RC=0 || RESTIC_RC=$?
+    echo "$RESTIC_OUTPUT" >> "$LOGFILE"
+    if [ "$RESTIC_RC" -eq 11 ]; then
+        clear_stale_locks "restic $1 retry"
+        if [ "$STALE_LOCKS_REMOVED" -eq 1 ]; then
+            log_message "Retrying restic $1 once after clearing a stale lock"
+            RESTIC_OUTPUT=$(restic "$@" 2>&1) && RESTIC_RC=0 || RESTIC_RC=$?
+            echo "$RESTIC_OUTPUT" >> "$LOGFILE"
+        fi
+    fi
+    return 0
+}

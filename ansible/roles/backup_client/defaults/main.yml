@@ -105,6 +105,20 @@ backup_check_cron_weekday: "0"
 # cover a day-long run like jellyfin01 re-uploading a big batch of new media.
 backup_lock_wait: "2h"
 
+# Nightly retention that still cannot get the repo lock after backup_lock_wait
+# (exit 11) is reported as "Retention BLOCKED", not "Backup FAILED": the
+# snapshot itself succeeded, and forget catches up on the next night that gets
+# the lock. A single blocked night is expected whenever a long run elsewhere
+# overlaps, so it is only noted in the nightly "Backup OK" message. From this
+# many consecutive blocked nights it becomes its own alert and the script exits
+# 11. Stale locks are cleared automatically before every run (#665), so a
+# block that persists means a live job is holding the lock every night.
+backup_retention_blocked_alert_after: 2
+
+# Small persistent state for the backup scripts (the blocked-night count).
+# Not /run: a reboot must not reset the count.
+backup_state_dir: /var/lib/restic-backup
+
 # Upstream restic release installed on every client, verified against the
 # release's SHA256SUMS (https://github.com/restic/restic/releases). To upgrade,
 # bump the version and both hashes together.
