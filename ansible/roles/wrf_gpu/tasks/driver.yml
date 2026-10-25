@@ -1,0 +1,46 @@
+---
+# The Ubuntu cloud image ships without the guest agent, so Proxmox cannot
+# shut the VM down cleanly or report its IP until this is in.
+- name: Install the QEMU guest agent
+  ansible.builtin.apt:
+    name: qemu-guest-agent
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Start the QEMU guest agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    state: started
+
+# DKMS builds the module against the running kernel, so its headers come too.
+- name: Install the NVIDIA driver
+  ansible.builtin.apt:
+    name: "{{ wrf_nvidia_packages + ['linux-headers-' ~ ansible_facts['kernel']] }}"
+    state: present
+
+# The module only loads on boot. Checking for it, rather than for the apt
+# change, also catches a run that was interrupted before its reboot.
+- name: Check whether the NVIDIA module is loaded
+  ansible.builtin.stat:
+    path: /proc/driver/nvidia/version
+  register: wrf_nvidia_loaded
+
+- name: Reboot to load the NVIDIA module
+  ansible.builtin.reboot:
+    reboot_timeout: 900
+  when:
+    - not wrf_nvidia_loaded.stat.exists
+    - wrf_reboot_for_driver | bool
+
+- name: Check the GPU and CUDA version
+  ansible.builtin.command: nvidia-smi
+  register: wrf_nvidia_smi
+  changed_when: false
+  check_mode: false
+  when: wrf_nvidia_loaded.stat.exists or not ansible_check_mode
+
+- name: Show the GPU and CUDA version
+  ansible.builtin.debug:
+    msg: "{{ wrf_nvidia_smi.stdout_lines[:4] }}"
+  when: wrf_nvidia_smi is not skipped
