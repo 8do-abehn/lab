@@ -70,7 +70,7 @@ advertises it, and each host's advertisement has to be approved.
        "svc:immich":   ["tag:immich"],
        "svc:jellyfin": ["tag:media"],
        "svc:portainer": ["tag:docker"],
-       "svc:read":     ["tag:readeck"],
+       "svc:read":     ["tag:read"],
      },
    },
    ```

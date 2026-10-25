@@ -1,9 +1,9 @@
 ---
 # readeck was registered on the tailnet by hand, untagged. Tag it in the admin
 # console first; the tailscale role then only re-asserts the tag and --ssh.
-# There is no vault key for it: a rebuild needs a fresh tag:readeck key
+# There is no vault key for it: a rebuild needs a fresh tag:read key
 # (roles/tailscale/tasks/auth.yml says how).
-tailscale_tags: "tag:readeck"
+tailscale_tags: "tag:read"
 
 # svc:read for Readeck, which listens on 8000 over plain HTTP.
 # Not svc:readeck: the machine itself is named readeck, and the admin console
