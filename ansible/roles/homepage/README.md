@@ -23,6 +23,7 @@ on loopback. The units come from `tailscale_serve_services` (roles/tailscale).
 | `mem0` | mem01 | OpenMemory, `127.0.0.1:8090` (mem0 role) |
 | `portainer` | docker | `https+insecure://127.0.0.1:9443` |
 | `read` | readeck | Readeck, `127.0.0.1:8000` |
+| `changes` | changedetection | changedetection.io, `127.0.0.1:5000` |
 
 - **Tailnet devices** resolve these through MagicDNS as usual.
 - **Default-LAN devices** (no Tailscale) get the router as their DNS server
@@ -71,6 +72,7 @@ advertises it, and each host's advertisement has to be approved.
        "svc:jellyfin": ["tag:media"],
        "svc:portainer": ["tag:docker"],
        "svc:read":     ["tag:read"],
+       "svc:changes":  ["tag:changes"],
      },
    },
    ```
