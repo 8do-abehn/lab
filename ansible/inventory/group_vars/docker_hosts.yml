@@ -1,0 +1,23 @@
+---
+# docker was registered on the tailnet by hand, untagged. Tag it in the admin
+# console first; the tailscale role then only re-asserts the tag and --ssh.
+# There is no vault key for it: a rebuild needs a fresh tag:docker key
+# (roles/tailscale/tasks/auth.yml says how).
+tailscale_tags: "tag:docker"
+
+# It is the tailnet's subnet router for 10.150.50.0/24 and accepts routes, both
+# set by hand. `tailscale up` refuses to run unless every non-default setting
+# is repeated, so they are listed here to keep them.
+tailscale_advertise_routes:
+  - 10.150.50.0/24
+tailscale_accept_routes: true
+# Leave its forwarding and iptables alone: Docker owns them.
+tailscale_manage_forwarding: false
+
+# svc:portainer for the Portainer UI. Portainer only speaks HTTPS on 9443, with
+# a self-signed certificate, hence https+insecure on loopback.
+# Not svc:docker: the machine itself is named docker.
+# Define the service in the admin console before deploying (roles/homepage).
+tailscale_serve_services:
+  - name: portainer
+    upstream: https+insecure://127.0.0.1:9443
