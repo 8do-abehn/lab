@@ -54,3 +54,8 @@ proxmox_journald_max_use: 500M
 # VLAN, not routed anywhere.
 proxmox_corosync_ring1_iface: enp4s0f1
 proxmox_corosync_ring1_address: ""
+
+# amdgpu runtime power management (tasks/gpu-passthrough.yml, #648). Set to 0 on
+# hosts whose RX 570 serves LXCs (/dev/dri for Jellyfin). Empty leaves the
+# driver default (-1, auto) and writes no file.
+proxmox_amdgpu_runpm: ""
