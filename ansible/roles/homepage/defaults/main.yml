@@ -84,9 +84,9 @@ homepage_radar_site: KARX
 # https://gethomepage.dev/configs/services/
 # Most hrefs are Tailscale Service names, which resolve and have a valid
 # certificate both on the tailnet and on the default LAN (through AdGuard).
-# changedetection is a hand-built host outside Ansible and is linked by machine
-# name instead. A Service for it could not reuse the machine name: MagicDNS
-# answers it with the machine (see svc:network, svc:read).
+# A Service cannot reuse its machine's name: MagicDNS answers that name with the
+# machine. Hence svc:network on unifi, svc:read on readeck, svc:changes on
+# changedetection.
 homepage_services:
   - Media:
       - Jellyfin:
@@ -136,10 +136,10 @@ homepage_services:
           siteMonitor: "https://mem0.{{ tailnet_domain }}/health"
   - Tools:
       - changedetection:
-          href: "https://changedetection.{{ tailnet_domain }}"
+          href: "https://changes.{{ tailnet_domain }}"
           icon: changedetection.png
           description: Website change alerts
-          siteMonitor: "https://changedetection.{{ tailnet_domain }}"
+          siteMonitor: "https://changes.{{ tailnet_domain }}"
       # svc:read, not svc:readeck: the machine is named readeck.
       - Readeck:
           href: "https://read.{{ tailnet_domain }}"

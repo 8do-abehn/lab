@@ -132,6 +132,15 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # changedetection.io, installed by hand. Ansible manages only its Tailscale
+    # tag, --ssh and svc:changes (#673). Its backup is a hand-rolled rclone to
+    # B2 cron, not restic.
+    changedetection_servers:
+      hosts:
+        changedetection:  # LXC 3007 on pve03, changedetection.io website change alerts
+          ansible_user: root
+          # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
+
     # Not managed by Ansible: dropbox, LXC 3102 on pve01 (VLAN 70, DHCP).
     # Drop point for files from the client LAN. Bind mounts the Jellyfin
     # library and cephfs-hdd/riplab. Not on the tailnet, so CI cannot reach it;

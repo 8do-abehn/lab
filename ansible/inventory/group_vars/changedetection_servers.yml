@@ -1,0 +1,13 @@
+---
+# changedetection was registered on the tailnet by hand, untagged. Tag it first
+# (see #673); the tailscale role then only re-asserts the tag and --ssh. There
+# is no vault key for it: a rebuild needs a fresh tag:changes key
+# (roles/tailscale/tasks/auth.yml says how).
+tailscale_tags: "tag:changes"
+
+# svc:changes for the changedetection.io UI on 5000.
+# Not svc:changedetection: the machine itself is named changedetection.
+# Define the service in the admin console before deploying (roles/homepage).
+tailscale_serve_services:
+  - name: changes
+    upstream: 127.0.0.1:5000
