@@ -1,0 +1,14 @@
+---
+# Rebuild needs a fresh tag:mealie key in vault.yml
+# (roles/tailscale/tasks/auth.yml says how).
+tailscale_auth_key: "{{ vault_tailscale_mealie_auth_key | default('') }}"
+tailscale_tags: "tag:mealie"
+tailscale_accept_dns: false
+
+# svc:mealie for the Mealie UI, which listens on 9000 over plain HTTP.
+# The machine is mealie01, so the Service can take the plain name.
+# Define the service in the admin console before deploying (roles/homepage).
+tailscale_serve_services:
+  - name: mealie
+    upstream: 127.0.0.1:9000
+    https: 443

@@ -146,6 +146,11 @@ homepage_services:
           icon: readeck.png
           description: Read-later and bookmarks
           siteMonitor: "https://read.{{ tailnet_domain }}/api/info"
+      - Mealie:
+          href: "https://mealie.{{ tailnet_domain }}"
+          icon: mealie.png
+          description: Recipes, meal plans and shopping lists
+          siteMonitor: "https://mealie.{{ tailnet_domain }}/api/app/about"
   - Weather:
       # Fields are Wisconet standard_names, read from the reshaped file (see
       # homepage_weather_fetches above). A field Wisconet drops shows as null
