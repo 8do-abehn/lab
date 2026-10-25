@@ -48,3 +48,9 @@ proxmox_ceph_release: tentacle
 # journald size cap on the node roots (#551). Stock default is 10% of the
 # filesystem capped at 4G, which pve01 and pve03 had reached.
 proxmox_journald_max_use: 500M
+
+# Corosync link1 (tasks/network.yml). Set per host; empty skips the host.
+# 10.150.99.0/24 exists only on the isolated corosync switch: no gateway, no
+# VLAN, not routed anywhere.
+proxmox_corosync_ring1_iface: enp4s0f1
+proxmox_corosync_ring1_address: ""

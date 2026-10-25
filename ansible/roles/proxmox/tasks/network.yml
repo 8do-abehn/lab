@@ -17,3 +17,32 @@
     line: "    bridge-vids {{ proxmox_bridge_vids }}"
     state: present
     backup: true
+
+# Second corosync link (link1) on the X550's spare port, cabled to an isolated
+# 1G switch that only pve01-03 plug into (no uplink, on the UPS). On 2026-10-18
+# the 10G Flex-XG dropped, all three nodes lost quorum at once, and the HA
+# watchdog fenced and rebooted every one of them. With a second link, losing
+# either switch alone no longer costs quorum.
+#
+# Unset on hosts that are not cluster members, so they are skipped. The stock
+# "inet manual" stanza is removed first because ifupdown2 would otherwise see
+# two definitions of the same port. Same rule as above: file only, applied with
+# "ifreload -a" by hand (safe here, nothing else uses this port).
+- name: Drop the placeholder stanza for the corosync ring1 port
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^iface {{ proxmox_corosync_ring1_iface }} inet manual$'
+    state: absent
+    backup: true
+  when: proxmox_corosync_ring1_address | length > 0
+
+- name: Address the corosync ring1 port
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE MANAGED: corosync ring1"
+    block: |
+      auto {{ proxmox_corosync_ring1_iface }}
+      iface {{ proxmox_corosync_ring1_iface }} inet static
+          address {{ proxmox_corosync_ring1_address }}
+    backup: true
+  when: proxmox_corosync_ring1_address | length > 0
