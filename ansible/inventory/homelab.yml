@@ -115,6 +115,15 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # Mealie recipe manager (VLAN 70, new cluster LXC). Installed from the
+    # community-scripts Mealie helper, which owns the app; Ansible owns
+    # resolv, Tailscale, svc:mealie, Netdata and backup (#675).
+    mealie_servers:
+      hosts:
+        mealie01:  # LXC 3018, Mealie recipes, meal plans and shopping lists
+          ansible_user: root
+          # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
+
     # Docker host, built by hand. Ansible manages only its Tailscale
     # tag, --ssh and svc:portainer (#668); Docker, Portainer and the containers
     # on it are not managed.
