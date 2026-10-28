@@ -7,6 +7,8 @@
 - name: Cap journald and apt cache growth
   ansible.builtin.import_tasks: disk-caps.yml
   tags: disk-caps
+- name: Stop nodes from ever going to sleep
+  ansible.builtin.include_tasks: no-sleep.yml
 - name: Remove subscription nag
   ansible.builtin.include_tasks: subscription-nag.yml
 - name: Configure GPU passthrough
