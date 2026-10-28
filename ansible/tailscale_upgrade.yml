@@ -1,0 +1,51 @@
+---
+# Upgrade Tailscale to the newest version in its apt repo, one host at a time.
+# The tailscale role installs with state: present, so site.yml never upgrades it.
+#
+#   ansible-playbook tailscale_upgrade.yml --check           # report what would upgrade
+#   ansible-playbook tailscale_upgrade.yml
+#   ansible-playbook tailscale_upgrade.yml --limit encode01  # canary one host first
+#
+# Ansible reaches most hosts over Tailscale SSH, and the package's postinst
+# restarts tailscaled, which drops that session. If apt ran inside the session
+# it could be killed mid-install and leave dpkg half-configured. So apt runs in
+# its own transient systemd unit, and the play reconnects and waits for it.
+- name: Refuse to deploy from a stale branch
+  ansible.builtin.import_playbook: branch_guard.yml
+
+# Same host list as the Tailscale play in site.yml, minus the DNS servers
+# (and k3s_cluster, which no longer exists in the inventory).
+- name: Upgrade Tailscale on everything except the DNS servers
+  hosts:
+    - proxmox
+    - media_servers
+    - backup_servers
+    - mem0_servers
+    - minecraft_servers
+    - immich_servers
+    - unifi_servers
+    - encoders
+    - claude_hosts
+    - ollama_servers
+    - docker_hosts
+    - readeck_servers
+    - changedetection_servers
+    - "!dns_servers"
+  become: true
+  gather_facts: false
+  # One at a time so a bad release stops the run after the first broken host.
+  serial: 1
+  tasks:
+    - name: Upgrade Tailscale
+      ansible.builtin.import_tasks: tasks/tailscale_upgrade_host.yml
+
+# dns01 is the subnet router LAN clients use to reach tailnet names, so the DNS
+# pair goes last, after the release has proven itself everywhere else.
+- name: Upgrade Tailscale on the DNS servers
+  hosts: dns_servers
+  become: true
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Upgrade Tailscale
+      ansible.builtin.import_tasks: tasks/tailscale_upgrade_host.yml
