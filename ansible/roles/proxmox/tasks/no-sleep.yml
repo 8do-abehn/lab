@@ -1,0 +1,53 @@
+---
+# A Proxmox node must never sleep. On 2026-10-28 the sleep key on the keyboard
+# plugged into pve02 suspended it twice. Asleep, it answered nothing on any
+# network, so HA fenced it, moved its containers and left Ceph a host short
+# for 14 minutes; on wake its watchdog had expired and it reset itself.
+#
+# Masking the targets blocks every path to sleep (keys, a desktop, a stray
+# `systemctl suspend`). The logind drop-in only stops the keys from logging a
+# failed suspend attempt each time they are pressed.
+- name: Mask sleep targets
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop:
+    - sleep.target
+    - suspend.target
+    - hibernate.target
+    - hybrid-sleep.target
+    - suspend-then-hibernate.target
+
+- name: Create logind drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# The power button keeps its default (clean poweroff): pressing it on purpose
+# should still shut a node down.
+- name: Ignore the suspend and hibernate keys
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (proxmox role, no-sleep.yml)
+      [Login]
+      HandleSuspendKey=ignore
+      HandleSuspendKeyLongPress=ignore
+      HandleHibernateKey=ignore
+      HandleHibernateKeyLongPress=ignore
+      HandleLidSwitch=ignore
+      IdleAction=ignore
+    dest: /etc/systemd/logind.conf.d/no-sleep.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: proxmox_logind_dropin
+
+# Restarting logind does not end existing sessions on current systemd.
+- name: Restart logind to apply the drop-in  # noqa: no-handler
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: restarted
+  when: proxmox_logind_dropin.changed
