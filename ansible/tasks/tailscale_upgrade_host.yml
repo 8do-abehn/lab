@@ -1,0 +1,104 @@
+---
+# Per-host steps for tailscale_upgrade.yml. Kept in one file so both plays
+# (everything else, then the DNS servers) run exactly the same steps.
+
+# Several hosts had a cache old enough to still offer the installed version as
+# the newest. Read-only as far as the host's packages go, so it also runs in
+# check mode, where it makes the report below accurate.
+- name: Refresh the apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  check_mode: false
+  changed_when: false
+
+- name: Read the installed and candidate Tailscale versions
+  ansible.builtin.command: apt-cache policy tailscale
+  check_mode: false
+  changed_when: false
+  register: tailscale_policy
+
+- name: Parse the versions
+  ansible.builtin.set_fact:
+    tailscale_installed: "{{ tailscale_policy.stdout | regex_search('Installed: (\\S+)', '\\1') | first }}"
+    tailscale_candidate: "{{ tailscale_policy.stdout | regex_search('Candidate: (\\S+)', '\\1') | first }}"
+
+- name: Report the planned change
+  ansible.builtin.debug:
+    msg: >-
+      {{ tailscale_installed }} -> {{ tailscale_candidate }}
+      {{ '(already current)' if tailscale_installed == tailscale_candidate else '' }}
+
+- name: Upgrade only when a newer version is available
+  when:
+    - tailscale_installed != tailscale_candidate
+    - not ansible_check_mode
+  vars:
+    # ansible.cfg retries a failed SSH connection 3 times, about 4s in all.
+    # Over Tailscale SSH the tasks below can land while tailscaled is still
+    # restarting, so give the reconnect a couple of minutes of backoff instead.
+    ansible_ssh_retries: 8
+  block:
+    # A transient unit outlives the SSH session that the tailscaled restart
+    # drops. --collect removes the unit afterwards even if apt fails, so a
+    # rerun can reuse the name. The exact version is pinned so a release that
+    # lands mid-run cannot make this host disagree with the version checked.
+    - name: Start the upgrade in its own systemd unit
+      ansible.builtin.command: >-
+        systemd-run --unit=tailscale-upgrade --collect
+        --setenv=DEBIAN_FRONTEND=noninteractive
+        apt-get install -y -q --only-upgrade
+        -o Dpkg::Options::=--force-confold
+        tailscale={{ tailscale_candidate }}
+      changed_when: true
+
+    - name: Reconnect after tailscaled restarts
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: 300
+
+    # The systemd module fails on a unit that no longer exists, and a
+    # finished --collect unit is exactly that, so ask systemctl directly.
+    - name: Wait for the upgrade unit to finish
+      ansible.builtin.command: systemctl is-active tailscale-upgrade.service  # noqa: command-instead-of-module
+      register: tailscale_upgrade_unit
+      # is-active exits non-zero once the unit is gone, which is what we want.
+      failed_when: false
+      changed_when: false
+      until: tailscale_upgrade_unit.stdout not in ['active', 'activating']
+      retries: 60
+      delay: 5
+
+    - name: Confirm the new version is installed
+      ansible.builtin.command: dpkg-query -W -f=${Version} tailscale
+      register: tailscale_new_version
+      changed_when: false
+      failed_when: tailscale_new_version.stdout != tailscale_candidate
+
+    - name: Wait for tailscaled to reconnect to the tailnet
+      ansible.builtin.shell: |
+        set -o pipefail
+        tailscale status --json | jq -r .BackendState
+      args:
+        executable: /bin/bash
+      register: tailscale_backend
+      changed_when: false
+      until: tailscale_backend.stdout == 'Running'
+      retries: 24
+      delay: 5
+
+    # The serve units are oneshots started once at boot and are not tied to
+    # tailscaled, so re-apply them in case the restart lost a serve config.
+    # Re-running `tailscale serve --bg` with the same mapping is harmless.
+    - name: Find this host's Tailscale serve units
+      ansible.builtin.find:
+        paths: /etc/systemd/system
+        patterns: tailscale-serve-*.service
+      register: tailscale_serve_units
+
+    - name: Re-apply Tailscale serve units
+      ansible.builtin.systemd:
+        name: "{{ item.path | basename }}"
+        state: restarted
+      loop: "{{ tailscale_serve_units.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"

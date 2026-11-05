@@ -32,6 +32,11 @@ ansible-playbook -i inventory/homelab.yml --ask-vault-pass backup-setup.yml
 # rollback: roles/ceph_pools/README.md. Deploy via ansible-deploy.yml so
 # deploy-drift records it.
 ansible-playbook -i inventory/homelab.yml ceph_pools.yml --check --diff
+
+# Upgrade Tailscale to the newest repo version, one host at a time, DNS servers
+# last. The role only installs (state: present), so site.yml never upgrades it.
+# --check prints installed -> candidate per host without changing anything.
+ansible-playbook tailscale_upgrade.yml --check
 ```
 
 ## Structure
@@ -45,6 +50,7 @@ ansible/
 ├── nut_setup.yml         # NUT UPS configuration playbook (NUT play from site.yml)
 ├── verify_nut.yml        # NUT UPS verification playbook
 ├── ceph_pools.yml        # Ceph pool CRUSH rules + balancer (run deliberately, #559)
+├── tailscale_upgrade.yml # Rolling Tailscale package upgrade (tasks/ holds its per-host steps)
 ├── vault.yml             # Encrypted secrets (Tailscale keys, etc.)
 ├── roles/
 │   ├── proxmox/          # Base Proxmox configuration
