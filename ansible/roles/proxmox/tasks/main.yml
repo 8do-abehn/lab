@@ -16,6 +16,11 @@
 - name: Configure GPU passthrough
   ansible.builtin.include_tasks: gpu-passthrough.yml
   when: proxmox_gpu_passthrough_enabled | default(false)
+# import so the tag reaches the tasks inside: deploy with tags=vendor-reset
+- name: Install vendor-reset for AMD GPUs without a working reset
+  ansible.builtin.import_tasks: vendor-reset.yml
+  when: proxmox_gpu_vendor_reset_enabled | default(false)
+  tags: vendor-reset
 - name: Configure LVM thin pool autoextend
   ansible.builtin.include_tasks: lvm.yml
 - name: Configure bridge VLAN allow-list

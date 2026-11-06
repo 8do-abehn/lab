@@ -25,6 +25,13 @@ proxmox_gpu_vfio_ids: ""
 proxmox_gpu_blacklist_drivers: []
 proxmox_gpu_grub_extra: ""
 
+# vendor-reset (tasks/vendor-reset.yml, #574). Device IDs are AMD (0x1002) GPU functions,
+# lowercase hex without 0x. dkms_version must match PACKAGE_VERSION in upstream's dkms.conf.
+proxmox_gpu_vendor_reset_enabled: false
+proxmox_gpu_vendor_reset_device_ids: []
+proxmox_gpu_vendor_reset_commit: "cbb4dd50926337e0f9fe1dd1e8a74aa5cb3448a7"
+proxmox_gpu_vendor_reset_dkms_version: "0.1.1"
+
 # LVM thin pool autoextend (#378)
 proxmox_lvm_thin_autoextend_threshold: 80
 proxmox_lvm_thin_autoextend_percent: 20
