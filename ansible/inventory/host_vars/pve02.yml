@@ -14,6 +14,11 @@ proxmox_gpu_vfio_ids: "1002:67df,1002:aaf0"
 proxmox_gpu_blacklist_drivers:
   - amdgpu
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
+# The RX 570 (Polaris, no FLR) can wedge in a way vfio's bus reset never clears, leaving
+# 704 on a black screen boot after boot (#574). vendor-reset gives it a real reset.
+proxmox_gpu_vendor_reset_enabled: true
+proxmox_gpu_vendor_reset_device_ids:
+  - 67df
 
 # Corosync link1 on the isolated 1G switch (see roles/proxmox/tasks/network.yml)
 proxmox_corosync_ring1_address: 10.150.99.22/24

@@ -1,0 +1,4 @@
+# Managed by Ansible (proxmox role, tasks/vendor-reset.yml)
+{% for id in proxmox_gpu_vendor_reset_device_ids %}
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x1002", ATTR{device}=="0x{{ id }}", RUN+="/bin/sh -c '/sbin/modprobe vendor-reset; echo device_specific > /sys$env{DEVPATH}/reset_method'"
+{% endfor %}
