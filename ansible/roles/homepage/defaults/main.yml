@@ -36,6 +36,9 @@ homepage_settings:
     Tools:
       style: row
       columns: 2
+    Minecraft:
+      style: row
+      columns: 4
     Weather:
       style: row
       columns: 3
@@ -146,6 +149,31 @@ homepage_services:
           icon: readeck.png
           description: Read-later and bookmarks
           siteMonitor: "https://read.{{ tailnet_domain }}/api/info"
+  # Not links: a Minecraft address goes into the game's Add Server screen,
+  # so each tile just shows host:port to copy from. Ports are in the mc
+  # host_vars; keep this in step when a server is added or moved.
+  - Minecraft:
+      - Survival:
+          icon: minecraft.png
+          description: mc01:25565
+      - Creative:
+          icon: minecraft.png
+          description: mc01:25566
+      - OneBlock:
+          icon: minecraft.png
+          description: mc01:25567
+      - Sawyer's SkyBlock:
+          icon: minecraft.png
+          description: mc02:25567
+      - Riley's SkyBlock:
+          icon: minecraft.png
+          description: mc02:25568
+      - Sawyer's Village:
+          icon: minecraft.png
+          description: mc02:25569
+      - Cobblemon:
+          icon: minecraft.png
+          description: mc03:25565
   - Weather:
       # Fields are Wisconet standard_names, read from the reshaped file (see
       # homepage_weather_fetches above). A field Wisconet drops shows as null
