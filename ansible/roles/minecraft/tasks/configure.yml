@@ -1,4 +1,17 @@
 ---
+# Datapacks ship from this role's files/ and are copied into each world by
+# the itzg image's DATAPACKS env on start. Copied before the compose file so
+# a brand new world already has them on its first boot.
+- name: Copy datapacks
+  ansible.builtin.copy:
+    src: "datapacks/{{ item.1 }}/"
+    dest: "{{ minecraft_compose_dir }}/datapacks/{{ item.1 }}/"
+    mode: "0644"
+    directory_mode: "0755"
+  loop: "{{ minecraft_servers | subelements('datapacks', skip_missing=true) }}"
+  loop_control:
+    label: "{{ item.0.name }}: {{ item.1 }}"
+
 - name: Deploy docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2

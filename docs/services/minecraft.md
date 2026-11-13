@@ -1,6 +1,6 @@
 # Minecraft
 
-Six Minecraft servers across 3 LXC containers, run with Docker Compose.
+Seven Minecraft servers across 3 LXC containers, run with Docker Compose.
 
 ## Where It Runs
 
@@ -22,6 +22,7 @@ trusting a doc. IPs and node notes are in the [inventory](../../ansible/inventor
 | creative | mc01 | 25566 | Vanilla | 26.3 | 4G |
 | oneblock | mc01 | 25567 | Vanilla + Skyblock Infinite | 26.3 | 4G |
 | skyblock (x2) | mc02 | 25567, 25568 | Vanilla + Skyblock Infinite | 26.3 | 4G |
+| sawyer-village | mc02 | 25569 | Vanilla, flat + sawyer-village datapack | 26.3 | 4G |
 | cobblemon | mc03 | 25565 | Fabric + Cobblemon | 1.21.1 | 8G |
 
 Versions are pinned per server in the host_vars files, not `LATEST`. Clients must
@@ -32,6 +33,27 @@ overrides it to `java21` because Cobblemon only targets 1.21.1.
 
 The skyblock servers set `LEVEL: skyblock-infinite`, so the active world lives in
 `/data/skyblock-infinite`. The old pre-datapack world is still in `/data/world`.
+
+## Datapacks from this repo
+
+A server can list `datapacks:` in host_vars. Each name is a directory under
+`ansible/roles/minecraft/files/datapacks/`, copied to the LXC and into the
+world by the image's `DATAPACKS` env on every start.
+
+`sawyer-village` builds a flat world once, on its first boot: a plains
+village at spawn where every villager has a job (nitwits included), and a
+woodland mansion about 100 blocks east with a pillager beside each illager.
+A `sawyer_setup` scoreboard in the world records progress, so restarts
+never place a second village. To start over, delete the world and let it
+regenerate; the seed is pinned, so it comes back the same.
+
+Two gotchas it works around:
+
+- Mansions refuse to generate below y=60, so the flat layers put the ground
+  at y=64 instead of superflat's usual y=-61.
+- `/place` is seeded by the world seed, and some seeds give the zombie
+  village variant (no living villagers). Test a seed locally before
+  changing it.
 
 ## Upgrading
 

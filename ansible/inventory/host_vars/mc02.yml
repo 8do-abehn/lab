@@ -30,3 +30,25 @@ minecraft_servers:
     extra_env:
       MODRINTH_PROJECTS: "datapack:skyblock-infinite"
       LEVEL: "skyblock-infinite"
+
+  # Flat world with a village at spawn (every villager already has a job,
+  # so trading works right away) and a woodland mansion full of illagers
+  # and pillagers on the horizon. The sawyer-village datapack builds all of
+  # that once, on the world's first boot.
+  #
+  # The flat layers put the ground at y=64 instead of superflat's usual
+  # y=-61, because mansions refuse to generate below y=60. The seed is
+  # pinned because /place is seeded by the world: this one was tested to
+  # give a normal plains village (seed "sawyer" gives the zombie variant).
+  - name: sawyer-village
+    port: 25569
+    memory: "4G"
+    version: "26.3"
+    motd: "Sawyer's Village"
+    seed: "sawyer-village"
+    datapacks:
+      - sawyer-village
+    extra_env:
+      LEVEL_TYPE: "minecraft:flat"
+      GENERATOR_SETTINGS: >-
+        {"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:stone","height":124},{"block":"minecraft:dirt","height":3},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains","structure_overrides":[]}
