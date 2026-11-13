@@ -23,4 +23,6 @@
   loop: "{{ minecraft_servers }}"
   loop_control:
     label: "{{ item.name }}:{{ item.port }}"
-  check_mode: false
+  # Check mode never writes the compose file, so a newly added server has
+  # no container to wait for and this would time out.
+  when: not ansible_check_mode

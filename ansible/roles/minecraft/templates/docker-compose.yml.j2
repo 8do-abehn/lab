@@ -10,6 +10,9 @@ services:
       - "{{ server.port }}:25565"
     volumes:
       - {{ server.name }}_data:/data
+{% if server.datapacks is defined %}
+      - {{ minecraft_compose_dir }}/datapacks:/datapacks:ro
+{% endif %}
     environment:
 {% set env = {} %}
 {% set _ = env.update({
@@ -35,11 +38,16 @@ services:
 {% if server.whitelist is defined %}
 {% set _ = env.update({'WHITELIST': server.whitelist | join(','), 'ENFORCE_WHITELIST': 'TRUE'}) %}
 {% endif %}
+{% if server.datapacks is defined %}
+{% set _ = env.update({'DATAPACKS': server.datapacks | map('regex_replace', '^', '/datapacks/') | join(',')}) %}
+{% endif %}
 {% if server.extra_env is defined %}
 {% set _ = env.update(server.extra_env) %}
 {% endif %}
+{# to_json quotes and escapes, so a value holding JSON (GENERATOR_SETTINGS)
+   stays valid YAML. Plain strings render exactly as they did before. #}
 {% for key, value in env.items() %}
-      {{ key }}: "{{ value }}"
+      {{ key }}: {{ value | string | to_json }}
 {% endfor %}
     restart: unless-stopped
 
