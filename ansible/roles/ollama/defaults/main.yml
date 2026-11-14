@@ -11,5 +11,11 @@ ollama_service_hostname: "ollama.{{ tailnet_domain }}"
 # another one needs the VRAM. Ollama's own default is 5m.
 ollama_keep_alive: "-1"
 
+# Context window for every model, in tokens. Ollama's default of 4096 fills
+# up in a long Open WebUI chat: the history is cut to fit and a thinking model
+# like mimo uses the few tokens left on reasoning, so its reply comes back
+# empty (#687). mimo at 16384 is 6.2 GB, still 100% on the 3080 Ti.
+ollama_context_length: 16384
+
 # Models to keep pulled. Pulls only what is missing; never removes anything.
 ollama_models: []
