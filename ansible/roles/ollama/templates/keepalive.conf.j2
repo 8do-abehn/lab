@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+# How long a model stays loaded after its last request (ollama_keep_alive).
+[Service]
+Environment=OLLAMA_KEEP_ALIVE={{ ollama_keep_alive }}

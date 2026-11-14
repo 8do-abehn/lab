@@ -7,6 +7,9 @@ can use it at `https://ollama.<tailnet>`.
 Ollama itself is installed by hand and is not managed here. The role only:
 
 - binds Ollama to `0.0.0.0:11434` with the drop-in `ollama.service.d/listen.conf`
+- sets `OLLAMA_KEEP_ALIVE` (`ollama_keep_alive`, default `-1`: never unload)
+  in `ollama.service.d/keepalive.conf`, so replies skip the model load
+- pulls the models in `ollama_models` that are missing
 - loads an nftables table, `inet ollama_guard`, that drops port 11434 on every
   interface except `lo`, from its own unit `ollama-firewall.service`
 - checks that Ollama answers a request carrying the tailnet Host header

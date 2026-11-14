@@ -6,5 +6,10 @@ ollama_port: 11434
 # Hostname a tailnet client sends. Used only to verify the Host check is off.
 ollama_service_hostname: "ollama.{{ tailnet_domain }}"
 
+# How long a model stays loaded after its last request. "-1" never unloads,
+# so chat replies skip the ~3s load. Ollama still evicts an idle model when
+# another one needs the VRAM. Ollama's own default is 5m.
+ollama_keep_alive: "-1"
+
 # Models to keep pulled. Pulls only what is missing; never removes anything.
 ollama_models: []
