@@ -162,7 +162,7 @@ all:
       hosts:
         mc01:  # LXC 3004 on pve01, 32GB RAM -- survival, creative, oneblock
           ansible_user: root
-        mc02:  # LXC 3005 on pve02, 32GB RAM -- sawyer-skyblock, riley-skyblock
+        mc02:  # LXC 3005 on pve02, 32GB RAM -- sawyer-skyblock, riley-skyblock, sawyer-village
           ansible_user: root
         # mc03:  # LXC 3006 on pve03, 32GB RAM -- cobblemon
         #   ansible_user: root
