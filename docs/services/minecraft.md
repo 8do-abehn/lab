@@ -42,10 +42,12 @@ world by the image's `DATAPACKS` env on every start.
 
 `sawyer-village` builds a flat world once, on its first boot: a plains
 village at spawn where every villager has a job (nitwits included), and a
-woodland mansion about 100 blocks east with a pillager beside each illager.
+woodland mansion about 1300 blocks east (out of sight, a trek to find) with
+a pillager beside each illager.
 A `sawyer_setup` scoreboard in the world records progress, so restarts
-never place a second village. To start over, delete the world and let it
-regenerate; the seed is pinned, so it comes back the same.
+never place a second village. To start over, point `LEVEL` at a new
+folder name (the old world stays in the volume, so it's reversible); the
+seed is pinned, so the village comes back the same.
 
 Two gotchas it works around:
 

@@ -33,8 +33,13 @@ minecraft_servers:
 
   # Flat world with a village at spawn (every villager already has a job,
   # so trading works right away) and a woodland mansion full of illagers
-  # and pillagers on the horizon. The sawyer-village datapack builds all of
-  # that once, on the world's first boot.
+  # and pillagers about 1300 blocks east, too far to see from spawn. The
+  # sawyer-village datapack builds all of that once, on the world's first
+  # boot.
+  #
+  # LEVEL picks the world folder. village-far replaced the first world
+  # ("world", mansion ~100 blocks out, never played by Sawyer), which is
+  # still in the volume: drop LEVEL to go back to it.
   #
   # The flat layers put the ground at y=64 instead of superflat's usual
   # y=-61, because mansions refuse to generate below y=60. The seed is
@@ -49,6 +54,7 @@ minecraft_servers:
     datapacks:
       - sawyer-village
     extra_env:
+      LEVEL: "village-far"
       LEVEL_TYPE: "minecraft:flat"
       GENERATOR_SETTINGS: >-
         {"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:stone","height":124},{"block":"minecraft:dirt","height":3},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains","structure_overrides":[]}

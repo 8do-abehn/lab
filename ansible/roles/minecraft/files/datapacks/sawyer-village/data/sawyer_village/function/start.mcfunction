@@ -4,10 +4,11 @@ setworldspawn 0 65 0
 
 # /place refuses to build into unloaded chunks, and 26.x has no
 # always-loaded spawn chunks. Load the village (about 128 blocks around
-# 0,0) and the mansion plot to the east. 256 chunks max per command.
+# 0,0) and the mansion plot to the east, about 96 blocks around its origin
+# since its rotation depends on the seed. 256 chunks max per command.
 forceload add -128 -128 -1 127
 forceload add 0 -128 95 127
-forceload add 96 -128 271 127
+forceload add 1264 -112 1455 111
 
 say Sawyer's village: building the world...
 schedule function sawyer_village:place 40t
