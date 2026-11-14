@@ -42,7 +42,7 @@ world by the image's `DATAPACKS` env on every start.
 
 `sawyer-village` builds a flat world once, on its first boot: a plains
 village at spawn where every villager has a job (nitwits included), and a
-woodland mansion about 1300 blocks east (out of sight, a trek to find) with
+woodland mansion about 400 blocks east (out of sight, a short trek) with
 a pillager beside each illager.
 A `sawyer_setup` scoreboard in the world records progress, so restarts
 never place a second village. To start over, point `LEVEL` at a new
