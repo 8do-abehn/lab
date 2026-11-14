@@ -7,6 +7,8 @@ proxmox_gpu_blacklist_drivers:
   - nvidiafb
   - nvidia_drm
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
+# RX 570 serves /dev/dri to jellyfin01; keep it out of runtime suspend (#648)
+proxmox_amdgpu_runpm: 0
 
 # Corosync link1 on the isolated 1G switch (see roles/proxmox/tasks/network.yml)
 proxmox_corosync_ring1_address: 10.150.99.23/24

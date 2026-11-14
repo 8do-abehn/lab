@@ -131,3 +131,35 @@
       REBOOT REQUIRED: Current kernel cmdline does not include GPU passthrough
       parameters. Reboot this node to activate IOMMU and VFIO changes.
   when: proxmox_gpu_grub_extra not in proxmox_current_cmdline.stdout
+
+# The RX 570 on pve01 and pve03 is headless and serves /dev/dri to LXCs. With
+# runtime PM on (the default), amdgpu suspends it when idle and re-initializes it
+# on the next use. On 2026-10-12 pve01's card failed that wake-up, stuck in
+# runtime_status "error", and every Jellyfin transcode failed until a reboot
+# (#648). runpm=0 keeps the card powered. Takes effect on the next boot, since
+# amdgpu is already loaded; the live stopgap is "echo on" to the device's
+# power/control.
+- name: Set amdgpu runtime power management
+  ansible.builtin.copy:
+    content: "options amdgpu runpm={{ proxmox_amdgpu_runpm }}\n"
+    dest: /etc/modprobe.d/amdgpu.conf
+    mode: "0644"
+  when: proxmox_amdgpu_runpm | string | length > 0
+  notify: Update initramfs
+
+- name: Read the loaded amdgpu runpm value
+  ansible.builtin.slurp:
+    src: /sys/module/amdgpu/parameters/runpm
+  register: proxmox_amdgpu_runpm_loaded
+  failed_when: false
+  when: proxmox_amdgpu_runpm | string | length > 0
+
+- name: Warn if reboot is needed for amdgpu runpm
+  ansible.builtin.debug:
+    msg: >-
+      REBOOT REQUIRED: amdgpu is loaded with runpm={{ proxmox_amdgpu_runpm_loaded.content | b64decode | trim }},
+      configured {{ proxmox_amdgpu_runpm }}. Reboot this node to apply it.
+  when:
+    - proxmox_amdgpu_runpm | string | length > 0
+    - proxmox_amdgpu_runpm_loaded.content is defined
+    - (proxmox_amdgpu_runpm_loaded.content | b64decode | trim) != (proxmox_amdgpu_runpm | string)
