@@ -1,0 +1,96 @@
+---
+# A plain clone gated on the directory, not the git module: the builds below
+# are gated on their binaries, so moving an existing tree to a new tag would
+# leave stale binaries next to new source. To change wrf_version, move the
+# old trees aside and rerun.
+- name: Clone WRF with its submodules
+  ansible.builtin.command:  # noqa: command-instead-of-module
+    argv:
+      - git
+      - clone
+      - --branch
+      - "{{ wrf_version }}"
+      - --depth
+      - "1"
+      - --recurse-submodules
+      - --shallow-submodules
+      - "{{ wrf_repo }}"
+      - "{{ wrf_root }}/{{ item.dir }}"
+    creates: "{{ wrf_root }}/{{ item.dir }}"
+  loop: "{{ wrf_trees }}"
+  loop_control:
+    label: "{{ item.dir }}"
+
+# wrf_gpu reads MPTABLE.TBL and the other Noah-MP tables from the serial
+# tree's run/ (GPUWRF_WRF_ROOT), which may never be compiled into place
+# before wrf_gpu runs. Existing entries are left alone, whoever made them.
+- name: Find the Noah-MP parameter tables
+  ansible.builtin.find:
+    paths: "{{ wrf_root }}/WRF/phys/noahmp/parameters"
+    patterns: "*.TBL"
+  register: wrf_noahmp_tables
+
+- name: Check which tables run/ already has
+  ansible.builtin.stat:
+    path: "{{ wrf_root }}/WRF/run/{{ item.path | basename }}"
+  loop: "{{ wrf_noahmp_tables.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: wrf_run_tables
+
+- name: Link the missing tables into run/
+  ansible.builtin.file:
+    src: "{{ item.item.path }}"
+    dest: "{{ wrf_root }}/WRF/run/{{ item.item.path | basename }}"
+    state: link
+  loop: "{{ wrf_run_tables.results }}"
+  loop_control:
+    label: "{{ item.item.path | basename }}"
+  when: not item.stat.exists
+
+# configure is interactive: the compiler/parallelism menu, then nesting.
+- name: Configure the WRF trees
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      printf '%s\n%s\n' {{ item.configure_option }} {{ wrf_nesting_option }}
+      | ./configure > configure.log 2>&1
+    chdir: "{{ wrf_root }}/{{ item.dir }}"
+    creates: "{{ wrf_root }}/{{ item.dir }}/configure.wrf"
+    executable: /bin/bash
+  environment: "{{ wrf_build_env }}"
+  loop: "{{ wrf_trees }}"
+  loop_control:
+    label: "{{ item.dir }}"
+
+# 10-40 minutes per tree. ./compile exits 0 even when it fails, so the
+# binaries are checked below; compile.log in the tree has the errors.
+- name: Compile WRF (em_real)
+  ansible.builtin.shell:
+    cmd: ./compile em_real > compile.log 2>&1
+    chdir: "{{ wrf_root }}/{{ item.dir }}"
+    creates: "{{ wrf_root }}/{{ item.dir }}/main/wrf.exe"
+    executable: /bin/bash
+  environment: "{{ wrf_build_env }}"
+  loop: "{{ wrf_trees }}"
+  loop_control:
+    label: "{{ item.dir }}"
+
+- name: Check the WRF binaries were built
+  ansible.builtin.stat:
+    path: "{{ wrf_root }}/{{ item.0.dir }}/main/{{ item.1 }}"
+  loop: "{{ wrf_trees | product(['real.exe', 'wrf.exe']) | list }}"
+  loop_control:
+    label: "{{ item.0.dir }}/main/{{ item.1 }}"
+  register: wrf_binaries
+  when: not ansible_check_mode
+
+- name: Fail if a WRF build did not produce its binaries
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "{{ wrf_root }}/{{ item.item.0.dir }}/main/{{ item.item.1 }} is missing. See compile.log in that tree."
+    quiet: true
+  loop: "{{ wrf_binaries.results }}"
+  loop_control:
+    label: "{{ item.item.0.dir }}/main/{{ item.item.1 }}"
+  when: not ansible_check_mode

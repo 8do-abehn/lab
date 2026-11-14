@@ -1,0 +1,22 @@
+---
+# CUDA WRF VMs (#631). See README.md. Every compile is gated on its output
+# binary (creates:), so a rerun skips builds that took 10-40 minutes and
+# check mode never compiles anything.
+
+- name: NVIDIA driver and guest agent
+  ansible.builtin.import_tasks: driver.yml
+
+- name: Build dependencies and the unified NetCDF prefix
+  ansible.builtin.import_tasks: deps.yml
+
+- name: Install wrf_gpu
+  ansible.builtin.import_tasks: wrf_gpu.yml
+
+- name: Build WRF
+  ansible.builtin.import_tasks: wrf.yml
+
+- name: Build WPS and fetch its static data
+  ansible.builtin.import_tasks: wps.yml
+
+- name: Install wgrib2 and Herbie
+  ansible.builtin.import_tasks: tools.yml

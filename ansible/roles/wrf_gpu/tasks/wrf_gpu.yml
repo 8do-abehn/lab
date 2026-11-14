@@ -1,0 +1,38 @@
+---
+# The repo, not just the package: the bundled examples (switzerland_d01) are
+# the smoke test.
+- name: Check out the pinned wrf_gpu release
+  ansible.builtin.git:
+    repo: "{{ wrf_gpu_repo }}"
+    dest: "{{ wrf_gpu_dir }}"
+    version: "v{{ wrf_gpu_version }}"
+    depth: 1
+
+# Before wrf_gpu itself, as upstream's README orders it: the CUDA jaxlib then
+# satisfies wrf_gpu's plain "jax" requirement instead of pulling the CPU one.
+- name: Install the CUDA JAX build into the wrf_gpu venv
+  ansible.builtin.pip:
+    name: "{{ wrf_gpu_pip_packages }}"
+    virtualenv: "{{ wrf_gpu_venv }}"
+    virtualenv_command: python3 -m venv
+
+- name: Check the installed wrf_gpu (gpuwrf) version
+  ansible.builtin.command:
+    argv:
+      - "{{ wrf_gpu_venv }}/bin/python"
+      - -c
+      - import importlib.metadata as m; print(m.version('gpuwrf'))
+  register: wrf_gpu_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install wrf_gpu into its venv
+  ansible.builtin.command:
+    argv:
+      - "{{ wrf_gpu_venv }}/bin/pip"
+      - install
+      - --editable
+      - "{{ wrf_gpu_dir }}"
+  changed_when: true
+  when: wrf_gpu_installed.rc != 0 or wrf_gpu_installed.stdout != wrf_gpu_version

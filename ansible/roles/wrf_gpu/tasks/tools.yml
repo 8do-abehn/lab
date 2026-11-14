@@ -1,0 +1,53 @@
+---
+# For the #633 job scripts: wgrib2 crops HRRR before ungrib, Herbie downloads
+# GFS/HRRR. Herbie also finds wgrib2 on PATH for its own subsetting.
+
+# Gated on the directory for the same reason as the WRF clone (wrf.yml).
+- name: Clone wgrib2
+  ansible.builtin.command:  # noqa: command-instead-of-module
+    argv:
+      - git
+      - clone
+      - --branch
+      - "{{ wgrib2_version }}"
+      - --depth
+      - "1"
+      - "{{ wgrib2_repo }}"
+      - "{{ wgrib2_src_dir }}"
+    creates: "{{ wgrib2_src_dir }}"
+
+- name: Build and install wgrib2
+  ansible.builtin.shell:
+    cmd: >-
+      cmake -S . -B build -DCMAKE_INSTALL_PREFIX={{ wgrib2_prefix }}
+      {{ wgrib2_cmake_flags | join(' ') }}
+      && cmake --build build --parallel {{ wrf_build_jobs }}
+      && cmake --install build
+    chdir: "{{ wgrib2_src_dir }}"
+    creates: "{{ wgrib2_prefix }}/bin/wgrib2"
+    executable: /bin/bash
+
+- name: Check the wgrib2 binary
+  ansible.builtin.stat:
+    path: "{{ wgrib2_prefix }}/bin/wgrib2"
+  register: wgrib2_bin
+
+- name: Fail if the wgrib2 build did not produce its binary
+  ansible.builtin.assert:
+    that: wgrib2_bin.stat.exists
+    fail_msg: "{{ wgrib2_prefix }}/bin/wgrib2 is missing after the build."
+  when: not ansible_check_mode
+
+# Skipped in check mode on a fresh VM, where the link target does not exist yet.
+- name: Put wgrib2 on PATH
+  ansible.builtin.file:
+    src: "{{ wgrib2_prefix }}/bin/wgrib2"
+    dest: /usr/local/bin/wgrib2
+    state: link
+  when: wgrib2_bin.stat.exists
+
+- name: Install Herbie in its own venv
+  ansible.builtin.pip:
+    name: "herbie-data=={{ herbie_version }}"
+    virtualenv: "{{ herbie_venv }}"
+    virtualenv_command: python3 -m venv

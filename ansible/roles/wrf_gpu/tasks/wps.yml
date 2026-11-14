@@ -1,0 +1,88 @@
+---
+# Gated on the directory for the same reason as the WRF clone (wrf.yml).
+- name: Clone WPS
+  ansible.builtin.command:  # noqa: command-instead-of-module
+    argv:
+      - git
+      - clone
+      - --branch
+      - "{{ wps_version }}"
+      - --depth
+      - "1"
+      - "{{ wps_repo }}"
+      - "{{ wrf_root }}/WPS"
+    creates: "{{ wrf_root }}/WPS"
+
+# noble has no libjasper-dev, so --build-grib2-libs builds zlib, libpng and
+# JasPer from WPS's own external/ directory first. WRF_DIR is the serial
+# tree, which must be compiled already.
+- name: Configure WPS
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      printf '%s\n' {{ wps_configure_option }}
+      | ./configure --build-grib2-libs > configure.log 2>&1
+    chdir: "{{ wrf_root }}/WPS"
+    creates: "{{ wrf_root }}/WPS/configure.wps"
+    executable: /bin/bash
+  environment: "{{ wrf_build_env | combine({'WRF_DIR': wrf_root ~ '/WRF'}) }}"
+
+# Like WRF's, this compile exits 0 on failure; the check below catches it.
+- name: Compile WPS
+  ansible.builtin.shell:
+    cmd: ./compile > compile.log 2>&1
+    chdir: "{{ wrf_root }}/WPS"
+    creates: "{{ wrf_root }}/WPS/metgrid.exe"
+    executable: /bin/bash
+  environment: "{{ wrf_build_env | combine({'WRF_DIR': wrf_root ~ '/WRF'}) }}"
+
+- name: Check the WPS binaries were built
+  ansible.builtin.stat:
+    path: "{{ wrf_root }}/WPS/{{ item }}"
+  loop:
+    - geogrid.exe
+    - ungrib.exe
+    - metgrid.exe
+  register: wps_binaries
+  when: not ansible_check_mode
+
+- name: Fail if the WPS build did not produce its binaries
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "{{ wrf_root }}/WPS/{{ item.item }} is missing. See {{ wrf_root }}/WPS/compile.log."
+    quiet: true
+  loop: "{{ wps_binaries.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not ansible_check_mode
+
+# geogrid's static data. The tarball unpacks to WPS_GEOG_LOW_RES/. Gated on
+# that directory so the download only happens once, and skipped in check
+# mode because unarchive fails there when the tarball was never downloaded.
+- name: Check for the low-res WPS_GEOG data
+  ansible.builtin.stat:
+    path: "{{ wrf_geog_low_res_dir }}"
+  register: wrf_geog_low_res
+
+- name: Download the low-res WPS_GEOG data
+  ansible.builtin.get_url:
+    url: "{{ wrf_geog_low_res_url }}"
+    dest: "{{ wrf_root }}/src/{{ wrf_geog_low_res_url | basename }}"
+    mode: "0644"
+  when: not wrf_geog_low_res.stat.exists
+
+- name: Unpack the low-res WPS_GEOG data
+  ansible.builtin.unarchive:
+    src: "{{ wrf_root }}/src/{{ wrf_geog_low_res_url | basename }}"
+    dest: "{{ wrf_root }}"
+    remote_src: true
+    creates: "{{ wrf_geog_low_res_dir }}"
+  when:
+    - not wrf_geog_low_res.stat.exists
+    - not ansible_check_mode
+
+- name: Remove the WPS_GEOG tarball
+  ansible.builtin.file:
+    path: "{{ wrf_root }}/src/{{ wrf_geog_low_res_url | basename }}"
+    state: absent
+  when: not wrf_geog_low_res.stat.exists
