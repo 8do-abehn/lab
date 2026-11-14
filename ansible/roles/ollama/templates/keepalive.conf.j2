@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# How long a model stays loaded after its last request (ollama_keep_alive),
+# and the context window every model gets (ollama_context_length).
+[Service]
+Environment=OLLAMA_KEEP_ALIVE={{ ollama_keep_alive }}
+Environment=OLLAMA_CONTEXT_LENGTH={{ ollama_context_length }}

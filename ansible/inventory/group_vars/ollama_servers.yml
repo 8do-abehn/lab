@@ -20,3 +20,5 @@ ollama_models:
   - bge-m3:567m
   - qwen3:8b
   - llama3.1:8b
+  # Open WebUI's default chat model since 2026-11-13 (#687).
+  - mimo-v2.6:9b
