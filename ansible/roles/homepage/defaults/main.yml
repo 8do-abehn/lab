@@ -24,6 +24,10 @@ homepage_settings:
   headerStyle: clean
   statusStyle: dot
   layout:
+    # Full width, first: the chat is meant to be used without leaving the page.
+    Chat:
+      style: row
+      columns: 1
     Media:
       style: row
       columns: 2
@@ -91,6 +95,26 @@ homepage_radar_site: KARX
 # machine. Hence svc:network on unifi, svc:read on readeck, svc:changes on
 # changedetection.
 homepage_services:
+  # Open WebUI itself, embedded so a chat stays on the dashboard. It works
+  # because chat. and home. are the same site (both under the tailnet domain),
+  # so the Open WebUI login cookie is sent inside the frame, and Open WebUI
+  # sends no X-Frame-Options or frame-ancestors header. Homepage only ships
+  # the Tailwind heights its own code uses (h-96 at most), so the real height
+  # comes from templates/custom.css.j2. The title links to the full page.
+  - Chat:
+      - Open WebUI:
+          href: "https://chat.{{ tailnet_domain }}"
+          icon: open-webui.png
+          description: Chat with the local models
+          siteMonitor: "https://chat.{{ tailnet_domain }}"
+          widget:
+            type: iframe
+            name: chat
+            src: "https://chat.{{ tailnet_domain }}"
+            classes: h-96
+            # Copy buttons and voice input inside the frame.
+            allowPolicy: clipboard-write; microphone
+            loadingStrategy: eager
   - Media:
       - Jellyfin:
           href: "https://jellyfin.{{ tailnet_domain }}"
@@ -128,11 +152,6 @@ homepage_services:
           description: Containers on the docker LXC
           siteMonitor: "https://portainer.{{ tailnet_domain }}/api/system/status"
   - AI:
-      - Open WebUI:
-          href: "https://chat.{{ tailnet_domain }}"
-          icon: open-webui.png
-          description: Chat with the local models
-          siteMonitor: "https://chat.{{ tailnet_domain }}"
       - OpenMemory:
           icon: mdi-brain
           description: Memory API for agents, no UI

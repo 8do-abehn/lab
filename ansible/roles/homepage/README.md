@@ -157,6 +157,23 @@ into day, sky, high, low and rain chance. NWS allows requests from any origin.
 - A fetch job dropped from `homepage_weather_fetches` goes into
   `homepage_weather_fetches_removed`, so the role removes its units from mem01.
 
+## Chat tile
+
+The top row embeds Open WebUI (`svc:chat`) in an `iframe` tile, so a chat
+stays on the dashboard. The tile title opens the full page.
+
+- It works because `home.` and `chat.` share the tailnet domain, which makes
+  them the same site: the Open WebUI login cookie is sent inside the frame.
+  Open WebUI sends no `X-Frame-Options` or `frame-ancestors` header.
+- Blank tile or a refused-to-connect message: check
+  `curl -sI https://chat.<tailnet>/` for a new framing header after an Open
+  WebUI upgrade.
+- Login page inside the tile: sign in once on the full page, then reload.
+- Height comes from `templates/custom.css.j2` (`iframe[name="chat"]`), not the
+  widget's `classes`: Homepage only ships the Tailwind heights its own code
+  uses, which stop at `h-96`. The role owns `custom.css`; edits on the host are
+  overwritten.
+
 ## Status dots
 
 `siteMonitor` checks run from the Homepage container, not the browser. mem01
