@@ -8,7 +8,7 @@ setworldspawn 0 65 0
 # since its rotation depends on the seed. 256 chunks max per command.
 forceload add -128 -128 -1 127
 forceload add 0 -128 95 127
-forceload add 344 -112 535 111
+forceload add 544 -112 735 111
 
 say Sawyer's village: building the world...
 schedule function sawyer_village:place 40t
