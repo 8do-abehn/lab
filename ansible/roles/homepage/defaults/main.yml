@@ -149,31 +149,8 @@ homepage_services:
           icon: readeck.png
           description: Read-later and bookmarks
           siteMonitor: "https://read.{{ tailnet_domain }}/api/info"
-  # Not links: a Minecraft address goes into the game's Add Server screen,
-  # so each tile just shows host:port to copy from. Ports are in the mc
-  # host_vars; keep this in step when a server is added or moved.
-  - Minecraft:
-      - Survival:
-          icon: minecraft.png
-          description: mc01:25565
-      - Creative:
-          icon: minecraft.png
-          description: mc01:25566
-      - OneBlock:
-          icon: minecraft.png
-          description: mc01:25567
-      - Sawyer's SkyBlock:
-          icon: minecraft.png
-          description: mc02:25567
-      - Riley's SkyBlock:
-          icon: minecraft.png
-          description: mc02:25568
-      - Sawyer's Village:
-          icon: minecraft.png
-          description: mc02:25569
-      - Cobblemon:
-          icon: minecraft.png
-          description: mc03:25565
+  # Built from the mc host_vars, see homepage_minecraft_tiles below.
+  - Minecraft: "{{ homepage_minecraft_tiles }}"
   - Weather:
       # Fields are Wisconet standard_names, read from the reshaped file (see
       # homepage_weather_fetches above). A field Wisconet drops shows as null
@@ -255,6 +232,31 @@ homepage_services:
             refreshInterval: 300000
             allowScrolling: "no"
             classes: h-96
+
+# Minecraft tiles. Not links: a Minecraft address goes into the game's Add
+# Server screen, so each tile just shows host:port to copy from. One tile per
+# entry in minecraft_servers on every host in the minecraft_servers group,
+# named after its dashboard_name, else its motd, else its name, so adding or moving a server there updates the
+# dashboard on the next homepage deploy.
+# Servers on hosts that are not in the inventory (yet) go in the extras list.
+# Drop an entry once its host is managed again, or it shows up twice.
+homepage_minecraft_extra_servers:
+  # mc03 is commented out of the inventory; values copied from its host_vars.
+  - host: mc03
+    port: 25565
+    motd: Cobblemon
+homepage_minecraft_tiles: >-
+  {%- set tiles = [] -%}
+  {%- for host in groups['minecraft_servers'] | default([]) -%}
+  {%- for server in hostvars[host].minecraft_servers | default([]) -%}
+  {%- set title = server.dashboard_name | default(server.motd) | default(server.name) -%}
+  {%- set _ = tiles.append({title: {'icon': 'minecraft.png', 'description': host ~ ':' ~ server.port}}) -%}
+  {%- endfor -%}
+  {%- endfor -%}
+  {%- for server in homepage_minecraft_extra_servers -%}
+  {%- set _ = tiles.append({server.motd: {'icon': 'minecraft.png', 'description': server.host ~ ':' ~ server.port}}) -%}
+  {%- endfor -%}
+  {{ tiles }}
 
 homepage_bookmarks:
   - Lab:
