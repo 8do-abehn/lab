@@ -1,19 +1,22 @@
 ---
+# Pull and up stay out of check mode: they act on the live host, and CI runs
+# site.yml --check on every PR. With check_mode: false a freshly published
+# image got pulled and the running containers recreated (#685).
 - name: Pull container images
   ansible.builtin.command:
     cmd: "docker compose pull --ignore-pull-failures"
     chdir: "{{ mem0_compose_dir }}"
   register: mem0_pull_result
   changed_when: "'Pulling' in mem0_pull_result.stdout or 'Downloading' in mem0_pull_result.stderr"
-  check_mode: false
 
 - name: Start mem0 stack
   ansible.builtin.command:
     cmd: "docker compose up -d"
     chdir: "{{ mem0_compose_dir }}"
   register: mem0_up_result
-  changed_when: "'Creating' in mem0_up_result.stdout or 'Starting' in mem0_up_result.stdout"
-  check_mode: false
+  # Compose v2 reports Created/Recreated/Started on stderr, so read both
+  # streams or a recreation shows up as ok in the recap (#685).
+  changed_when: "(mem0_up_result.stdout ~ mem0_up_result.stderr) is search('Creat|Start')"
 
 - name: Wait for Ollama to be ready
   ansible.builtin.uri:
@@ -25,13 +28,14 @@
   delay: 5
   check_mode: false
 
+# Also kept out of check mode (#685): a republished model tag would
+# otherwise be downloaded onto the live host by every PR's CI run.
 - name: Pull Ollama models
   ansible.builtin.command:
     cmd: "docker exec mem0-ollama ollama pull {{ item }}"
   loop: "{{ mem0_ollama_models }}"
   register: mem0_model_pull
   changed_when: "'pulling' in mem0_model_pull.stdout"
-  check_mode: false
 
 - name: Verify Ollama has models loaded
   ansible.builtin.uri:
