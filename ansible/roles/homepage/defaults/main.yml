@@ -236,7 +236,7 @@ homepage_services:
 # Minecraft tiles. Not links: a Minecraft address goes into the game's Add
 # Server screen, so each tile just shows host:port to copy from. One tile per
 # entry in minecraft_servers on every host in the minecraft_servers group,
-# named after its motd, so adding or moving a server there updates the
+# named after its dashboard_name, else its motd, else its name, so adding or moving a server there updates the
 # dashboard on the next homepage deploy.
 # Servers on hosts that are not in the inventory (yet) go in the extras list.
 # Drop an entry once its host is managed again, or it shows up twice.
@@ -249,7 +249,7 @@ homepage_minecraft_tiles: >-
   {%- set tiles = [] -%}
   {%- for host in groups['minecraft_servers'] | default([]) -%}
   {%- for server in hostvars[host].minecraft_servers | default([]) -%}
-  {%- set _ = tiles.append({server.motd: {'icon': 'minecraft.png', 'description': host ~ ':' ~ server.port}}) -%}
+  {%- set _ = tiles.append({server.dashboard_name | default(server.motd) | default(server.name): {'icon': 'minecraft.png', 'description': host ~ ':' ~ server.port}}) -%}
   {%- endfor -%}
   {%- endfor -%}
   {%- for server in homepage_minecraft_extra_servers -%}

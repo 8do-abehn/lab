@@ -6,6 +6,7 @@ minecraft_servers:
     memory: "6G"
     version: "26.3"
     motd: "Survival Server"
+    dashboard_name: "Survival"  # tile name on the homepage dashboard
 
   - name: creative
     port: 25566
@@ -13,6 +14,7 @@ minecraft_servers:
     version: "26.3"
     gamemode: creative
     motd: "Creative Server"
+    dashboard_name: "Creative"  # tile name on the homepage dashboard
 
   # Switched from standard-skyblock + sky-void-additions to Skyblock
   # Infinite, which is the only maintained SkyBlock datapack with a 26.3
@@ -22,6 +24,7 @@ minecraft_servers:
     memory: "4G"
     version: "26.3"
     motd: "SkyBlock"
+    dashboard_name: "OneBlock"  # tile name on the homepage dashboard
     extra_env:
       MODRINTH_PROJECTS: "datapack:skyblock-infinite"
       LEVEL: "skyblock-infinite"
