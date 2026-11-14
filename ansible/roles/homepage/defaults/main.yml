@@ -249,7 +249,8 @@ homepage_minecraft_tiles: >-
   {%- set tiles = [] -%}
   {%- for host in groups['minecraft_servers'] | default([]) -%}
   {%- for server in hostvars[host].minecraft_servers | default([]) -%}
-  {%- set _ = tiles.append({server.dashboard_name | default(server.motd) | default(server.name): {'icon': 'minecraft.png', 'description': host ~ ':' ~ server.port}}) -%}
+  {%- set title = server.dashboard_name | default(server.motd) | default(server.name) -%}
+  {%- set _ = tiles.append({title: {'icon': 'minecraft.png', 'description': host ~ ':' ~ server.port}}) -%}
   {%- endfor -%}
   {%- endfor -%}
   {%- for server in homepage_minecraft_extra_servers -%}
