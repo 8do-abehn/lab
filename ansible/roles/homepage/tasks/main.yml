@@ -6,7 +6,7 @@
     mode: "0755"
 
 # Homepage watches its config directory, so these take effect without a
-# restart. Anything not templated here (custom.css, docker.yaml, ...) is
+# restart. Anything not templated here (custom.js, docker.yaml, ...) is
 # created by Homepage on first start and left alone.
 - name: Deploy Homepage config
   ansible.builtin.template:
@@ -18,6 +18,13 @@
     - services
     - bookmarks
     - widgets
+
+# Read once per page load, so a browser refresh picks up a change.
+- name: Deploy Homepage custom CSS
+  ansible.builtin.template:
+    src: custom.css.j2
+    dest: "{{ homepage_dir }}/config/custom.css"
+    mode: "0644"
 
 # The Weather tiles read reshaped copies of their sources: Wisconet keyed by
 # field name instead of list position, and the NWS forecast with temperature
