@@ -157,22 +157,27 @@ into day, sky, high, low and rain chance. NWS allows requests from any origin.
 - A fetch job dropped from `homepage_weather_fetches` goes into
   `homepage_weather_fetches_removed`, so the role removes its units from mem01.
 
-## Chat tile
+## Floating chat
 
-The top row embeds Open WebUI (`svc:chat`) in an `iframe` tile, so a chat
-stays on the dashboard. The tile title opens the full page.
+A round button in the bottom-right corner (or **Option+C / Alt+C**) slides out
+Open WebUI (`svc:chat`) in a side panel, so a chat stays open while using the
+rest of the dashboard. `templates/custom.js.j2` builds it and
+`templates/custom.css.j2` styles it with Homepage's theme colors. The role owns
+both files; edits on the host are overwritten. The Open WebUI tile in the AI
+group still opens the full page.
 
+- The frame loads on first open, then stays loaded with the conversation.
+- Escape or the X closes it. While the cursor is inside the chat, keys go to
+  Open WebUI, so use the X (or click the dashboard first).
+- The shortcut is caught before Homepage's own key handler, which otherwise
+  opens the search on any typed character (Option+C types "ç" on a Mac).
 - It works because `home.` and `chat.` share the tailnet domain, which makes
   them the same site: the Open WebUI login cookie is sent inside the frame.
   Open WebUI sends no `X-Frame-Options` or `frame-ancestors` header.
-- Blank tile or a refused-to-connect message: check
+- Blank panel or a refused-to-connect message: check
   `curl -sI https://chat.<tailnet>/` for a new framing header after an Open
   WebUI upgrade.
-- Login page inside the tile: sign in once on the full page, then reload.
-- Height comes from `templates/custom.css.j2` (`iframe[name="chat"]`), not the
-  widget's `classes`: Homepage only ships the Tailwind heights its own code
-  uses, which stop at `h-96`. The role owns `custom.css`; edits on the host are
-  overwritten.
+- Login page inside the panel: sign in once on the full page, then reload.
 
 ## Status dots
 

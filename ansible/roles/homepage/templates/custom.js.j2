@@ -1,0 +1,78 @@
+// Managed by Ansible (roles/homepage), do not edit manually
+
+// Floating chat: a button in the bottom-right corner slides out Open WebUI in
+// a side panel, so a chat stays open while using the rest of the dashboard.
+// Open WebUI's login cookie works inside the frame because chat. and home.
+// share the tailnet domain (same site), and it sends no framing headers.
+(() => {
+  // Next.js can run this script again on client-side navigation.
+  if (document.getElementById("lab-chat-toggle")) return;
+
+  const CHAT_URL = "{{ homepage_chat_url }}";
+
+  const icon = (path) =>
+    `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+  const ICON_CHAT = icon('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>');
+  const ICON_CLOSE = icon('<path d="M18 6 6 18M6 6l12 12"/>');
+  const ICON_EXTERNAL = icon('<path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>');
+
+  const toggle = document.createElement("button");
+  toggle.id = "lab-chat-toggle";
+  toggle.type = "button";
+  toggle.title = "Chat (Option+C / Alt+C)";
+  toggle.setAttribute("aria-label", "Open chat");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.innerHTML = ICON_CHAT;
+
+  const panel = document.createElement("section");
+  panel.id = "lab-chat-panel";
+  panel.setAttribute("aria-label", "Chat");
+  panel.innerHTML = `
+    <header>
+      <span>Chat</span>
+      <a href="${CHAT_URL}" target="_blank" rel="noopener" title="Open full page">${ICON_EXTERNAL}</a>
+      <button type="button" title="Close (Esc)" aria-label="Close chat">${ICON_CLOSE}</button>
+    </header>`;
+  panel.querySelector("header button").addEventListener("click", () => setOpen(false));
+
+  // The frame loads on first open, so the dashboard itself stays as fast as
+  // before. After that it is kept, along with the conversation.
+  let frame = null;
+
+  function setOpen(open) {
+    panel.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Close chat" : "Open chat");
+    toggle.innerHTML = open ? ICON_CLOSE : ICON_CHAT;
+    if (open && !frame) {
+      frame = document.createElement("iframe");
+      frame.src = CHAT_URL;
+      frame.title = "Open WebUI";
+      // Copy buttons and voice input inside the frame.
+      frame.allow = "clipboard-write; microphone";
+      panel.appendChild(frame);
+    }
+    if (open) frame.focus();
+  }
+
+  toggle.addEventListener("click", () => setOpen(!panel.classList.contains("open")));
+
+  // Capture phase, so this runs before Homepage's own key handler: it opens
+  // the search on any typed character, and Option+C types "ç" on a Mac.
+  // Keys typed while focus is inside the frame go to Open WebUI instead.
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.code === "KeyC" && e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setOpen(!panel.classList.contains("open"));
+      } else if (e.key === "Escape" && panel.classList.contains("open")) {
+        setOpen(false);
+      }
+    },
+    true,
+  );
+
+  document.body.append(panel, toggle);
+})();
