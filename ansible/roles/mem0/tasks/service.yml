@@ -28,13 +28,14 @@
   delay: 5
   check_mode: false
 
+# Also kept out of check mode (#685): a republished model tag would
+# otherwise be downloaded onto the live host by every PR's CI run.
 - name: Pull Ollama models
   ansible.builtin.command:
     cmd: "docker exec mem0-ollama ollama pull {{ item }}"
   loop: "{{ mem0_ollama_models }}"
   register: mem0_model_pull
   changed_when: "'pulling' in mem0_model_pull.stdout"
-  check_mode: false
 
 - name: Verify Ollama has models loaded
   ansible.builtin.uri:
