@@ -41,6 +41,23 @@
     mode: "0644"
   register: ollama_listen_dropin
 
+# Same file name as the hand-made drop-in it replaces. Also carries the
+# context length, which used to be the hand-made context.conf.
+- name: Render the keep-alive and context drop-in
+  ansible.builtin.template:
+    src: keepalive.conf.j2
+    dest: /etc/systemd/system/ollama.service.d/keepalive.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: ollama_keepalive_dropin
+
+- name: Remove the hand-made context drop-in
+  ansible.builtin.file:
+    path: /etc/systemd/system/ollama.service.d/context.conf
+    state: absent
+  register: ollama_context_dropin_removed
+
 # The firewall goes first, so Ollama never listens on 0.0.0.0 unguarded.
 # restarted, not started: a changed rule file has to be reloaded.
 - name: Enable and load the firewall
@@ -51,14 +68,14 @@
     daemon_reload: true
   when: not ansible_check_mode
 
-- name: Restart Ollama on the new listen address
+- name: Restart Ollama to apply a changed drop-in
   ansible.builtin.systemd:
     name: ollama.service
     state: restarted
     daemon_reload: true
   when:
     - not ansible_check_mode
-    - ollama_listen_dropin.changed
+    - ollama_listen_dropin.changed or ollama_keepalive_dropin.changed or ollama_context_dropin_removed.changed
 
 - name: Verify the rule is loaded
   ansible.builtin.command: nft list table inet ollama_guard
