@@ -22,7 +22,7 @@
   toggle.title = "Chat (Option+C / Alt+C)";
   toggle.setAttribute("aria-label", "Open chat");
   toggle.setAttribute("aria-expanded", "false");
-  toggle.innerHTML = ICON_CHAT;
+  toggle.innerHTML = `${ICON_CHAT}<span>Chat</span>`;
 
   const panel = document.createElement("section");
   panel.id = "lab-chat-panel";
@@ -43,7 +43,7 @@
     panel.classList.toggle("open", open);
     toggle.setAttribute("aria-expanded", String(open));
     toggle.setAttribute("aria-label", open ? "Close chat" : "Open chat");
-    toggle.innerHTML = open ? ICON_CLOSE : ICON_CHAT;
+    toggle.innerHTML = open ? `${ICON_CLOSE}<span>Close</span>` : `${ICON_CHAT}<span>Chat</span>`;
     if (open && !frame) {
       frame = document.createElement("iframe");
       frame.src = CHAT_URL;

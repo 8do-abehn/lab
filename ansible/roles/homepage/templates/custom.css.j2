@@ -1,26 +1,31 @@
 /* Managed by Ansible (roles/homepage), do not edit manually */
 
-/* Floating chat (templates/custom.js.j2). Colors come from Homepage's theme
-   variables, so the panel follows the dashboard's color setting. */
+/* Floating chat (templates/custom.js.j2). The panel takes its colors from
+   Homepage's theme variables, so it follows the dashboard's color setting.
+   The button does not: in the theme's own grays it disappeared against the
+   page, so it is an accent-colored pill with a label. */
 #lab-chat-toggle {
   position: fixed;
   right: 1.5rem;
   bottom: 1.5rem;
   z-index: 50;
-  width: 3.5rem;
-  height: 3.5rem;
-  display: grid;
-  place-items: center;
+  height: 3rem;
+  padding: 0 1.25rem 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   border-radius: 9999px;
-  color: rgb(var(--color-100));
-  background: rgb(var(--color-700));
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+  color: #fff;
+  background: #0284c7;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 #lab-chat-toggle:hover {
-  background: rgb(var(--color-600));
-  transform: scale(1.06);
+  background: #0ea5e9;
+  transform: scale(1.04);
 }
 
 #lab-chat-panel {
