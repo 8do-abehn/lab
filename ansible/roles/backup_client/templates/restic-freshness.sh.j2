@@ -46,20 +46,58 @@ log_message "Starting snapshot freshness check"
 
 # No local flock and no repo lock: this only reads snapshot metadata, so it
 # must not skip just because a long jellyfin01 upload holds either one.
+#
+# stderr kept apart from the JSON: a single restic warning mixed into it
+# would make jq fail, and set -e would then exit with no alert at all.
+RESTIC_STDERR=$(mktemp)
+trap 'rm -f "$RESTIC_STDERR"' EXIT
+
+repo_unreadable() {
+    local err
+    # With --json, restic reports fatal errors as a JSON line too.
+    err=$(tail -1 "$RESTIC_STDERR" | jq -r '.message? // empty' 2>/dev/null || true)
+    [ -n "$err" ] || err=$(tail -3 "$RESTIC_STDERR")
+    log_message "ERROR: could not read the repo: $err"
+    notify "Backup freshness UNKNOWN" "Could not read the restic repo on {{ backup_server_host }} at $(date) from $(hostname).
+$err"
+    exit 1
+}
+
 # --group-by host, not the default host+paths+tags: hosts whose paths changed
 # (dns01, dns02) or that carry a one-off tag (immich-seed) otherwise leave old
 # groups behind that would look months stale forever.
-if ! SNAPSHOTS=$(restic snapshots --no-lock --group-by host --latest 1 --json 2>&1); then
-    log_message "ERROR: could not list snapshots: $(echo "$SNAPSHOTS" | tail -1)"
-    notify "Backup freshness UNKNOWN" "Could not read the restic repo on {{ backup_server_host }} at $(date) from $(hostname).
-$(echo "$SNAPSHOTS" | tail -3)"
-    exit 1
-fi
+SNAPSHOTS=$(restic snapshots --no-lock --group-by host --latest 1 --json 2>"$RESTIC_STDERR") || repo_unreadable
+echo "$SNAPSHOTS" | jq -e 'type == "array"' >/dev/null 2>"$RESTIC_STDERR" || repo_unreadable
+
+# A snapshot's time is when its backup STARTED. While jellyfin01 uploads a
+# big batch of new media (hours, sometimes most of a day) its newest finished
+# snapshot is a day and a half old, so without this every long upload would
+# alert as stale. Hosts holding a live repo lock count as in progress instead.
+# restic refreshes a live lock every 5 minutes, so a lock older than 30
+# minutes was left by a dead job and does not count. Best effort: if locks
+# can't be read, every old snapshot is simply reported as stale.
+LOCKED_HOSTS=""
+for lock in $(restic list locks --no-lock 2>/dev/null || true); do
+    read -r lock_host lock_time < <(restic cat lock "$lock" --no-lock 2>/dev/null \
+        | jq -r '"\(.hostname) \(.time)"' 2>/dev/null) || continue
+    lock_epoch=$(date -d "$lock_time" +%s 2>/dev/null) || continue
+    if (( $(date +%s) - lock_epoch < 1800 )); then
+        LOCKED_HOSTS+="$lock_host"$'\n'
+    fi
+done
 
 # raw: bash's array-length syntax opens a Jinja comment otherwise.
 {% raw %}
+# An empty list would report "all 0 hosts OK" forever, hiding the misconfig.
+if [ "${#EXPECTED_HOSTS[@]}" -eq 0 ]; then
+    log_message "ERROR: no hosts to check (backup_freshness_hosts is empty)"
+    notify "Backup freshness UNKNOWN" "$(hostname) has no backup hosts to check. Set backup_freshness_hosts."
+    exit 1
+fi
+
 NOW=$(date +%s)
 STALE=()
+IN_PROGRESS=()
 for host in "${EXPECTED_HOSTS[@]}"; do
     # restic writes RFC3339 with nanoseconds; date -d handles it as is.
     latest=$(echo "$SNAPSHOTS" | jq -r --arg h "$host" \
@@ -69,10 +107,19 @@ for host in "${EXPECTED_HOSTS[@]}"; do
         continue
     fi
     age_hours=$(( (NOW - $(date -d "$latest" +%s)) / 3600 ))
-    if [ "$age_hours" -ge "$MAX_AGE_HOURS" ]; then
-        STALE+=("$host: last snapshot ${age_hours}h ago ($(date -d "$latest" '+%a %b %d %H:%M'))")
+    if [ "$age_hours" -lt "$MAX_AGE_HOURS" ]; then
+        continue
     fi
+    if grep -qx "$host" <<<"$LOCKED_HOSTS"; then
+        IN_PROGRESS+=("$host (last snapshot ${age_hours}h ago, backup running now)")
+        continue
+    fi
+    STALE+=("$host: last snapshot ${age_hours}h ago ($(date -d "$latest" '+%a %b %d %H:%M'))")
 done
+
+if [ "${#IN_PROGRESS[@]}" -gt 0 ]; then
+    log_message "In progress, not counted as stale: ${IN_PROGRESS[*]}"
+fi
 
 if [ "${#STALE[@]}" -eq 0 ]; then
     log_message "Freshness OK: all ${#EXPECTED_HOSTS[@]} hosts have a snapshot newer than ${MAX_AGE_HOURS}h"
