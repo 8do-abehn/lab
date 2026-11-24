@@ -204,6 +204,9 @@ all:
           # Designated checker as well: `restic check` covers the whole shared
           # repo, so it runs from one client rather than all four.
           backup_check_enabled: true
+          # And the daily freshness check, which reads the whole repo's snapshot
+          # list to confirm every client has a recent snapshot.
+          backup_freshness_enabled: true
           backup_paths:
             - /mnt/library
             - /var/lib/jellyfin

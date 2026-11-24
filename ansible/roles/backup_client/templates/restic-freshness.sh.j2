@@ -1,0 +1,86 @@
+#!/bin/bash
+set -euo pipefail
+
+# Cron's default PATH omits /usr/local/bin, where pipx symlinks apprise.
+# Without this, `command -v apprise` silently fails and notifications never fire.
+export PATH="/usr/local/bin:$PATH"
+
+# Restic snapshot freshness check - managed by Ansible
+# Alerts when any backup client has no snapshot in the shared repo for longer
+# than {{ backup_freshness_max_age_hours }}h.
+#
+# Each client already reports its own failures, but only from the client side
+# and only once per run. When pi-burg went dark for ~13h on 2026-11-22 every
+# client failed on its own, and nothing looked at the repo as a whole. This
+# asks the one question that matters: does every host have a recent snapshot?
+
+LOGFILE="{{ backup_log_path }}"
+RESTIC_REPOSITORY="sftp:{{ backup_server_user }}@{{ backup_server_host }}:{{ backup_server_repo_path }}"
+RESTIC_PASSWORD_FILE="{{ backup_password_file }}"
+
+export RESTIC_REPOSITORY
+export RESTIC_PASSWORD_FILE
+
+MAX_AGE_HOURS={{ backup_freshness_max_age_hours }}
+EXPECTED_HOSTS=({{ backup_freshness_hosts | join(' ') }})
+
+{% if backup_notify_enabled | default(false) %}
+# Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
+# is world-readable, so the credential must not live here.
+notify() {
+    local title="$1"
+    local body="$2"
+    if [ -r /etc/apprise.yml ] && command -v apprise &>/dev/null; then
+        apprise -t "$title" --body "$body" --config /etc/apprise.yml 2>/dev/null || true
+    fi
+}
+{% else %}
+notify() { :; }
+{% endif %}
+
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+}
+
+log_message "Starting snapshot freshness check"
+
+# No local flock and no repo lock: this only reads snapshot metadata, so it
+# must not skip just because a long jellyfin01 upload holds either one.
+# --group-by host, not the default host+paths+tags: hosts whose paths changed
+# (dns01, dns02) or that carry a one-off tag (immich-seed) otherwise leave old
+# groups behind that would look months stale forever.
+if ! SNAPSHOTS=$(restic snapshots --no-lock --group-by host --latest 1 --json 2>&1); then
+    log_message "ERROR: could not list snapshots: $(echo "$SNAPSHOTS" | tail -1)"
+    notify "Backup freshness UNKNOWN" "Could not read the restic repo on {{ backup_server_host }} at $(date) from $(hostname).
+$(echo "$SNAPSHOTS" | tail -3)"
+    exit 1
+fi
+
+# raw: bash's array-length syntax opens a Jinja comment otherwise.
+{% raw %}
+NOW=$(date +%s)
+STALE=()
+for host in "${EXPECTED_HOSTS[@]}"; do
+    # restic writes RFC3339 with nanoseconds; date -d handles it as is.
+    latest=$(echo "$SNAPSHOTS" | jq -r --arg h "$host" \
+        '[.[] | select(.group_key.hostname == $h) | .snapshots[].time] | max // empty')
+    if [ -z "$latest" ]; then
+        STALE+=("$host: no snapshots at all")
+        continue
+    fi
+    age_hours=$(( (NOW - $(date -d "$latest" +%s)) / 3600 ))
+    if [ "$age_hours" -ge "$MAX_AGE_HOURS" ]; then
+        STALE+=("$host: last snapshot ${age_hours}h ago ($(date -d "$latest" '+%a %b %d %H:%M'))")
+    fi
+done
+
+if [ "${#STALE[@]}" -eq 0 ]; then
+    log_message "Freshness OK: all ${#EXPECTED_HOSTS[@]} hosts have a snapshot newer than ${MAX_AGE_HOURS}h"
+    exit 0
+fi
+
+log_message "Freshness STALE: ${STALE[*]}"
+notify "Backups STALE on ${#STALE[@]} host(s)" "No snapshot in the last ${MAX_AGE_HOURS}h as of $(date):
+$(printf '%s\n' "${STALE[@]}")"
+exit 1
+{% endraw %}
