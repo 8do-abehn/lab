@@ -1,0 +1,174 @@
+#!/bin/bash
+set -euo pipefail
+
+# Cron's default PATH omits /usr/local/bin, where pipx symlinks apprise.
+# Without this, `command -v apprise` silently fails and notifications never fire.
+export PATH="/usr/local/bin:$PATH"
+
+# Restic snapshot freshness check - managed by Ansible
+# Alerts when any backup client has no snapshot in the shared repo for longer
+# than {{ backup_freshness_max_age_hours }}h.
+#
+# Each client already reports its own failures, but only from the client side
+# and only once per run. When pi-burg went dark for ~13h on 2026-11-22 every
+# client failed on its own, and nothing looked at the repo as a whole. This
+# asks the one question that matters: does every host have a recent snapshot?
+
+LOGFILE="{{ backup_log_path }}"
+RESTIC_REPOSITORY="sftp:{{ backup_server_user }}@{{ backup_server_host }}:{{ backup_server_repo_path }}"
+RESTIC_PASSWORD_FILE="{{ backup_password_file }}"
+
+export RESTIC_REPOSITORY
+export RESTIC_PASSWORD_FILE
+
+MAX_AGE_HOURS={{ backup_freshness_max_age_hours }}
+EXPECTED_HOSTS=({{ backup_freshness_hosts | join(' ') }})
+
+{% if backup_notify_enabled | default(false) %}
+# Apprise URLs are read from /etc/apprise.yml (mode 0600). The script itself
+# is world-readable, so the credential must not live here.
+notify() {
+    local title="$1"
+    local body="$2"
+    if [ -r /etc/apprise.yml ] && command -v apprise &>/dev/null; then
+        apprise -t "$title" --body "$body" --config /etc/apprise.yml 2>/dev/null || true
+    fi
+}
+{% else %}
+notify() { :; }
+{% endif %}
+
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+}
+
+log_message "Starting snapshot freshness check"
+
+# No local flock and no repo lock: this only reads snapshot metadata, so it
+# must not skip just because a long jellyfin01 upload holds either one.
+#
+# stderr kept apart from the JSON: a single restic warning mixed into it
+# would make jq fail, and set -e would then exit with no alert at all.
+RESTIC_STDERR=$(mktemp)
+trap 'rm -f "$RESTIC_STDERR"' EXIT
+
+repo_unreadable() {
+    local err
+    # With --json, restic reports fatal errors as a JSON line too.
+    err=$(tail -1 "$RESTIC_STDERR" | jq -r '.message? // empty' 2>/dev/null || true)
+    [ -n "$err" ] || err=$(tail -3 "$RESTIC_STDERR")
+    [ -n "$err" ] || err="restic timed out or exited without output"
+    log_message "ERROR: could not read the repo: $err"
+    notify "Backup freshness UNKNOWN" "Could not read the restic repo on {{ backup_server_host }} at $(date) from $(hostname).
+$err"
+    exit 1
+}
+
+# timeout on every restic call: a half-up pi-burg (Tailscale route alive,
+# sshd or the disk stalled) otherwise hangs the SFTP read forever, and the
+# outage this check exists to catch never gets reported.
+#
+# --group-by host, not the default host+paths+tags: hosts whose paths changed
+# (dns01, dns02) or that carry a one-off tag (immich-seed) otherwise leave old
+# groups behind that would look months stale forever.
+SNAPSHOTS=$(timeout 10m restic snapshots --no-lock --group-by host --latest 1 --json 2>"$RESTIC_STDERR") || repo_unreadable
+echo "$SNAPSHOTS" | jq -e 'type == "array"' >/dev/null 2>"$RESTIC_STDERR" || repo_unreadable
+
+# raw: bash's array-length syntax opens a Jinja comment otherwise.
+{% raw %}
+# An empty list would report "all 0 hosts OK" forever, hiding the misconfig.
+if [ "${#EXPECTED_HOSTS[@]}" -eq 0 ]; then
+    log_message "ERROR: no hosts to check (backup_freshness_hosts is empty)"
+    notify "Backup freshness UNKNOWN" "$(hostname) has no backup hosts to check. Set backup_freshness_hosts."
+    exit 1
+fi
+
+NOW=$(date +%s)
+
+# Hosts with a backup running right now. A snapshot's time is when its backup
+# STARTED, so while jellyfin01 uploads a big batch of new media (hours,
+# sometimes most of a day) its newest finished snapshot is a day and a half
+# old, and every long upload would otherwise alert as stale.
+#
+# Only NON-exclusive locks count: that is what restic backup takes. check,
+# prune and forget take exclusive locks, and jellyfin01 runs check and prune
+# itself on Sundays, so counting those would hide a missed backup behind its
+# own maintenance. A live lock is refreshed every 5 minutes, so one older
+# than 30 minutes was left by a dead job and does not count either.
+#
+# Loaded only when some host is actually over the limit: each lock costs a
+# full restic start-up over the domestic link at the far end.
+LOCKED_HOSTS=""
+LOCKS_LOADED=0
+load_backup_locks() {
+    local lock lock_host lock_time lock_excl lock_epoch
+    [ "$LOCKS_LOADED" -eq 1 ] && return 0
+    LOCKS_LOADED=1
+    for lock in $(timeout 2m restic list locks --no-lock 2>/dev/null || true); do
+        read -r lock_host lock_time lock_excl < <(timeout 2m restic cat lock "$lock" --no-lock 2>/dev/null \
+            | jq -r '"\(.hostname) \(.time) \(.exclusive)"' 2>/dev/null) || continue
+        [ "$lock_excl" = "false" ] || continue
+        lock_epoch=$(date -d "$lock_time" +%s 2>/dev/null) || continue
+        if (( NOW - lock_epoch < 1800 )); then
+            LOCKED_HOSTS+="$lock_host"$'\n'
+        fi
+    done
+}
+
+backup_running() {
+    load_backup_locks
+    grep -qx "$1" <<<"$LOCKED_HOSTS"
+}
+
+STALE=()
+IN_PROGRESS=()
+# Past this, a host alerts even while its backup runs: a lock that has been
+# live for days is a stuck job, not a long upload.
+CEILING_HOURS=$(( MAX_AGE_HOURS * 2 ))
+
+for host in "${EXPECTED_HOSTS[@]}"; do
+    # restic writes RFC3339 with nanoseconds; date -d handles it as is.
+    latest=$(echo "$SNAPSHOTS" | jq -r --arg h "$host" \
+        '[.[] | select(.group_key.hostname == $h) | .snapshots[].time] | max // empty')
+
+    # A brand new client's first seed can take days and has no snapshot yet.
+    if [ -z "$latest" ]; then
+        if backup_running "$host"; then
+            IN_PROGRESS+=("$host (no snapshots yet, first backup running now)")
+        else
+            STALE+=("$host: no snapshots at all")
+        fi
+        continue
+    fi
+
+    # Guarded: a failed date inside $(( )) is an arithmetic error, and set -e
+    # would end the script there with no alert.
+    if ! latest_epoch=$(date -d "$latest" +%s 2>/dev/null); then
+        STALE+=("$host: could not parse snapshot time '$latest'")
+        continue
+    fi
+    age_hours=$(( (NOW - latest_epoch) / 3600 ))
+    if [ "$age_hours" -lt "$MAX_AGE_HOURS" ]; then
+        continue
+    fi
+    if [ "$age_hours" -lt "$CEILING_HOURS" ] && backup_running "$host"; then
+        IN_PROGRESS+=("$host (last snapshot ${age_hours}h ago, backup running now)")
+        continue
+    fi
+    STALE+=("$host: last snapshot ${age_hours}h ago ($(date -d "$latest" '+%a %b %d %H:%M'))")
+done
+
+if [ "${#IN_PROGRESS[@]}" -gt 0 ]; then
+    log_message "In progress, not counted as stale: ${IN_PROGRESS[*]}"
+fi
+
+if [ "${#STALE[@]}" -eq 0 ]; then
+    log_message "Freshness OK: all ${#EXPECTED_HOSTS[@]} hosts have a snapshot newer than ${MAX_AGE_HOURS}h"
+    exit 0
+fi
+
+log_message "Freshness STALE: ${STALE[*]}"
+notify "Backups STALE on ${#STALE[@]} host(s)" "No snapshot in the last ${MAX_AGE_HOURS}h as of $(date):
+$(printf '%s\n' "${STALE[@]}")"
+exit 1
+{% endraw %}

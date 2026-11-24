@@ -273,6 +273,31 @@
     user: root
     state: "{{ 'present' if backup_prune_enabled | bool else 'absent' }}"
 
+- name: Deploy restic freshness script
+  ansible.builtin.template:
+    src: restic-freshness.sh.j2
+    dest: "{{ backup_freshness_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: backup_freshness_enabled | bool
+
+# Keep the host clean if the freshness check moves to a different client later.
+- name: Remove restic freshness script when the check is disabled
+  ansible.builtin.file:
+    path: "{{ backup_freshness_script_path }}"
+    state: absent
+  when: not (backup_freshness_enabled | bool)
+
+- name: Setup daily restic freshness cron
+  ansible.builtin.cron:
+    name: "Restic snapshot freshness check"
+    minute: "{{ backup_freshness_cron_minute }}"
+    hour: "{{ backup_freshness_cron_hour }}"
+    job: "{{ backup_freshness_script_path }}"
+    user: root
+    state: "{{ 'present' if backup_freshness_enabled | bool else 'absent' }}"
+
 - name: Deploy logrotate config
   ansible.builtin.copy:
     src: logrotate

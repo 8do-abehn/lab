@@ -94,6 +94,23 @@ backup_check_cron_hour: "6"
 backup_check_cron_minute: "0"
 backup_check_cron_weekday: "0"
 
+# Daily freshness check: alerts when any backup client has no snapshot in the
+# shared repo for longer than backup_freshness_max_age_hours. Each client only
+# reports its own run, so a dark pi-burg (2026-11-22, ~13h) shows up as six
+# separate failures and nothing checks that every host is actually covered.
+# Reads snapshot metadata without a lock, so enable it on one client, same
+# pattern as backup_check_enabled.
+backup_freshness_enabled: false
+# 26h: one missed nightly run trips it, without false alarms from a run that
+# starts a few minutes late.
+backup_freshness_max_age_hours: 26
+# 08:00 is after every nightly backup (dns at 21:xx, the rest 00:15-01:30) and
+# after a typical long jellyfin01 upload has finished.
+backup_freshness_cron_hour: "8"
+backup_freshness_cron_minute: "0"
+backup_freshness_hosts: "{{ groups['backup_clients'] | default([]) }}"
+backup_freshness_script_path: /usr/local/bin/restic-freshness.sh
+
 # How long restic waits for another host's repo lock before giving up. Every
 # client shares the pi-burg repo, so a slow night on one host (jellyfin01
 # uploading a batch of new movies) used to fail the others' retention step
