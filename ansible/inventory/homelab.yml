@@ -186,8 +186,11 @@ all:
         jellyfin01:
           backup_server_host: 100.83.251.53  # pi-burg Tailscale IP (MagicDNS broken in LXC)
           # Small backups first, the big one last. jellyfin01 is usually done in
-          # minutes, but when a batch of new media lands it uploads for hours
-          # (~2 MB/s to pi-burg: 28.5 GB took 4.5h+ on 2026-10-08). At 02:00 it
+          # minutes, but when a batch of new media lands it uploads for a while.
+          # Was ~2 MB/s (28.5 GB took 4.5h+ on 2026-10-08); since pi-burg moved
+          # sites in Nov 2026 it is ~10 MB/s (1.6 GB in 168s on 2026-11-24),
+          # capped by the Pi 3's 100 Mbit eth0. iperf3 over the Tailscale relay
+          # measured 72 Mbit/s single stream, 89 Mbit/s with 4. At 02:00 it
           # ran first and held the shared repo lock while unifi (02:15) and
           # immich01 (03:00) tried to apply retention, which then failed. Their
           # snapshots were saved either way.
@@ -277,10 +280,11 @@ all:
             - "thumbs/"          # 1.2 GB, regenerated from originals
             - "encoded-video/"   # 521 MB, regenerated from originals
 
-          # pi-burg is offsite on a domestic link someone else has to live with.
-          # Clear this temporarily for the initial seed while the Pi is on the
-          # local network, or ~217 GB at 40 Mbit/s takes about twelve hours.
-          backup_bandwidth_limit: 5120
+          # No bandwidth limit. The 5120 KiB/s (~40 Mbit/s) cap from #478 was to
+          # spare the household link pi-burg used to sit on. Since Nov 2026 it
+          # is on a 300 Mbit/s symmetric line, and the Pi 3's 100 Mbit eth0
+          # tops out near 90 Mbit/s, so a full-speed run takes under a third
+          # of that link. Put the cap back if pi-burg moves to a slower one.
 
         # /staging (608 GB) is deliberately NOT backed up. It is the raw Google
         # Photos export being imported into Immich, so once imported it is
