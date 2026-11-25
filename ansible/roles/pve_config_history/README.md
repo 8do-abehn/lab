@@ -18,8 +18,10 @@ node (#434). Off-cluster copy: #568.
   a synced folder or anywhere unencrypted (the encrypted off-cluster copy is #568).
 - Not kept: pmxcfs entries that change on their own (`.rrd`, `.version`,
   `.members`, `.clusterlog`, `.vmlist`, `.debug`, `ha/manager_status`,
-  `ha/crm_commands`, `nodes/*/lrm_status`, `priv/lock`) and the ticket-signing keys
+  `ha/crm_commands`, `nodes/*/lrm_status`, `priv/lock`), Proxmox's write-then-rename
+  temp files (`*.tmp.<pid>`), and the ticket-signing keys
   Proxmox rotates daily and regenerates (`priv/authkey.key`, `authkey.pub*`).
+- A file that vanishes mid-run (rsync exit 24) does not fail the run.
 - Each run copies `config.db` first, then takes the git snapshot. Either half
   failing does not stop the other; the run still fails, and
   `pve-config-history-failure.service` alerts through `/etc/apprise.yml`.
