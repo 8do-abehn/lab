@@ -1,0 +1,25 @@
+---
+# At the stock 60 the kernel swaps idle guest memory out to grow the page cache. On
+# pve03 that left 4.7G in swap and 67G of cache on 2026-11-24, so pinning vm-seb's RAM
+# had to swap and reclaim at the same time and qm start timed out (tasks/vfio-hookscript.yml).
+# A low value keeps guest memory resident and has the kernel drop cache first.
+- name: Set vm.swappiness persistently
+  ansible.builtin.copy:
+    content: "vm.swappiness = {{ proxmox_vm_swappiness }}\n"
+    dest: /etc/sysctl.d/90-swappiness.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+# Read back rather than keyed off the copy above, so a node whose live value drifted
+# (a manual sysctl -w) is corrected too.
+- name: Read the live vm.swappiness
+  ansible.builtin.command: cat /proc/sys/vm/swappiness
+  register: proxmox_swappiness_live
+  changed_when: false
+  check_mode: false
+
+- name: Apply vm.swappiness now
+  ansible.builtin.command: "sysctl -w vm.swappiness={{ proxmox_vm_swappiness }}"
+  changed_when: true
+  when: proxmox_swappiness_live.stdout | trim != proxmox_vm_swappiness | string
