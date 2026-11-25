@@ -8,5 +8,12 @@ proxmox_gpu_blacklist_drivers:
   - nvidia_drm
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
 
+# vm-seb (RTX 3080 passthrough, 24G). Its 2026-11-24 start hung pinning RAM with the
+# node full of page cache; the hookscript drops it first (tasks/vfio-hookscript.yml).
+proxmox_vfio_hookscript_vmids:
+  - 701
+# Same incident: guest memory swapped out to make room for cache (tasks/swappiness.yml)
+proxmox_vm_swappiness: 10
+
 # Corosync link1 on the isolated 1G switch (see roles/proxmox/tasks/network.yml)
 proxmox_corosync_ring1_address: 10.150.99.23/24

@@ -21,6 +21,16 @@
   ansible.builtin.import_tasks: vendor-reset.yml
   when: proxmox_gpu_vendor_reset_enabled | default(false)
   tags: vendor-reset
+# import so the tag reaches the tasks inside: deploy with tags=vfio-hookscript
+- name: Drop page cache before VFIO VMs start
+  ansible.builtin.import_tasks: vfio-hookscript.yml
+  when: proxmox_vfio_hookscript_vmids | length > 0
+  tags: vfio-hookscript
+# import so the tag reaches the tasks inside: deploy with tags=swappiness
+- name: Keep guest memory out of swap
+  ansible.builtin.import_tasks: swappiness.yml
+  when: proxmox_vm_swappiness | string | length > 0
+  tags: swappiness
 - name: Configure LVM thin pool autoextend
   ansible.builtin.include_tasks: lvm.yml
 - name: Configure bridge VLAN allow-list

@@ -12,5 +12,12 @@ proxmox_gpu_blacklist_drivers:
   - nvidia_drm
 proxmox_gpu_grub_extra: "amd_iommu=on iommu=pt video=vesafb:off video=efifb:off"
 
+# Both pin 32G at start through the 3080 above. pve01 had room on 2026-11-24 (40G free),
+# but it is the fullest node, so guard them the way vm-seb is on pve03 (tasks/vfio-hookscript.yml).
+proxmox_vfio_hookscript_vmids:
+  - 702
+  - 703
+proxmox_vm_swappiness: 10
+
 # Corosync link1 on the isolated 1G switch (see roles/proxmox/tasks/network.yml)
 proxmox_corosync_ring1_address: 10.150.99.21/24

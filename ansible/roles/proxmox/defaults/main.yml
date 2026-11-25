@@ -32,6 +32,13 @@ proxmox_gpu_vendor_reset_device_ids: []
 proxmox_gpu_vendor_reset_commit: "cbb4dd50926337e0f9fe1dd1e8a74aa5cb3448a7"
 proxmox_gpu_vendor_reset_dkms_version: "0.1.1"
 
+# VMs on this host that get the drop-caches pre-start hookscript (tasks/vfio-hookscript.yml).
+# List VMs with a passed-through PCI device; VFIO pins all their RAM at start.
+proxmox_vfio_hookscript_vmids: []
+
+# vm.swappiness (tasks/swappiness.yml). Empty leaves the kernel default (60) alone.
+proxmox_vm_swappiness: ""
+
 # LVM thin pool autoextend (#378)
 proxmox_lvm_thin_autoextend_threshold: 80
 proxmox_lvm_thin_autoextend_percent: 20
