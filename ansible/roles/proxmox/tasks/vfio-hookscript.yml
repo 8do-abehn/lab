@@ -1,0 +1,65 @@
+---
+# Drop the page cache before VFIO VMs start (files/vfio-drop-caches.sh has the why).
+#
+# The script lives on local, not cephfs-ssd (which already allows snippets): a VM whose
+# disks are on node-local storage should not fail to start because CephFS is down.
+# local is defined once in the cluster-wide storage.cfg, so the content change is
+# run_once and applies to every node's local dir.
+- name: Read the content types allowed on local storage
+  ansible.builtin.command: pvesh get /storage/local --output-format json
+  register: proxmox_local_storage
+  changed_when: false
+  check_mode: false
+  run_once: true
+
+- name: Allow snippets on local storage
+  ansible.builtin.command: >-
+    pvesm set local --content
+    {{ ((proxmox_local_storage.stdout | from_json).content.split(',') + ['snippets']) | join(',') }}
+  changed_when: true
+  when: "'snippets' not in (proxmox_local_storage.stdout | from_json).content.split(',')"
+  run_once: true
+
+- name: Create the snippets directory
+  ansible.builtin.file:
+    path: /var/lib/vz/snippets
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the drop-caches hookscript
+  ansible.builtin.copy:
+    src: vfio-drop-caches.sh
+    dest: /var/lib/vz/snippets/vfio-drop-caches.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+# /etc/pve/qemu-server is this node's own VM configs, so a VM listed on a node it has
+# since moved off is skipped rather than failing the run.
+- name: Check which listed VMs are on this node
+  ansible.builtin.stat:
+    path: "/etc/pve/qemu-server/{{ item }}.conf"
+  loop: "{{ proxmox_vfio_hookscript_vmids }}"
+  register: proxmox_vfio_vm_confs
+
+- name: Attach the hookscript to the listed VMs
+  ansible.builtin.shell: |
+    set -euo pipefail
+    want="local:snippets/vfio-drop-caches.sh"
+    if qm config {{ item.item }} | grep -qx "hookscript: ${want}"; then
+      exit 0
+    fi
+    qm set {{ item.item }} --hookscript "${want}"
+    echo changed
+  args:
+    executable: /bin/bash
+  loop: "{{ proxmox_vfio_vm_confs.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  register: proxmox_vfio_hookscript_set
+  changed_when: "'changed' in proxmox_vfio_hookscript_set.stdout"
+  when:
+    - not ansible_check_mode
+    - item.stat.exists
