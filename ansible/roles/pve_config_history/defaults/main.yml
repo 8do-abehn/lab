@@ -27,8 +27,11 @@ pve_config_history_schedule: hourly
 # pmxcfs entries that change on their own (status, stats, locks) and would make
 # a commit every run, plus the ticket-signing keys Proxmox rotates daily and
 # regenerates itself: keeping those would commit daily and preserve every old
-# private key. Anchored to the root of /etc/pve.
+# private key. Anchored to the root of /etc/pve, except *.tmp.*: Proxmox saves
+# every file as <file>.tmp.<pid> and renames it, so a temp file can vanish
+# mid-rsync, and one left by a killed writer would otherwise be committed.
 pve_config_history_excludes:
+  - "*.tmp.*"
   - /.rrd
   - /.version
   - /.members

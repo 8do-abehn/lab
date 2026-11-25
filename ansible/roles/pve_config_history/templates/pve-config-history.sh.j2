@@ -110,7 +110,11 @@ if [[ ! -d .git ]]; then
     git config user.email "root@$(hostname -f)"
 fi
 
-rsync -a --delete --delete-excluded "${EXCLUDES[@]}" /etc/pve/ etc-pve/
+# Exit 24 means a file vanished between listing and copying (a guest config
+# deleted mid-run, say). The next run picks up the deletion; that is no failure.
+rc=0
+rsync -a --delete --delete-excluded "${EXCLUDES[@]}" /etc/pve/ etc-pve/ || rc=$?
+(( rc == 0 || rc == 24 )) || exit "$rc"
 
 # Rebuilt from scratch every run so a file removed from the node also leaves the
 # snapshot. -R keeps each path's full directory layout under node-local/.
