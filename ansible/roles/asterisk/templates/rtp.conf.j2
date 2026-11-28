@@ -1,0 +1,6 @@
+; {{ ansible_managed }}
+; roles/asterisk. A small fixed range, so firewall and Tailscale rules can
+; name it. Each call uses two ports.
+[general]
+rtpstart={{ asterisk_rtp_start }}
+rtpend={{ asterisk_rtp_end }}

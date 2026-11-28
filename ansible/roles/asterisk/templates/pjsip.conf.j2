@@ -1,0 +1,54 @@
+; {{ ansible_managed }}
+; roles/asterisk. One endpoint, auth and aor per phone in asterisk_extensions.
+; There is deliberately no anonymous endpoint: a request that does not
+; authenticate as one of these phones is rejected.
+
+[global]
+type=global
+user_agent=pbx01
+
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:5060
+{% for net in asterisk_local_nets %}
+local_net={{ net }}
+{% endfor %}
+
+{% for ext in asterisk_extensions %}
+; ---- {{ ext.number }}: {{ ext.name }} ({{ ext.role }})
+[{{ ext.number }}]
+type=endpoint
+transport=transport-udp
+context=from-{{ 'kids' if ext.role == 'kids' else 'parents' }}
+disallow=all
+allow={{ asterisk_codecs | join(',') }}
+auth={{ ext.number }}-auth
+aors={{ ext.number }}
+callerid="{{ ext.name }}" <{{ ext.number }}>
+; Audio always flows through Asterisk, and replies go back to where the
+; phone actually sent from. Cheap insurance against one-way audio.
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+{% if ext.permit is defined %}
+deny=0.0.0.0/0.0.0.0
+{% for net in ext.permit %}
+permit={{ net }}
+{% endfor %}
+{% endif %}
+
+[{{ ext.number }}-auth]
+type=auth
+auth_type=userpass
+username={{ ext.number }}
+password={{ asterisk_sip_passwords[ext.number] }}
+
+[{{ ext.number }}]
+type=aor
+max_contacts=1
+remove_existing=yes
+qualify_frequency=60
+
+{% endfor %}

@@ -1,0 +1,195 @@
+---
+- name: Check Asterisk is installed
+  ansible.builtin.stat:
+    path: /usr/sbin/asterisk
+  register: asterisk_binary
+
+- name: Fail if Asterisk has not been built yet
+  ansible.builtin.assert:
+    that: asterisk_binary.stat.exists
+    fail_msg: >-
+      /usr/sbin/asterisk is missing. Debian 13 has no Asterisk package, so it is
+      built from source by hand first: roles/asterisk/README.md, "Bootstrap".
+
+- name: Check the asterisk service user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: asterisk
+
+# Fails before anything is written, so a missing vault entry cannot leave a
+# phone with an empty password.
+- name: Fail if an extension has no SIP password
+  ansible.builtin.assert:
+    that:
+      - asterisk_sip_passwords[item.number] is defined
+      - asterisk_sip_passwords[item.number] | string | length >= 16
+    fail_msg: >-
+      Extension {{ item.number }} needs a SIP password of 16+ characters in
+      vault_asterisk_sip_passwords["{{ item.number }}"] (vault.yml).
+    quiet: true
+  loop: "{{ asterisk_extensions }}"
+  loop_control:
+    label: "{{ item.number }}"
+
+- name: Fail if a speed dial points at an unknown extension
+  ansible.builtin.assert:
+    that: item.1 in (asterisk_extensions | map(attribute='number') | list)
+    fail_msg: "Speed dial {{ item.0.key }} rings {{ item.1 }}, which is not in asterisk_extensions."
+    quiet: true
+  loop: "{{ asterisk_speed_dials | dict2items | subelements('value') }}"
+  loop_control:
+    label: "{{ item.0.key }} -> {{ item.1 }}"
+
+- name: Install pipx for Apprise
+  ansible.builtin.apt:
+    name: pipx
+    state: present
+
+- name: Check if apprise is installed
+  ansible.builtin.command: apprise --version
+  register: asterisk_apprise_check
+  failed_when: false
+  changed_when: false
+
+# Same location as smart_monitoring and backup_client, so it is on PATH for
+# the asterisk user that runs the alert script.
+- name: Install apprise
+  ansible.builtin.command: pipx install apprise
+  changed_when: true
+  environment:
+    PIPX_HOME: /opt/pipx
+    PIPX_BIN_DIR: /usr/local/bin
+  when: asterisk_apprise_check.rc != 0
+
+# Its own file, readable by the asterisk group: the alert runs as that user,
+# not root, so it cannot read the 0600 /etc/apprise.yml other roles use.
+- name: Deploy the Apprise config for PBX alerts
+  ansible.builtin.template:
+    src: apprise.yml.j2
+    dest: /etc/asterisk/apprise.yml
+    owner: root
+    group: asterisk
+    mode: "0640"
+  no_log: true
+
+- name: Deploy the alert script the dialplan calls
+  ansible.builtin.template:
+    src: pbx-alert.sh.j2
+    dest: /usr/local/bin/pbx-alert
+    owner: root
+    group: root
+    mode: "0755"
+
+# Upstream's unit, with Type=simple: this build has no libsystemd, so
+# Asterisk never sends the READY that Type=notify waits for.
+- name: Deploy the Asterisk service unit
+  ansible.builtin.template:
+    src: asterisk.service.j2
+    dest: /etc/systemd/system/asterisk.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: asterisk_unit
+
+- name: Deploy pjsip.conf (transport, extensions, passwords)
+  ansible.builtin.template:
+    src: pjsip.conf.j2
+    dest: /etc/asterisk/pjsip.conf
+    owner: root
+    group: asterisk
+    mode: "0640"
+  register: asterisk_pjsip
+  no_log: true
+
+- name: Deploy extensions.conf (dialplan)
+  ansible.builtin.template:
+    src: extensions.conf.j2
+    dest: /etc/asterisk/extensions.conf
+    owner: root
+    group: asterisk
+    mode: "0640"
+  register: asterisk_dialplan
+
+- name: Deploy rtp.conf (audio port range)
+  ansible.builtin.template:
+    src: rtp.conf.j2
+    dest: /etc/asterisk/rtp.conf
+    owner: root
+    group: asterisk
+    mode: "0640"
+  register: asterisk_rtp
+
+- name: Deploy modules.conf (which modules load)
+  ansible.builtin.template:
+    src: modules.conf.j2
+    dest: /etc/asterisk/modules.conf
+    owner: root
+    group: asterisk
+    mode: "0640"
+  register: asterisk_modules
+
+- name: Deploy logger.conf (log to /var/log/asterisk/messages)
+  ansible.builtin.template:
+    src: logger.conf.j2
+    dest: /etc/asterisk/logger.conf
+    owner: root
+    group: asterisk
+    mode: "0640"
+  register: asterisk_logger
+
+# A changed unit, module list, logger or RTP range needs a full restart; SIP
+# and dialplan changes reload live without dropping a call in progress.
+- name: Restart Asterisk for a change that cannot reload live
+  ansible.builtin.systemd:
+    name: asterisk
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  when:
+    - not ansible_check_mode
+    - asterisk_unit.changed or asterisk_rtp.changed or asterisk_modules.changed or asterisk_logger.changed
+  register: asterisk_restarted
+
+- name: Make sure Asterisk is enabled and running
+  ansible.builtin.systemd:
+    name: asterisk
+    state: started
+    enabled: true
+  when: not ansible_check_mode
+
+- name: Reload the SIP config
+  ansible.builtin.command: asterisk -rx "module reload res_pjsip.so"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - asterisk_pjsip.changed
+    - not (asterisk_restarted.changed | default(false))
+
+- name: Reload the dialplan
+  ansible.builtin.command: asterisk -rx "dialplan reload"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - asterisk_dialplan.changed
+    - not (asterisk_restarted.changed | default(false))
+
+- name: List the SIP endpoints Asterisk loaded
+  ansible.builtin.command: asterisk -rx "pjsip show endpoints"
+  register: asterisk_endpoints
+  changed_when: false
+  retries: 5
+  delay: 2
+  until: asterisk_endpoints.rc == 0
+  when: not ansible_check_mode
+
+# A typo in pjsip.conf makes Asterisk skip that section silently, so check
+# every extension actually loaded.
+- name: Verify every extension loaded
+  ansible.builtin.assert:
+    that: asterisk_endpoints.stdout is search('Endpoint:\s+' ~ item.number ~ '[/\s]')
+    fail_msg: "Extension {{ item.number }} is missing from 'pjsip show endpoints'. Check /var/log/asterisk/messages."
+    quiet: true
+  loop: "{{ asterisk_extensions }}"
+  loop_control:
+    label: "{{ item.number }}"
+  when: not ansible_check_mode

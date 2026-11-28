@@ -1,0 +1,9 @@
+; {{ ansible_managed }}
+; roles/asterisk. basic-pbx logs to the console only, so nothing survives a
+; restart. messages is rotated by the logrotate file `make install-logrotate`
+; installed.
+[general]
+
+[logfiles]
+console = verbose,notice,warning,error
+messages = notice,warning,error
