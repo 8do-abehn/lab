@@ -1,0 +1,47 @@
+---
+# Asterisk is built from source by hand (README.md, "Bootstrap"). This role
+# manages its service unit and the config that makes it a house phone.
+
+# Phones. See inventory/group_vars/phone_servers.yml for the field meanings.
+asterisk_extensions: []
+
+# SIP passwords keyed by extension number, e.g. {"100": "...", "101": "..."}.
+asterisk_sip_passwords: "{{ vault_asterisk_sip_passwords | default({}) }}"
+
+# Speed dials on the kids' phone: digit -> list of extensions rung together.
+asterisk_speed_dials: {}
+
+# Networks Asterisk treats as local, so it never rewrites SIP/SDP addresses as
+# if a phone were behind NAT (the usual cause of one-way audio). Every VLAN
+# here is routed, not NATed, and Tailscale addresses are direct too.
+asterisk_local_nets:
+  - 10.150.0.0/16
+  - 100.64.0.0/10
+
+# Codecs, in order of preference. G.722 is wideband and the HT802 supports it.
+asterisk_codecs:
+  - g722
+  - ulaw
+  - alaw
+
+# RTP (audio) ports. A small fixed range so a Tailscale grant can name it.
+# Each call uses two ports, so 100 is far more than a house needs.
+asterisk_rtp_start: 10000
+asterisk_rtp_end: 10100
+
+# How long a call rings before giving up, in seconds.
+asterisk_ring_seconds: 30
+
+# The kids' phone does not ring in these windows. Two ranges, because a
+# single range that wraps midnight is easy to get wrong in GotoIfTime.
+asterisk_quiet_hours:
+  - "20:00-23:59"
+  - "00:00-06:59"
+
+# What 911 plays while there is no SIP trunk with E911. Stock Asterisk prompts
+# ("I'm sorry, your call cannot be completed as dialed"). A custom recording
+# that says "use a cell phone" is better: see README.md.
+asterisk_no_911_sound: "im-sorry&cannot-complete-as-dialed"
+
+# Alerts (911 dialed). Same Apprise target as the backup and SMART alerts.
+asterisk_apprise_urls: "{{ vault_backup_apprise_urls | default('') }}"

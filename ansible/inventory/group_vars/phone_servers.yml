@@ -1,0 +1,38 @@
+---
+# Registered by hand (roles/asterisk/README.md, "Bootstrap"), so the tailscale
+# role only re-asserts the tag and --ssh. The vault key is a fallback for a
+# rebuild.
+tailscale_auth_key: "{{ vault_tailscale_phone_auth_key | default('') }}"
+tailscale_tags: "tag:phone"
+# Needs nothing on the tailnet by name, and MagicDNS leaks into LXC resolv.conf.
+tailscale_accept_dns: false
+
+# No tailscale_serve_services: SIP and RTP are UDP, which `tailscale serve`
+# cannot carry. Softphones register to the machine name pbx01 instead.
+
+# One entry per phone. Passwords come from vault_asterisk_sip_passwords,
+# keyed by extension number.
+#   role: kids   -> context from-kids: speed dials, the allowlist, 911 handling
+#   role: parent -> context from-parents: rings the kids' phone (quiet hours
+#                   apply) and the other parent
+#   permit       -> source networks allowed to use this extension. The ATA has
+#                   no DHCP reservation, so this is its whole LAN, not one IP.
+asterisk_extensions:
+  - number: "100"
+    name: Kids Phone
+    role: kids
+    permit:
+      - 10.150.10.0/24
+  - number: "101"
+    name: Mom
+    role: parent
+  - number: "102"
+    name: Dad
+    role: parent
+
+# Single key on the kids' phone -> extensions to ring. Several extensions ring
+# at once and the first to answer gets the call.
+asterisk_speed_dials:
+  "1": ["101"]
+  "2": ["102"]
+  "0": ["101", "102"]

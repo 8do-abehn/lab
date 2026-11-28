@@ -155,6 +155,16 @@ all:
           ansible_user: root
           # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
 
+    # Home phone PBX (VLAN 70). Asterisk built from source (Debian 13 has no
+    # package); roles/asterisk manages its config, see that README. The kids'
+    # touchtone phone reaches it through a Grandstream HT802 ATA on the LAN,
+    # the parents through softphones over Tailscale. See #683.
+    phone_servers:
+      hosts:
+        pbx01:  # LXC 3019 on pve03, HA-managed -- Asterisk 22 LTS for the kids' home phone
+          ansible_user: root
+          # No ansible_host: MagicDNS name, so CI goes through Tailscale SSH.
+
     # Minecraft Servers (Docker in LXCs). All three are running again as of
     # 2026-09-12. mc03 stays commented out until its config is reviewed.
     # Node placement is HA-managed and drifts; these are as of 2026-10-04.

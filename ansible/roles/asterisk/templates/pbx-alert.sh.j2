@@ -1,0 +1,14 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Sends a PBX alert through Apprise. Called from the dialplan as the asterisk
+# user, so it reads /etc/asterisk/apprise.yml, not root's /etc/apprise.yml.
+# Never fails loudly: the call it was started from must carry on regardless.
+set -euo pipefail
+
+message="${1:-PBX alert}"
+
+if ! /usr/local/bin/apprise -c /etc/asterisk/apprise.yml \
+    -t "pbx01: phone alert" \
+    -b "${message} ($(date '+%a %H:%M %Z'))" >/dev/null 2>&1; then
+  logger -t pbx-alert "apprise failed to send: ${message}"
+fi

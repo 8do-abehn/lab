@@ -1,0 +1,75 @@
+; {{ ansible_managed }}
+; roles/asterisk. The kids' phone can reach only what is listed in
+; [from-kids]; everything else gets "cannot be completed as dialed".
+{% set kids = asterisk_extensions | selectattr('role', 'equalto', 'kids') | map(attribute='number') | list %}
+{% set parents = asterisk_extensions | selectattr('role', 'equalto', 'parent') | map(attribute='number') | list %}
+
+[general]
+static=yes
+writeprotect=yes
+clearglobalvars=no
+
+[globals]
+
+; Every call to a kids' phone goes through here, so quiet hours apply to
+; whoever is calling.
+[ring-kids]
+exten => s,1,NoOp(Ring ${ARG1} unless it is quiet hours)
+{% for window in asterisk_quiet_hours %}
+ same => n,GotoIfTime({{ window }},*,*,*?quiet)
+{% endfor %}
+ same => n,Dial(PJSIP/${ARG1},{{ asterisk_ring_seconds }})
+ same => n,Return()
+ same => n(quiet),Answer()
+ same => n,Playback(im-sorry&vm-isunavail)
+ same => n,Return()
+
+; 911 with no SIP trunk: tell the caller it did not go through, and alert the
+; parents. The alert runs in the background so the message plays at once.
+; No commas in the System() text: a comma ends the application's argument.
+[no-911]
+exten => s,1,NoOp(911 dialed by ${CALLERID(num)} with no trunk to send it to)
+ same => n,System(/usr/local/bin/pbx-alert "911 was dialed from extension ${CALLERID(num)}. It did NOT reach 911 because this PBX has no trunk." &)
+ same => n,Answer()
+ same => n,Playback({{ asterisk_no_911_sound }})
+ same => n,Playback({{ asterisk_no_911_sound }})
+ same => n,Hangup()
+
+[from-kids]
+; Speed dials
+{% for digit, targets in asterisk_speed_dials | dictsort %}
+exten => {{ digit }},1,Dial({{ targets | map('regex_replace', '^', 'PJSIP/') | join('&') }},{{ asterisk_ring_seconds }})
+ same => n,Hangup()
+{% endfor %}
+
+; Parents by extension number
+{% for ext in parents %}
+exten => {{ ext }},1,Dial(PJSIP/{{ ext }},{{ asterisk_ring_seconds }})
+ same => n,Hangup()
+{% endfor %}
+
+exten => 911,1,Goto(no-911,s,1)
+
+; Anything else: one digit or several
+exten => _X,1,Goto(not-allowed,s,1)
+exten => _X.,1,Goto(not-allowed,s,1)
+
+[from-parents]
+{% for ext in kids %}
+exten => {{ ext }},1,Gosub(ring-kids,s,1({{ ext }}))
+ same => n,Hangup()
+{% endfor %}
+{% for ext in parents %}
+exten => {{ ext }},1,Dial(PJSIP/{{ ext }},{{ asterisk_ring_seconds }})
+ same => n,Hangup()
+{% endfor %}
+
+exten => 911,1,Goto(no-911,s,1)
+
+exten => _X,1,Goto(not-allowed,s,1)
+exten => _X.,1,Goto(not-allowed,s,1)
+
+[not-allowed]
+exten => s,1,Answer()
+ same => n,Playback(cannot-complete-as-dialed)
+ same => n,Hangup()
